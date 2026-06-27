@@ -55,7 +55,7 @@ def main() -> int:
     check("startup_runtime_audit_disabled_by_default", '"auto_runtime_audit_on_start": False' in text, "no noisy automatic audit", rows)
     check("audit_tool_no_system_exit_traceback", "raise SystemExit(main())" not in (ROOT / "Tools" / "audit_file_usefulness.py").read_text(encoding="utf-8"), "audit direct run returns cleanly", rows)
     check("cleanup_tool_no_system_exit_traceback", "raise SystemExit(main())" not in (ROOT / "Tools" / "cleanup_safe_repository_noise.py").read_text(encoding="utf-8"), "cleanup direct run returns cleanly", rows)
-    check("version_advanced", _version_value("ATHENA_VERSION") == "0.5.5.5.22", _version_value("ATHENA_VERSION"), rows)
+    check("version_advanced", _version_value("ATHENA_VERSION") == "0.5.5.5.24", _version_value("ATHENA_VERSION"), rows)
 
     print("Studio Repository Operations Doctor")
     print("=" * 60)

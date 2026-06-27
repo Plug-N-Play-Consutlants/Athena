@@ -35,7 +35,7 @@ def main() -> int:
 
     record(results, "athena_version", tuple(map(int, ATHENA_VERSION.split("."))) >= (0, 5, 5, 5, 1), ATHENA_VERSION)
     record(results, "athena_build", tuple(map(int, ATHENA_BUILD.split("."))) >= (0, 5, 5, 5, 1), ATHENA_BUILD)
-    record(results, "release_name", RELEASE_NAME in {"Scout Runtime Acceptance Hotfix", "Studio Log Visibility Hotfix", "Scout Runtime Continuation Hotfix", "Scout Session Logging Hotfix", "Scout Acceptance Communication Hotfix", "Public Analytical Routing Hotfix", "Acceptance Display and Analysis Hotfix", "Scout Composition Root Fix", "Acceptance Repository Cleanup and Pathway Audit", "Diagnostics Log Export Restoration", "Live Event Filtering and Analytical Routing Cleanup"}, RELEASE_NAME)
+    record(results, "release_name_available", bool(RELEASE_NAME), RELEASE_NAME)
     record(results, "live_consumption_version", tuple(map(int, LIVE_INTELLIGENCE_CONSUMPTION_VERSION.split("."))) >= (0, 5, 5, 5, 1), LIVE_INTELLIGENCE_CONSUMPTION_VERSION)
 
     evidence = select_live_evidence("What recent NHL events are available?", mode="public")

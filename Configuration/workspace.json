@@ -42,7 +42,7 @@
       "available_capabilities": 8,
       "limited_capabilities": 0
     },
-    "engine_version": "Athena v0.5.5.5.18",
+    "engine_version": "Athena v0.5.5.5.25",
     "operation_history": [
       {
         "success": true,

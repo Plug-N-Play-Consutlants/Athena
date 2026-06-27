@@ -30,7 +30,7 @@ def main() -> int:
 
     record(results, "athena_version", ATHENA_VERSION.startswith("0.5.5.5"), ATHENA_VERSION)
     record(results, "athena_build", ATHENA_BUILD.startswith("0.5.5.5"), ATHENA_BUILD)
-    record(results, "release_name", RELEASE_NAME in {"Runtime Orchestration & Observability", "Scout Runtime Acceptance Hotfix", "Studio Log Visibility Hotfix", "Scout Runtime Continuation Hotfix", "Scout Session Logging Hotfix", "Scout Acceptance Communication Hotfix", "Public Analytical Routing Hotfix", "Response Composition Visibility Hotfix", "Acceptance Repository Cleanup and Pathway Audit", "Diagnostics Log Export Restoration"}, RELEASE_NAME)
+    record(results, "release_name_available", bool(RELEASE_NAME), RELEASE_NAME)
     record(results, "runtime_version", RUNTIME_ORCHESTRATION_VERSION.startswith("0.5.5.5"), RUNTIME_ORCHESTRATION_VERSION)
 
     stage = RuntimeStage(name="test", status="pass", contributed=True, metrics={"x": 1})

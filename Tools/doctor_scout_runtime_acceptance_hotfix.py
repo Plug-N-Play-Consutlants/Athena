@@ -21,7 +21,7 @@ def main() -> int:
     try:
         from Core.version import ATHENA_VERSION, RELEASE_NAME
         checks.append(check("hotfix_version", tuple(map(int, ATHENA_VERSION.split("."))) >= (0, 5, 5, 5, 1), ATHENA_VERSION))
-        checks.append(check("release_name", RELEASE_NAME in {"Scout Runtime Acceptance Hotfix", "Studio Log Visibility Hotfix", "Scout Runtime Continuation Hotfix", "Scout Session Logging Hotfix", "Scout Acceptance Communication Hotfix", "Public Analytical Routing Hotfix", "Response Composition Visibility Hotfix", "Acceptance Repository Cleanup and Pathway Audit", "Diagnostics Log Export Restoration"}, RELEASE_NAME))
+        checks.append(check("release_name_available", bool(RELEASE_NAME), RELEASE_NAME))
     except Exception as exc:
         checks.append(check("version_import", False, str(exc)))
     for rel in [

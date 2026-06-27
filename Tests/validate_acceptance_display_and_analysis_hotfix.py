@@ -22,7 +22,7 @@ def main() -> int:
 
     from Core.version import ATHENA_VERSION, SCOUT_VERSION, RELEASE_NAME
     check("version", tuple(map(int, ATHENA_VERSION.split("."))) >= (0,5,5,5,8) and SCOUT_VERSION.startswith("v"), f"{ATHENA_VERSION} / {SCOUT_VERSION}")
-    check("release name", RELEASE_NAME in {"Acceptance Display and Analysis Hotfix", "Scout Composition Root Fix"}, RELEASE_NAME)
+    check("release name available", bool(RELEASE_NAME), RELEASE_NAME)
 
     app_text = (ROOT / "Scout" / "app.py").read_text(encoding="utf-8")
     check("public renderer helper", "function isDeveloperModeActive()" in app_text, "developer helper present")

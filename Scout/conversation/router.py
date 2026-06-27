@@ -1512,6 +1512,15 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
                 if profile is not None:
                     return player_profile_answer(ctx, profile, raw_question)
             if public_route.route == "team_intelligence" and team_profile_answer is not None and profile_for_team_entity is not None:
+                # Targeted contender/championship questions are analytical prompts,
+                # not simple identity/profile requests. Keep narrow team-profile
+                # questions on the seed profile path, but let questions such as
+                # "Why are the Oilers contenders?" reach the bounded analytical
+                # route so Scout explains contender logic instead of only
+                # describing the team.
+                normalized_public_question = _normalize_public_query_text(raw_question)
+                if any(term in normalized_public_question for term in ["contender", "contenders", "championship window", "stanley cup", "cup contender"]):
+                    return _public_analytical_answer(ctx, raw_question, selected_mode)
                 entity = public_route.entities[0].entity if public_route.entities else None
                 profile = profile_for_team_entity(entity) if entity is not None else None
                 if profile is not None:

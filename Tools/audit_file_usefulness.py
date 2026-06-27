@@ -9,13 +9,33 @@ from __future__ import annotations
 import ast
 import csv
 import json
+import sys
 import warnings
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 
-AUDIT_VERSION = "0.5.5.5.22"
+def canonical_version() -> str:
+    """Return the canonical AthenaEngine version from Core.version.
+
+    The File Usefulness Audit is a Studio governance surface. Its report
+    version must follow the repository version instead of carrying an embedded
+    historical audit label. A hard fallback is retained only so the audit can
+    still report a clear version during broken-import diagnostics.
+    """
+    try:
+        root = Path(__file__).resolve().parents[1]
+        if str(root) not in sys.path:
+            sys.path.insert(0, str(root))
+        from Core.version import ATHENA_VERSION
+
+        return str(ATHENA_VERSION)
+    except Exception:
+        return "0.5.5.5.24"
+
+
+AUDIT_VERSION = canonical_version()
 
 
 def repo_root() -> Path:
@@ -43,7 +63,7 @@ def classify_path(path: str) -> str:
         if name.startswith("audit_"):
             return "AUDIT_TOOL"
         return "TOOL"
-    if top in {"Archive", "Logs", "Reports", "Output", "Raw", "Diagnostics"}:
+    if top in {"Archive", "Logs", "Output", "Raw", "Diagnostics"}:
         return "RUNTIME_OR_ARTIFACT"
     if name.startswith("CHANGE_MANIFEST") or name.startswith("README") or top == "docs" or name.endswith(".md"):
         return "DOC"
@@ -132,7 +152,7 @@ def classify_file(root: Path, path: Path, internal_refs: Dict[str, set], file_by
     elif parts[0] == "Archive":
         action = "ARCHIVE_ALREADY"
         reason = "Already under Archive; exclude from active engineering surface."
-    elif parts[0] in {"Logs", "Reports", "Output", "Raw", "Diagnostics"}:
+    elif parts[0] in {"Logs", "Output", "Raw", "Diagnostics"}:
         action = "RUNTIME_DATA_REVIEW"
         reason = "Runtime/generated data or diagnostic output; useful for runs but not active source."
     elif path.name.startswith("CHANGE_MANIFEST_"):
@@ -187,7 +207,7 @@ def classify_file(root: Path, path: Path, internal_refs: Dict[str, set], file_by
 
 def run_audit(root: Path | None = None) -> Dict[str, object]:
     root = root or repo_root()
-    files = [path for path in root.rglob("*") if path.is_file()]
+    files = [path for path in root.rglob("*") if path.is_file() and path.relative_to(root).parts[0] not in {".git", "Reports"}]
     py_files = [path for path in files if path.suffix == ".py"]
     internal_refs, file_by_module, parse_errors = build_import_graph(root, py_files)
 

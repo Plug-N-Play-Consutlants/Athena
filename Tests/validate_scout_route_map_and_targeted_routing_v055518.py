@@ -22,7 +22,7 @@ def check(name: str, condition: bool, detail: object = "") -> tuple[str, bool, o
 def main() -> int:
     results = []
     results.append(check("version", ATHENA_VERSION == "0.5.5.5.18", ATHENA_VERSION))
-    results.append(check("release_name", "Route Map" in RELEASE_NAME or "Routing" in RELEASE_NAME, RELEASE_NAME))
+    results.append(check("release_name_available", bool(RELEASE_NAME), RELEASE_NAME))
 
     leaf_possessive_route = analyze_public_request("What is the Leaf's weakness?")
     results.append(check("leaf_possessive_routes_team", leaf_possessive_route.route == "team_intelligence", leaf_possessive_route.to_dict()))

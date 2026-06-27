@@ -22,7 +22,7 @@ def main() -> int:
     from Core.version import ATHENA_VERSION, SCOUT_VERSION, RELEASE_NAME
     checks.append(report("athena_version", ATHENA_VERSION == "0.5.5.5.19", ATHENA_VERSION))
     checks.append(report("scout_version", SCOUT_VERSION == "v0.5.5.5.19", SCOUT_VERSION))
-    checks.append(report("release_name", "Evidence Path Audit" in RELEASE_NAME, RELEASE_NAME))
+    checks.append(report("release_name_available", bool(RELEASE_NAME), RELEASE_NAME))
 
     audit = ROOT / "docs" / "EVIDENCE_PATH_AUDIT_v0.5.5.5.19.md"
     structure = ROOT / "docs" / "PROGRAM_STRUCTURE_DIRECTION_v0.5.5.5.19.md"

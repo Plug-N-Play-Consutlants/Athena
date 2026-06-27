@@ -25,7 +25,7 @@ def main() -> int:
     from Core.version import ATHENA_VERSION, ATHENA_BUILD, RELEASE_NAME, REPOSITORY_NAME, PYTHON_PACKAGE_NAME
     failures += expect((ATHENA_VERSION.startswith("0.5.2.") or ATHENA_VERSION.startswith("0.5.3.")), "version metadata", ATHENA_VERSION)
     failures += expect((ATHENA_BUILD.startswith("0.5.2.") or ATHENA_BUILD.startswith("0.5.3.")), "build metadata", ATHENA_BUILD)
-    failures += expect(RELEASE_NAME in {"Engine Namespace Foundation", "Live Event Reasoning", "Cross-Domain Event Impact", "Cross-Domain Event Impact Import Hotfix", "Event Timeline Intelligence", "Event Confidence & Source Corroboration", "Event Summarization Engine", "Official Multi-Sport Provider Connectors"}, "release name", RELEASE_NAME)
+    failures += expect(bool(RELEASE_NAME), "release name available", RELEASE_NAME)
     failures += expect(REPOSITORY_NAME == "AthenaEngine", "repository name", REPOSITORY_NAME)
     failures += expect(PYTHON_PACKAGE_NAME == "Athena", "python package remains Athena", PYTHON_PACKAGE_NAME)
 

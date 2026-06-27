@@ -1,4 +1,4 @@
-"""Validation for v0.5.5.5.22 Studio repository operations cleanup."""
+"""Validation for v0.5.5.5.24 Studio repository operations cleanup."""
 from __future__ import annotations
 
 import ast
@@ -37,7 +37,7 @@ def main() -> int:
     add(results, "audit_still_runs", audit.get("file_count", 0) > 500 and audit.get("parse_error_count") == 0, str({"files": audit.get("file_count"), "parse_errors": audit.get("parse_error_count")}))
 
     version_text = (ROOT / "Core" / "version.py").read_text(encoding="utf-8")
-    add(results, "version_metadata", "0.5.5.5.22" in version_text and "Studio Repository Operations Cleanup" in version_text, "Core/version.py")
+    add(results, "version_metadata", "0.5.5.5.24" in version_text and "File Usefulness Version Alignment" in version_text, "Core/version.py")
 
     print("Studio Repository Operations Validation")
     print("=" * 60)

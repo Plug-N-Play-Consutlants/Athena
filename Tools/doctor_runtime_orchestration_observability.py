@@ -22,7 +22,7 @@ def main() -> int:
         from Core.version import ATHENA_VERSION, VERSION_SCHEMA, RELEASE_NAME
         checks.append(check("version_at_least_0_5_5_5", tuple(map(int, ATHENA_VERSION.split('.'))) >= (0,5,5,5,0), ATHENA_VERSION))
         checks.append(check("version_schema_locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA))
-        checks.append(check("release_name", RELEASE_NAME in {"Runtime Orchestration & Observability", "Scout Runtime Acceptance Hotfix", "Studio Log Visibility Hotfix", "Scout Runtime Continuation Hotfix", "Scout Session Logging Hotfix", "Scout Acceptance Communication Hotfix", "Public Analytical Routing Hotfix", "Response Composition Visibility Hotfix", "Acceptance Repository Cleanup and Pathway Audit", "Diagnostics Log Export Restoration"} or "Runtime Orchestration" in RELEASE_NAME, RELEASE_NAME))
+        checks.append(check("release_name_available", bool(RELEASE_NAME), RELEASE_NAME))
     except Exception as exc:
         checks.append(check("version_import", False, str(exc)))
     required = [

@@ -238,6 +238,10 @@ class AthenaStudio:
 
         self._button_group(left, "Repository", [
             ("📊 File Audit", self.audit_file_usefulness, "Classify files by role, reference status, and cleanup risk."),
+            ("🏛️ Architecture", self.repository_architecture_governance, "Summarize repository domains, version categories, duplicate signal, and cleanup queue."),
+            ("📋 Review Queue", self.repository_architecture_review_queue, "Create the architecture review queue with category counts and source-safe triage."),
+            ("🧬 Duplicates", self.repository_duplicate_audit, "Find active duplicate content and probable duplicate implementations."),
+            ("🧾 Recommendations", self.repository_cleanup_recommendations, "Create the governance cleanup recommendation report without changing files."),
             ("🧹 Cleanup Preview", self.preview_safe_repository_cleanup, "Dry-run safe cleanup; no files are changed."),
             ("🗑️ Apply Safe Cleanup", self.apply_safe_repository_cleanup, "Apply only safe cleanup actions after confirmation."),
             ("📂 Audit Reports", self.open_audit_reports, "Open Reports so file-usefulness and cleanup reports are easy to inspect."),
@@ -728,29 +732,61 @@ class AthenaStudio:
             return
         self.write("File usefulness audit tool is not installed.\n")
 
+    def repository_architecture_governance(self) -> None:
+        """Write the architecture governance report without changing files."""
+        command = self._script_command("Tools/repository_governance.py")
+        if command:
+            self._run_threaded("Repository Architecture Governance", command + ["--architecture"])
+            return
+        self.write("Repository governance tool is not installed.\n")
+
+    def repository_architecture_review_queue(self) -> None:
+        """Write the architecture review queue report without changing files."""
+        command = self._script_command("Tools/repository_governance.py")
+        if command:
+            self._run_threaded("Repository Architecture Review Queue", command + ["--review-queue"])
+            return
+        self.write("Repository governance tool is not installed.\n")
+
+    def repository_duplicate_audit(self) -> None:
+        """Write the focused duplicate governance report without changing files."""
+        command = self._script_command("Tools/repository_governance.py")
+        if command:
+            self._run_threaded("Repository Duplicate Audit", command + ["--duplicates"])
+            return
+        self.write("Repository governance tool is not installed.\n")
+
+    def repository_cleanup_recommendations(self) -> None:
+        """Write the cleanup recommendation report without changing files."""
+        command = self._script_command("Tools/repository_governance.py")
+        if command:
+            self._run_threaded("Repository Cleanup Recommendations", command + ["--recommendations"])
+            return
+        self.write("Repository governance tool is not installed.\n")
+
     def preview_safe_repository_cleanup(self) -> None:
         """Preview safe repository cleanup without modifying files."""
-        command = self._script_command("Tools/cleanup_safe_repository_noise.py")
+        command = self._script_command("Tools/repository_governance.py")
         if command:
-            self._run_threaded("Safe Cleanup Preview", command)
+            self._run_threaded("Safe Cleanup Preview", command + ["--preview-cleanup", "--archive-root-history"])
             return
-        self.write("Safe repository cleanup tool is not installed.\n")
+        self.write("Repository governance tool is not installed.\n")
 
     def apply_safe_repository_cleanup(self) -> None:
         """Apply only safe cleanup actions after explicit confirmation."""
-        command = self._script_command("Tools/cleanup_safe_repository_noise.py")
+        command = self._script_command("Tools/repository_governance.py")
         if not command:
-            self.write("Safe repository cleanup tool is not installed.\n")
+            self.write("Repository governance tool is not installed.\n")
             return
         ok = messagebox.askyesno(
             "Apply Safe Cleanup",
-            "This will apply the safe cleanup tool. It is limited to reproducible cache/bytecode cleanup unless you edit the script arguments. Continue?",
+            "This applies only reproducible cache/bytecode cleanup. Root history archival remains preview-only unless a future approved workflow adds it. Continue?",
             parent=self.root,
         )
         if not ok:
             self.write("Safe cleanup cancelled.\n")
             return
-        self._run_threaded("Apply Safe Cleanup", command + ["--apply"])
+        self._run_threaded("Apply Safe Cleanup", command + ["--apply-delete-safe"])
 
     def open_audit_reports(self) -> None:
         """Open the reports area used by repository/file usefulness audits."""

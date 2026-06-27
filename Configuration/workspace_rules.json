@@ -1,0 +1,21 @@
+{
+  "competition_model": "total_points",
+  "roster_continuity": "dynasty",
+  "league_subtype": "contract_dynasty",
+  "lineup_lock_model": "weekly",
+  "keeper_count": 11,
+  "contract_model": "three_year_contracts",
+  "contract_years": 3,
+  "planning_horizon": "multi_year",
+  "historical_seasons": 13,
+  "scoring_detail": "points_only",
+  "notes": [
+    "Dynasty means most meaningful roster assets carry forward across seasons; it does not require every player to be retained.",
+    "League uses 3-year contracts, 11 keepers, tradeable draft assets, weekly lock, and NHL player points scoring."
+  ],
+  "asset_classes": [
+    "players",
+    "draft_picks",
+    "contracts"
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "player_key": "auston_matthews",
+  "name": "Auston Matthews",
+  "team": "TOR",
+  "position": "C",
+  "shoots": "L",
+  "height": "6'3\"",
+  "weight": "215",
+  "age": 28,
+  "draft": {
+    "year": 2016,
+    "round": 1,
+    "overall": 1,
+    "team": "Toronto Maple Leafs"
+  },
+  "leadership": {
+    "captain": true,
+    "captain_team": "Toronto Maple Leafs"
+  },
+  "awards": [
+    {
+      "name": "Maurice Rocket Richard Trophy",
+      "count": 3,
+      "years": [
+        2021,
+        2022,
+        2024
+      ],
+      "evidence_role": "goal_scoring"
+    },
+    {
+      "name": "Hart Memorial Trophy",
+      "count": 1,
+      "years": [
+        2022
+      ],
+      "evidence_role": "league_mvp"
+    },
+    {
+      "name": "Ted Lindsay Award",
+      "count": 1,
+      "years": [
+        2022
+      ],
+      "evidence_role": "peer_voted_excellence"
+    },
+    {
+      "name": "Calder Memorial Trophy",
+      "count": 1,
+      "years": [
+        2017
+      ],
+      "evidence_role": "rookie_impact"
+    },
+    {
+      "name": "NHL All-Star Game MVP",
+      "count": 1,
+      "years": [
+        2024
+      ],
+      "evidence_role": "all_star_performance"
+    }
+  ],
+  "honors": [
+    {
+      "name": "NHL First All-Star Team",
+      "years": [
+        2022
+      ]
+    },
+    {
+      "name": "NHL Second All-Star Team",
+      "years": [
+        2021
+      ]
+    },
+    {
+      "name": "NHL All-Rookie Team",
+      "years": [
+        2017
+      ]
+    }
+  ],
+  "season_history": [
+    {
+      "season": "2016-17",
+      "games": 82,
+      "goals": 40,
+      "assists": 29,
+      "points": 69
+    },
+    {
+      "season": "2017-18",
+      "games": 62,
+      "goals": 34,
+      "assists": 29,
+      "points": 63
+    },
+    {
+      "season": "2018-19",
+      "games": 68,
+      "goals": 37,
+      "assists": 36,
+      "points": 73
+    },
+    {
+      "season": "2019-20",
+      "games": 70,
+      "goals": 47,
+      "assists": 33,
+      "points": 80
+    },
+    {
+      "season": "2020-21",
+      "games": 52,
+      "goals": 41,
+      "assists": 25,
+      "points": 66
+    },
+    {
+      "season": "2021-22",
+      "games": 73,
+      "goals": 60,
+      "assists": 46,
+      "points": 106
+    },
+    {
+      "season": "2022-23",
+      "games": 74,
+      "goals": 40,
+      "assists": 45,
+      "points": 85
+    },
+    {
+      "season": "2023-24",
+      "games": 82,
+      "goals": 69,
+      "assists": 38,
+      "points": 107
+    },
+    {
+      "season": "2024-25",
+      "games": 67,
+      "goals": 33,
+      "assists": 52,
+      "points": 85
+    },
+    {
+      "season": "2025-26",
+      "games": 60,
+      "goals": 27,
+      "assists": 26,
+      "points": 53
+    }
+  ],
+  "context_notes": [
+    "User-provided base case: recent production should be interpreted against three-year and career baselines.",
+    "Recent seasons include injury and schedule-context considerations that should reduce confidence in shallow decline conclusions."
+  ]
+}

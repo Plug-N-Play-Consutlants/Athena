@@ -1,0 +1,19 @@
+{
+  "provider": {
+    "name": "Fantrax",
+    "sport": "NHL",
+    "base_url": "https://www.fantrax.com/fxea",
+    "user_agent": "Sports Intelligence Engine 2.0",
+    "headers": {},
+    "cookies": {},
+    "endpoints": {
+      "league": "general/getLeagueInfo",
+      "players": "players/getPlayerIds",
+      "rosters": "team/getTeamRosters",
+      "draft_picks": "draft/getFutureDraftPicks",
+      "transactions": "transactions/getTransactions",
+      "schedule": "schedule/getSchedule",
+      "player_stats": ""
+    }
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "playing": [
+    "playing_area"
+  ],
+  "area": [
+    "playing_area"
+  ],
+  "game": [
+    "playing_area",
+    "penalty_types",
+    "game_flow"
+  ],
+  "rules": [
+    "playing_area",
+    "eligible_players",
+    "injured_players",
+    "penalty_types",
+    "video_review",
+    "game_flow"
+  ],
+  "rink": [
+    "playing_area"
+  ],
+  "goal": [
+    "playing_area",
+    "video_review"
+  ],
+  "crease": [
+    "playing_area"
+  ],
+  "boards": [
+    "playing_area"
+  ],
+  "ice": [
+    "playing_area"
+  ],
+  "dimensions": [
+    "playing_area"
+  ],
+  "eligible": [
+    "eligible_players"
+  ],
+  "players": [
+    "eligible_players",
+    "injured_players"
+  ],
+  "roster": [
+    "eligible_players"
+  ],
+  "lineup": [
+    "eligible_players"
+  ],
+  "ineligible": [
+    "eligible_players"
+  ],
+  "injured": [
+    "injured_players"
+  ],
+  "availability": [
+    "injured_players"
+  ],
+  "injury": [
+    "injured_players"
+  ],
+  "goalkeeper": [
+    "injured_players"
+  ],
+  "blood": [
+    "injured_players"
+  ],
+  "substitution": [
+    "injured_players"
+  ],
+  "ir": [
+    "injured_players"
+  ],
+  "penalty": [
+    "penalty_types"
+  ],
+  "types": [
+    "penalty_types"
+  ],
+  "of": [
+    "penalty_types"
+  ],
+  "penalties": [
+    "penalty_types"
+  ],
+  "minor": [
+    "penalty_types"
+  ],
+  "major": [
+    "penalty_types"
+  ],
+  "match": [
+    "penalty_types"
+  ],
+  "misconduct": [
+    "penalty_types"
+  ],
+  "delayed": [
+    "penalty_types"
+  ],
+  "short": [
+    "penalty_types"
+  ],
+  "handed": [
+    "penalty_types"
+  ],
+  "video": [
+    "video_review"
+  ],
+  "review": [
+    "video_review"
+  ],
+  "and": [
+    "video_review"
+  ],
+  "coach": [
+    "video_review"
+  ],
+  "s": [
+    "video_review"
+  ],
+  "challenge": [
+    "video_review"
+  ],
+  "officiating": [
+    "video_review"
+  ],
+  "situation": [
+    "video_review"
+  ],
+  "room": [
+    "video_review"
+  ],
+  "flow": [
+    "game_flow"
+  ],
+  "icing": [
+    "game_flow"
+  ],
+  "offside": [
+    "game_flow"
+  ],
+  "faceoff": [
+    "game_flow"
+  ],
+  "overtime": [
+    "game_flow"
+  ],
+  "goals": [
+    "game_flow"
+  ],
+  "line": [
+    "game_flow"
+  ],
+  "changes": [
+    "game_flow"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "pack_schema": "athena.knowledge_pack.v1",
+  "athena_version": "0.5.0-drop4a4",
+  "source_id": "nhl_nhlpa_mou_2025_06_27",
+  "title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+  "authority": "National Hockey League / National Hockey League Players' Association",
+  "document_type": "cba_mou",
+  "season": "2026-2030 framework",
+  "effective_date": "2026-09-16 with specified earlier/later provisions",
+  "scope": [
+    "salary_cap",
+    "cba",
+    "contracts",
+    "waivers",
+    "recalls",
+    "ltir",
+    "discipline",
+    "player_benefits"
+  ],
+  "modes": [
+    "public_sports",
+    "fantasy_league"
+  ],
+  "citation_policy": "cite_source_and_section",
+  "source_document": {
+    "present": true,
+    "path": "Knowledge\\Sources\\Documents\\NHLPA-NHL-MOU-June-27-2025.pdf",
+    "size_bytes": 21781579,
+    "sha256": "27f163bce09692eb276980d286bcdc59dd78e5c9914115662c97a29eef4cfa92"
+  },
+  "topic_count": 11,
+  "runtime_principle": "Athena reasons from compact, versioned knowledge packs generated from authoritative sources, not from source PDFs at runtime."
+}

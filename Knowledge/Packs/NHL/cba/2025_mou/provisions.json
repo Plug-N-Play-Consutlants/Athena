@@ -1,0 +1,216 @@
+[
+  {
+    "topic_key": "salary_cap",
+    "label": "Salary Cap Setting",
+    "category": "cba_economic_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Items 3-4"
+    ],
+    "keywords": [
+      "cap",
+      "salary cap",
+      "upper limit",
+      "cap ceiling",
+      "escrow",
+      "HRR"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "ltir_lti",
+    "label": "LTI / Playoff Cap Counting",
+    "category": "cba_roster_cap_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 25"
+    ],
+    "keywords": [
+      "LTIR",
+      "LTI",
+      "long term injured reserve",
+      "injured reserve",
+      "playoff cap"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "minimum_salary",
+    "label": "NHL Minimum Salary",
+    "category": "cba_contract_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 26"
+    ],
+    "keywords": [
+      "minimum salary",
+      "league minimum",
+      "contract"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "performance_bonus_injured_veterans",
+    "label": "Performance Bonus Eligibility for Injured Veterans",
+    "category": "cba_contract_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 27"
+    ],
+    "keywords": [
+      "bonus",
+      "performance bonus",
+      "injured veteran",
+      "35+"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "no_trade_lists",
+    "label": "Filing of No-Trade Lists",
+    "category": "cba_contract_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 34"
+    ],
+    "keywords": [
+      "no trade",
+      "no-trade",
+      "trade list",
+      "NTC",
+      "NMC",
+      "clause"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "salary_retention",
+    "label": "Second Retained Salary Transaction",
+    "category": "cba_transaction_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 35"
+    ],
+    "keywords": [
+      "salary retention",
+      "retained salary",
+      "retention",
+      "trade"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "contract_variability",
+    "label": "Contract Variability",
+    "category": "cba_contract_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 37"
+    ],
+    "keywords": [
+      "contract variability",
+      "salary variance",
+      "front-loaded",
+      "back-loaded"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "contract_term_limits",
+    "label": "Limitation on Contract Term",
+    "category": "cba_contract_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 38"
+    ],
+    "keywords": [
+      "contract term",
+      "extension",
+      "sign and trade",
+      "seven years",
+      "eight years"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "four_recall_rule",
+    "label": "Four Recall Rule",
+    "category": "cba_roster_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 16"
+    ],
+    "keywords": [
+      "recall",
+      "emergency recall",
+      "four recall",
+      "active roster"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "waiver_system_access",
+    "label": "NHLPA User Access to Waiver System",
+    "category": "cba_transaction_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 82"
+    ],
+    "keywords": [
+      "waiver",
+      "waivers",
+      "claim",
+      "notification"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "supplementary_discipline",
+    "label": "Supplementary Discipline",
+    "category": "cba_discipline_rules",
+    "source_id": "nhl_nhlpa_mou_2025_06_27",
+    "source_title": "NHL/NHLPA Memorandum of Understanding - June 27, 2025",
+    "authority": "National Hockey League / National Hockey League Players' Association",
+    "authority_refs": [
+      "NHL/NHLPA MOU June 27 2025 Item 85"
+    ],
+    "keywords": [
+      "discipline",
+      "fine",
+      "suspension",
+      "maximum fine"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  }
+]

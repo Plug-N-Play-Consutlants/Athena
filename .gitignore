@@ -1,0 +1,14 @@
+# Local secrets
+Configuration/secrets.local.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local runtime artifacts
+Raw/
+Output/
+Reports/
+Logs/
+Runtime/

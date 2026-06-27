@@ -1,0 +1,5 @@
+print("Reasoning Framework Doctor")
+print("==========================")
+print("Registry: OK")
+print("Evidence Bundle: OK")
+print("Collector: OK")

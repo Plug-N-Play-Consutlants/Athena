@@ -1,0 +1,124 @@
+[
+  {
+    "topic_key": "playing_area",
+    "label": "Playing Area",
+    "category": "game_rules",
+    "source_id": "nhl_official_rules_2025_2026",
+    "source_title": "National Hockey League Official Rules 2025-2026",
+    "authority": "National Hockey League",
+    "authority_refs": [
+      "NHL Official Rules 2025-2026 Section 1"
+    ],
+    "keywords": [
+      "rink",
+      "goal crease",
+      "boards",
+      "ice",
+      "dimensions"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "eligible_players",
+    "label": "Eligible Players",
+    "category": "roster_rules",
+    "source_id": "nhl_official_rules_2025_2026",
+    "source_title": "National Hockey League Official Rules 2025-2026",
+    "authority": "National Hockey League",
+    "authority_refs": [
+      "NHL Official Rules 2025-2026 Rule 5"
+    ],
+    "keywords": [
+      "lineup",
+      "roster",
+      "eligible",
+      "ineligible",
+      "players"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "injured_players",
+    "label": "Injured Players",
+    "category": "availability_rules",
+    "source_id": "nhl_official_rules_2025_2026",
+    "source_title": "National Hockey League Official Rules 2025-2026",
+    "authority": "National Hockey League",
+    "authority_refs": [
+      "NHL Official Rules 2025-2026 Rule 8"
+    ],
+    "keywords": [
+      "injury",
+      "injured",
+      "goalkeeper",
+      "blood",
+      "substitution",
+      "IR"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "penalty_types",
+    "label": "Types of Penalties",
+    "category": "game_rules",
+    "source_id": "nhl_official_rules_2025_2026",
+    "source_title": "National Hockey League Official Rules 2025-2026",
+    "authority": "National Hockey League",
+    "authority_refs": [
+      "NHL Official Rules 2025-2026 Section 4"
+    ],
+    "keywords": [
+      "minor",
+      "major",
+      "match",
+      "misconduct",
+      "delayed penalty",
+      "short-handed"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "video_review",
+    "label": "Video Review and Coach's Challenge",
+    "category": "officiating_rules",
+    "source_id": "nhl_official_rules_2025_2026",
+    "source_title": "National Hockey League Official Rules 2025-2026",
+    "authority": "National Hockey League",
+    "authority_refs": [
+      "NHL Official Rules 2025-2026 Rules 37-38"
+    ],
+    "keywords": [
+      "review",
+      "challenge",
+      "goal review",
+      "situation room"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  },
+  {
+    "topic_key": "game_flow",
+    "label": "Game Flow",
+    "category": "game_rules",
+    "source_id": "nhl_official_rules_2025_2026",
+    "source_title": "National Hockey League Official Rules 2025-2026",
+    "authority": "National Hockey League",
+    "authority_refs": [
+      "NHL Official Rules 2025-2026 Section 10"
+    ],
+    "keywords": [
+      "icing",
+      "offside",
+      "faceoff",
+      "overtime",
+      "goals",
+      "line changes"
+    ],
+    "notes": "",
+    "citation_policy": "cite_source_and_section"
+  }
+]

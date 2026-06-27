@@ -1,0 +1,267 @@
+{
+  "salary": [
+    "salary_cap",
+    "minimum_salary",
+    "salary_retention",
+    "contract_variability"
+  ],
+  "cap": [
+    "salary_cap",
+    "ltir_lti"
+  ],
+  "setting": [
+    "salary_cap"
+  ],
+  "cba": [
+    "salary_cap",
+    "ltir_lti",
+    "minimum_salary",
+    "performance_bonus_injured_veterans",
+    "no_trade_lists",
+    "salary_retention",
+    "contract_variability",
+    "contract_term_limits",
+    "four_recall_rule",
+    "waiver_system_access",
+    "supplementary_discipline"
+  ],
+  "economic": [
+    "salary_cap"
+  ],
+  "rules": [
+    "salary_cap",
+    "ltir_lti",
+    "minimum_salary",
+    "performance_bonus_injured_veterans",
+    "no_trade_lists",
+    "salary_retention",
+    "contract_variability",
+    "contract_term_limits",
+    "four_recall_rule",
+    "waiver_system_access",
+    "supplementary_discipline"
+  ],
+  "upper": [
+    "salary_cap"
+  ],
+  "limit": [
+    "salary_cap"
+  ],
+  "ceiling": [
+    "salary_cap"
+  ],
+  "escrow": [
+    "salary_cap"
+  ],
+  "hrr": [
+    "salary_cap"
+  ],
+  "ltir": [
+    "ltir_lti"
+  ],
+  "lti": [
+    "ltir_lti"
+  ],
+  "playoff": [
+    "ltir_lti"
+  ],
+  "counting": [
+    "ltir_lti"
+  ],
+  "roster": [
+    "ltir_lti",
+    "four_recall_rule"
+  ],
+  "long": [
+    "ltir_lti"
+  ],
+  "term": [
+    "ltir_lti",
+    "contract_term_limits"
+  ],
+  "injured": [
+    "ltir_lti",
+    "performance_bonus_injured_veterans"
+  ],
+  "reserve": [
+    "ltir_lti"
+  ],
+  "minimum": [
+    "minimum_salary"
+  ],
+  "nhl": [
+    "minimum_salary"
+  ],
+  "contract": [
+    "minimum_salary",
+    "performance_bonus_injured_veterans",
+    "no_trade_lists",
+    "contract_variability",
+    "contract_term_limits"
+  ],
+  "league": [
+    "minimum_salary"
+  ],
+  "performance": [
+    "performance_bonus_injured_veterans"
+  ],
+  "bonus": [
+    "performance_bonus_injured_veterans"
+  ],
+  "veterans": [
+    "performance_bonus_injured_veterans"
+  ],
+  "eligibility": [
+    "performance_bonus_injured_veterans"
+  ],
+  "for": [
+    "performance_bonus_injured_veterans"
+  ],
+  "veteran": [
+    "performance_bonus_injured_veterans"
+  ],
+  "35": [
+    "performance_bonus_injured_veterans"
+  ],
+  "no": [
+    "no_trade_lists"
+  ],
+  "trade": [
+    "no_trade_lists",
+    "salary_retention",
+    "contract_term_limits"
+  ],
+  "lists": [
+    "no_trade_lists"
+  ],
+  "filing": [
+    "no_trade_lists"
+  ],
+  "of": [
+    "no_trade_lists"
+  ],
+  "list": [
+    "no_trade_lists"
+  ],
+  "ntc": [
+    "no_trade_lists"
+  ],
+  "nmc": [
+    "no_trade_lists"
+  ],
+  "clause": [
+    "no_trade_lists"
+  ],
+  "retention": [
+    "salary_retention"
+  ],
+  "second": [
+    "salary_retention"
+  ],
+  "retained": [
+    "salary_retention"
+  ],
+  "transaction": [
+    "salary_retention",
+    "waiver_system_access"
+  ],
+  "variability": [
+    "contract_variability"
+  ],
+  "variance": [
+    "contract_variability"
+  ],
+  "front": [
+    "contract_variability"
+  ],
+  "loaded": [
+    "contract_variability"
+  ],
+  "back": [
+    "contract_variability"
+  ],
+  "limits": [
+    "contract_term_limits"
+  ],
+  "limitation": [
+    "contract_term_limits"
+  ],
+  "on": [
+    "contract_term_limits"
+  ],
+  "extension": [
+    "contract_term_limits"
+  ],
+  "sign": [
+    "contract_term_limits"
+  ],
+  "and": [
+    "contract_term_limits"
+  ],
+  "seven": [
+    "contract_term_limits"
+  ],
+  "years": [
+    "contract_term_limits"
+  ],
+  "eight": [
+    "contract_term_limits"
+  ],
+  "four": [
+    "four_recall_rule"
+  ],
+  "recall": [
+    "four_recall_rule"
+  ],
+  "rule": [
+    "four_recall_rule"
+  ],
+  "emergency": [
+    "four_recall_rule"
+  ],
+  "active": [
+    "four_recall_rule"
+  ],
+  "waiver": [
+    "waiver_system_access"
+  ],
+  "system": [
+    "waiver_system_access"
+  ],
+  "access": [
+    "waiver_system_access"
+  ],
+  "nhlpa": [
+    "waiver_system_access"
+  ],
+  "user": [
+    "waiver_system_access"
+  ],
+  "to": [
+    "waiver_system_access"
+  ],
+  "waivers": [
+    "waiver_system_access"
+  ],
+  "claim": [
+    "waiver_system_access"
+  ],
+  "notification": [
+    "waiver_system_access"
+  ],
+  "supplementary": [
+    "supplementary_discipline"
+  ],
+  "discipline": [
+    "supplementary_discipline"
+  ],
+  "fine": [
+    "supplementary_discipline"
+  ],
+  "suspension": [
+    "supplementary_discipline"
+  ],
+  "maximum": [
+    "supplementary_discipline"
+  ]
+}

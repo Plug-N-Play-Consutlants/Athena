@@ -1,0 +1,937 @@
+path,role,action,reason,size,ext,module,imported_by
+Archive/patch_notes_and_root_duplicates_20260618/README.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,386,.md,,
+Archive/patch_notes_and_root_duplicates_20260618/README_FANTRAX_PLAYER_STATS_PATCH.txt,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,618,.txt,,
+Archive/patch_notes_and_root_duplicates_20260618/README_PLAYER_IDENTITY_PATCH.txt,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,468,.txt,,
+Archive/patch_notes_and_root_duplicates_20260618/README_PLAYER_PRODUCTION_PATCH.txt,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,357,.txt,,
+Archive/patch_notes_and_root_duplicates_20260618/README_PROVIDER_COMPLETION_PATCH.txt,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,730,.txt,,
+Archive/patch_notes_and_root_duplicates_20260618/knowledge_readiness.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,13430,.py,Archive.patch_notes_and_root_duplicates_20260618.knowledge_readiness,0
+Archive/patch_notes_and_root_duplicates_20260618/valuation_engine.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,26559,.py,Archive.patch_notes_and_root_duplicates_20260618.valuation_engine,0
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.4.3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,307,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,401,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,402,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,293,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3a.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,233,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3c.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,194,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3d.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,318,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3e1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,480,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3e2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,331,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3e3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,329,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3e4_1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2742,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3e4_2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1339,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f0.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1370,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1813,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f1a.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1518,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1745,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f2a.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,682,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1761,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f3a.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1291,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f4.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1219,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f5.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1314,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f6.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1515,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f6a.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,612,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3f7.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1200,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3g0.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2247,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3g1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1121,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3g2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,965,.md,,
+Archive/release_history_3g3/CHANGE_MANIFEST_v0.5.0_drop3g3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1472,.md,,
+Archive/release_history_3g3/MANIFEST_v0.4.2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,490,.md,,
+Archive/release_history_3g3/RELEASE_MANIFEST_v0.3.0.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1355,.md,,
+Archive/release_history_3g3/RELEASE_MANIFEST_v0.3.1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,549,.md,,
+Archive/release_history_3g3/RELEASE_MANIFEST_v0.4.0.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,480,.md,,
+Archive/release_history_3g3/RELEASE_MANIFEST_v0.4.1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,216,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.2.2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2188,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.3.0.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2206,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.3.1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2360,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.4.0.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1968,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.4.1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1029,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.4.2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1767,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,850,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1294,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1431,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop3a.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,431,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop3c.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,633,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop3d.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,980,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop3e1.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,720,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop3e2.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,881,.md,,
+Archive/release_history_3g3/RELEASE_NOTES_v0.5.0_drop3e3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,783,.md,,
+Archive/release_history_3g3/Release_Notes_v0.4.3.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1472,.md,,
+Archive/retired_configuration_examples_20260618/README.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,361,.md,,
+Archive/retired_configuration_examples_20260618/config.example.player_stats.json,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,96,.json,,
+Archive/retired_configuration_examples_20260618/config.example.provider_completion.json,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,523,.json,,
+Archive/retired_fantrax_legacy_endpoints_20260618/README.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,678,.md,,
+Archive/retired_fantrax_legacy_endpoints_20260618/draft_picks.json,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,148,.json,,
+Archive/retired_fantrax_legacy_endpoints_20260618/fetch_draft_picks.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,776,.py,Archive.retired_fantrax_legacy_endpoints_20260618.fetch_draft_picks,0
+Archive/retired_fantrax_legacy_endpoints_20260618/fetch_players.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,775,.py,Archive.retired_fantrax_legacy_endpoints_20260618.fetch_players,0
+Archive/retired_fantrax_legacy_endpoints_20260618/fetch_rosters.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,765,.py,Archive.retired_fantrax_legacy_endpoints_20260618.fetch_rosters,0
+Archive/retired_fantrax_legacy_endpoints_20260618/player_ids.json,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,143,.json,,
+Archive/retired_fantrax_legacy_endpoints_20260618/team_rosters.json,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,142,.json,,
+Archive/runtime_quarantine/nested_athena_20260622_002814/CHANGE_MANIFEST_v0.5.0_drop4e14_scout_fantasy_routing_ux.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1188,.md,,
+Archive/runtime_quarantine/nested_athena_20260622_002814/CHANGE_MANIFEST_v0.5.0_drop4e6_scout_js_binding_hotfix.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,695,.md,,
+Archive/runtime_quarantine/nested_athena_20260622_002814/__init__.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,877,.py,Archive.runtime_quarantine.nested_athena_20260622_002814,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/capabilities.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,12954,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.capabilities,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/connect.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,9431,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.connect,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/debug_export.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,10282,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.debug_export,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/exceptions.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,802,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.exceptions,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/operation_result.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2686,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.operation_result,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/orchestrator.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2574,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.orchestrator,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/status.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,4079,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.status,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/sync.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,28843,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.sync,0
+Archive/runtime_quarantine/nested_athena_20260622_002814/workspace.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,7485,.py,Archive.runtime_quarantine.nested_athena_20260622_002814.workspace,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/CHANGE_MANIFEST_v0.5.0_drop4e14_scout_fantasy_routing_ux.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,1188,.md,,
+Archive/runtime_quarantine/nested_athena_20260622_172902/CHANGE_MANIFEST_v0.5.0_drop4e6_scout_js_binding_hotfix.md,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,695,.md,,
+Archive/runtime_quarantine/nested_athena_20260622_172902/__init__.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,877,.py,Archive.runtime_quarantine.nested_athena_20260622_172902,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/capabilities.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,12954,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.capabilities,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/connect.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,9431,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.connect,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/debug_export.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,10282,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.debug_export,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/exceptions.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,802,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.exceptions,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/operation_result.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2686,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.operation_result,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/orchestrator.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,2574,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.orchestrator,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/status.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,4079,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.status,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/sync.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,28843,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.sync,0
+Archive/runtime_quarantine/nested_athena_20260622_172902/workspace.py,RUNTIME_OR_ARTIFACT,ARCHIVE_ALREADY,Already under Archive; exclude from active engineering surface.,7485,.py,Archive.runtime_quarantine.nested_athena_20260622_172902.workspace,0
+Athena/CHANGE_MANIFEST_v0.5.0_drop4e14_scout_fantasy_routing_ux.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1188,.md,,
+Athena/CHANGE_MANIFEST_v0.5.0_drop4e40_comparison_reasoning_engine.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1828,.md,,
+Athena/CHANGE_MANIFEST_v0.5.0_drop4e6_scout_js_binding_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,695,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4a1.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1746,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4a2.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,836,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4a3.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1173,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4a4.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1655,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4a5.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1371,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4a6.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1206,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4b1.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1387,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4b2.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1310,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4b2a.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1403,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4b2b.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,655,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4b2c.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,861,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4c1.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1946,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4c2.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,2742,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4c3.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,2757,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d1.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,2257,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d2a.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1390,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d2b.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,803,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d2d.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,255,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d2d_engine_explainability_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,768,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d2d_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,207,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d2d_version_import_resilience.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,871,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d2d_version_resilience.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,783,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d3d.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,593,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d3f.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,495,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d3f_explainability_hydration.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,875,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d4_historical_intelligence.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,602,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d4b.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,752,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d4b_fix3.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,319,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4d4c.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1280,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e0_rule_citation_bridge.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1764,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e1.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,51,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e10_scout_normalizer_recovery.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1066,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e11_scout_provider_visibility_league_routing.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,830,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e12_scout_js_runtime_cleanup.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1063,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e13_canonical_runtime_source_path.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1411,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e14_scout_fantasy_routing_ux.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1188,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e15_runtime_dedupe_router_fix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1081,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e16_secret_fuzzy_league_depth.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1737,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e17_pif1_build001.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1214,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e18_athena_studio_alpha.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,818,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e19_athena_studio_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,392,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e20_athena_studio_dashboard.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,583,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e21_athena_studio_pif_inspector.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,617,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e22a_runtime_cleanup.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1109,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e23_studio_phase1_command_center.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1178,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e24_studio_phase2_pif_build002.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1908,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e25_studio_validator_version_resilience.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,811,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e26_scout_ux_cleanup.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,774,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e27_studio_reload_current_build.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1324,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e28_pif_build003_public_profiles.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1584,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e29_studio_reload_public_rules_log_export.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1839,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e30_public_rule_source_popup.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,975,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e31_studio_browser_self_refresh.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1361,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e32_studio_beta_ui.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1476,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e33_athena_studio_tile_ui.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1543,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e34_athena_studio_compact_tile_ui.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,758,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e35_pif_build004_studio_toolbar.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1799,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e38_pif_guardrail_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,936,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e39_team_reasoning_engine.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1060,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e41_studio_polish_repository_health.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,793,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e42_epic4_acceptance_suite.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1141,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e4_scout_runtime_ui_shell.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1588,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e6_scout_js_binding_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,695,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e7_scout_runtime_rescue.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,452,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e8_scout_startup_repair.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,903,.md,,
+CHANGE_MANIFEST_v0.5.0_drop4e9_fantrax_connection_and_version_fix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,821,.md,,
+CHANGE_MANIFEST_v0.5.1.0.0_event_intelligence_foundation.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1745,.md,,
+CHANGE_MANIFEST_v0.5.1.0.1_version_compatibility_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,964,.md,,
+CHANGE_MANIFEST_v0.5.1.1.0_event_registry_source_intelligence.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,2164,.md,,
+CHANGE_MANIFEST_v0.5.1.1.1_studio_toolbar_doctor_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,699,.md,,
+CHANGE_MANIFEST_v0.5.1.1.2_validation_aggregator_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,787,.md,,
+CHANGE_MANIFEST_v0.5.1.1.3_event_intelligence_validator_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,581,.md,,
+CHANGE_MANIFEST_v0.5.1.2.0_event_discovery_feed_registry.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1272,.md,,
+CHANGE_MANIFEST_v0.5.1.3.0_event_acquisition_engine.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1988,.md,,
+CHANGE_MANIFEST_v0.5.1.4.0_official_nhl_feed_connectors.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,2444,.md,,
+CHANGE_MANIFEST_v0.5.1.5.0_multisource_evidence_fusion.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,714,.md,,
+CHANGE_MANIFEST_v0.5.2.0.0_engine_namespace_foundation.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,958,.md,,
+CHANGE_MANIFEST_v0.5.2.1.0_live_event_reasoning.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1625,.md,,
+CHANGE_MANIFEST_v0.5.2.1.1_event_intelligence_validation_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1014,.md,,
+CHANGE_MANIFEST_v0.5.2.2.0_cross_domain_event_impact.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1313,.md,,
+CHANGE_MANIFEST_v0.5.2.2.1_cross_domain_event_impact_import_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,573,.md,,
+CHANGE_MANIFEST_v0.5.2.3.0_event_timeline_intelligence.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1136,.md,,
+CHANGE_MANIFEST_v0.5.2.4.0_event_confidence_source_corroboration.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,987,.md,,
+CHANGE_MANIFEST_v0.5.2.5.0_event_summarization_engine.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,984,.md,,
+CHANGE_MANIFEST_v0.5.3.0.0_multi_sport_event_framework.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,272,.md,,
+CHANGE_MANIFEST_v0.5.3.1.0_official_multi_sport_provider_connectors.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1023,.md,,
+CHANGE_MANIFEST_v0.5.3.1.1_event_registry_export_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,694,.md,,
+CHANGE_MANIFEST_v0.5.3.1.2_event_registry_compatibility_repair.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,519,.md,,
+CHANGE_MANIFEST_v0.5.3.1.3_event_registry_normalizer_and_studio_scrollbar_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,628,.md,,
+CHANGE_MANIFEST_v0.5.3.1.4_knowledge_events_compatibility_completion.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,2267,.md,,
+CHANGE_MANIFEST_v0.5.3.2.0_unified_identity_cross_sport_graph.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1266,.md,,
+CHANGE_MANIFEST_v0.5.3.3.0_multi_sport_scout_routing_intelligence_ux.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1209,.md,,
+CHANGE_MANIFEST_v0.5.4.0.0_athena_studio_operations_console.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1717,.md,,
+CHANGE_MANIFEST_v0.5.5.1.0_explainable_intelligence_pipeline.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1373,.md,,
+CHANGE_MANIFEST_v0.5.5.2.0_cross_sport_reasoning_engine.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1656,.md,,
+CHANGE_MANIFEST_v0.5.5.3.0_live_event_source_integration.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1947,.md,,
+CHANGE_MANIFEST_v0.5.5.4.0_live_intelligence_consumption_engine.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,298,.md,,
+CHANGE_MANIFEST_v0.5.5.5.0_runtime_orchestration_observability.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,960,.md,,
+CHANGE_MANIFEST_v0.5.5.5.10_scout_composition_depth_fix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1881,.md,,
+CHANGE_MANIFEST_v0.5.5.5.13_aligned_cleanup.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,268,.md,,
+CHANGE_MANIFEST_v0.5.5.5.14_acceptance_repository_cleanup.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1798,.md,,
+CHANGE_MANIFEST_v0.5.5.5.15_diagnostics_log_export_restoration.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1282,.md,,
+CHANGE_MANIFEST_v0.5.5.5.16_live_event_filtering_and_analytical_routing.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1745,.md,,
+CHANGE_MANIFEST_v0.5.5.5.17_public_gap_language_and_targeted_analysis.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1508,.md,,
+CHANGE_MANIFEST_v0.5.5.5.18_scout_route_map_targeted_routing.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,935,.md,,
+CHANGE_MANIFEST_v0.5.5.5.19_evidence_path_audit.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,843,.md,,
+CHANGE_MANIFEST_v0.5.5.5.20_evidence_traceability_audit.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,899,.md,,
+CHANGE_MANIFEST_v0.5.5.5.21_file_usefulness_inventory.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1051,.md,,
+CHANGE_MANIFEST_v0.5.5.5.2_studio_log_visibility_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,779,.md,,
+CHANGE_MANIFEST_v0.5.5.5.7_response_composition_visibility.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1212,.md,,
+CHANGE_MANIFEST_v0.5.5.5.8_acceptance_display_and_analysis_hotfix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1029,.md,,
+CHANGE_MANIFEST_v0.5.5.5.9_scout_composition_root_fix.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,2143,.md,,
+README.txt,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,61,.txt,,
+README_4E2_FINISH.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,524,.md,,
+README_SCOUT_BUILD_001.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,548,.md,,
+README_SCOUT_BUILD_001_HOTFIX.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,346,.md,,
+README_SCOUT_BUILD_002.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,216,.md,,
+README_SCOUT_BUILD_003.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,529,.md,,
+README_SCOUT_BUILD_004.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,417,.md,,
+README_SCOUT_LAUNCHER_STABILIZATION.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,556,.md,,
+README_SCOUT_RUNTIME_CONTROL.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,584,.md,,
+README_SCOUT_UI_ACTION_REPAIR.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,587,.md,,
+README_STABILIZATION_UI_CREDENTIALS.md,DOC,ARCHIVE_CANDIDATE,Legacy/top-level README variant; useful history but noisy active surface.,700,.md,,
+docs/CHANGE_MANIFEST_v0.5.0_drop4e38_renderer_cleanup.md,DOC,ARCHIVE_CANDIDATE,Historical change manifest at repository root; useful history but noisy active surface.,1983,.md,,
+Knowledge/Historical/registration.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",2675,.py,Knowledge.Historical.registration,0
+Knowledge/Intelligence/Entities/disambiguation.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",849,.py,Knowledge.Intelligence.Entities.disambiguation,0
+Knowledge/asset_registry.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Knowledge.asset_registry,0
+Knowledge/comparison_engine.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",5841,.py,Knowledge.comparison_engine,0
+Knowledge/decision_engine.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Knowledge.decision_engine,0
+Knowledge/knowledge_readiness.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",13694,.py,Knowledge.knowledge_readiness,0
+Knowledge/league_market.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Knowledge.league_market,0
+Knowledge/league_profile.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",22065,.py,Knowledge.league_profile,0
+Knowledge/league_settings.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Knowledge.league_settings,0
+Knowledge/league_strategy.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Knowledge.league_strategy,0
+Knowledge/player_bio.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",10492,.py,Knowledge.player_bio,0
+Knowledge/player_contracts.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",7887,.py,Knowledge.player_contracts,0
+Knowledge/player_identity_resolver.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",13525,.py,Knowledge.player_identity_resolver,0
+Knowledge/player_production.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",20059,.py,Knowledge.player_production,0
+Knowledge/player_profile.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",15129,.py,Knowledge.player_profile,0
+Knowledge/player_status.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",6645,.py,Knowledge.player_status,0
+Knowledge/team_direction.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Knowledge.team_direction,0
+Knowledge/team_profile.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",15554,.py,Knowledge.team_profile,0
+Knowledge/transaction_history.py,KNOWLEDGE,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",8850,.py,Knowledge.transaction_history,0
+Providers/ESPN/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Providers.ESPN,0
+Providers/ESPN/build/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Providers.ESPN.build,0
+Providers/ESPN/fetch/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Providers.ESPN.fetch,0
+Providers/Fantrax/build/draft_pick_master.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",9334,.py,Providers.Fantrax.build.draft_pick_master,0
+Providers/Fantrax/build/league_settings.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",8850,.py,Providers.Fantrax.build.league_settings,0
+Providers/Fantrax/build/player_master.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",4443,.py,Providers.Fantrax.build.player_master,0
+Providers/Fantrax/build/transaction_master.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",17168,.py,Providers.Fantrax.build.transaction_master,0
+Providers/NHL/build/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Providers.NHL.build,0
+Providers/NHL/fetch/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",25,.py,Providers.NHL.fetch,0
+Providers/NHL/fetch/fetch_player_landing.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",3488,.py,Providers.NHL.fetch.fetch_player_landing,0
+Providers/NHL/fetch/fetch_skater_summary.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",2071,.py,Providers.NHL.fetch.fetch_skater_summary,0
+Providers/Yahoo/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Providers.Yahoo,0
+Providers/Yahoo/build/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Providers.Yahoo.build,0
+Providers/Yahoo/fetch/__init__.py,PROVIDER,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",18,.py,Providers.Yahoo.fetch,0
+Reasoning/assessment_builder.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",306,.py,Reasoning.assessment_builder,0
+Reasoning/bridges/contract_bridge.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",149,.py,Reasoning.bridges.contract_bridge,0
+Reasoning/bridges/explainability_bridge.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",161,.py,Reasoning.bridges.explainability_bridge,0
+Reasoning/bridges/graph_bridge.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",143,.py,Reasoning.bridges.graph_bridge,0
+Reasoning/bridges/historical_bridge.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",153,.py,Reasoning.bridges.historical_bridge,0
+Reasoning/bridges/knowledge_pack_bridge.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",160,.py,Reasoning.bridges.knowledge_pack_bridge,0
+Reasoning/bridges/rule_bridge.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",141,.py,Reasoning.bridges.rule_bridge,0
+Reasoning/bridges/temporal_bridge.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",149,.py,Reasoning.bridges.temporal_bridge,0
+Reasoning/composition/build002_patch.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",1702,.py,Reasoning.composition.build002_patch,0
+Reasoning/composition/build003_patch.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",667,.py,Reasoning.composition.build003_patch,0
+Reasoning/composition/build004_patch.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",3336,.py,Reasoning.composition.build004_patch,0
+Reasoning/evidence/evidence_collector.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",132,.py,Reasoning.evidence.evidence_collector,0
+Reasoning/evidence/evidence_provider.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",161,.py,Reasoning.evidence.evidence_provider,0
+Reasoning/evidence/evidence_weighting.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",206,.py,Reasoning.evidence.evidence_weighting,0
+Reasoning/models/assessment.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",486,.py,Reasoning.models.assessment,0
+Reasoning/models/historical_value.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",189,.py,Reasoning.models.historical_value,0
+Reasoning/models/organizational_value.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",165,.py,Reasoning.models.organizational_value,0
+Reasoning/models/trend_value.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",144,.py,Reasoning.models.trend_value,0
+Reasoning/primitives/assessment_registry.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",97,.py,Reasoning.primitives.assessment_registry,0
+Reasoning/primitives/base_primitive.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",277,.py,Reasoning.primitives.base_primitive,0
+Reasoning/primitives/confidence_engine.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",340,.py,Reasoning.primitives.confidence_engine,0
+Reasoning/reasoning_object.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",217,.py,Reasoning.reasoning_object,0
+Reasoning/reasoning_session.py,REASONING,ENTRYPOINT_OR_UNUSED_REVIEW,"Not imported by another internal module in static AST graph; may be entrypoint, dynamic import, or unused.",318,.py,Reasoning.reasoning_session,0
+.gitignore,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,167,[none],,
+Athena Studio.bat,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,208,.bat,,
+Athena Studio.ps1,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,532,.ps1,,
+Athena/__init__.py,ATHENA_PACKAGE,KEEP_ACTIVE,Active source/config/documentation candidate.,872,.py,Athena,55
+CHANGELOG.md,DOC,KEEP_ACTIVE,Active source/config/documentation candidate.,7369,.md,,
+CLEANUP_REPORT_20260621.md,DOC,KEEP_ACTIVE,Active source/config/documentation candidate.,883,.md,,
+Clean Acceptance Pathway Residue.bat,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,81,.bat,,
+Clean Athena Runtime.bat,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,746,.bat,,
+Configuration/README.md,DOC,KEEP_ACTIVE,Active source/config/documentation candidate.,789,.md,,
+Configuration/config.example.json,CONFIG,KEEP_ACTIVE,Active source/config/documentation candidate.,428,.json,,
+Configuration/config.json,CONFIG,KEEP_ACTIVE,Active source/config/documentation candidate.,444,.json,,
+Configuration/non_movable_assets.json,CONFIG,KEEP_ACTIVE,Active source/config/documentation candidate.,3,.json,,
+Configuration/secrets.example.json,CONFIG,KEEP_ACTIVE,Active source/config/documentation candidate.,98,.json,,
+Configuration/secrets.local.json,CONFIG,KEEP_ACTIVE,Active source/config/documentation candidate.,4849,.json,,
+Configuration/workspace.json,CONFIG,KEEP_ACTIVE,Active source/config/documentation candidate.,405557,.json,,
+Configuration/workspace_rules.json,CONFIG,KEEP_ACTIVE,Active source/config/documentation candidate.,677,.json,,
+Core/__init__.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,18,.py,Core,202
+Core/config.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,2825,.py,Core.config,13
+Core/constants.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,756,.py,Core.constants,2
+Core/credential_store.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,6713,.py,Core.credential_store,11
+Core/json_utils.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,697,.py,Core.json_utils,87
+Core/knowledge_builder.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,1422,.py,Core.knowledge_builder,1
+Core/logger.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,302,.py,Core.logger,51
+Core/project_paths.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,857,.py,Core.project_paths,86
+Core/version.py,CORE,KEEP_ACTIVE,Active source/config/documentation candidate.,582,.py,Core.version,127
+Engine/CrossDomain/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,384,.py,Engine.CrossDomain,8
+Engine/CrossDomain/cross_domain_engine.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,3187,.py,Engine.CrossDomain.cross_domain_engine,6
+Engine/CrossDomain/domain_router.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,501,.py,Engine.CrossDomain.domain_router,6
+Engine/CrossDomain/graph_delta_builder.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,1040,.py,Engine.CrossDomain.graph_delta_builder,6
+Engine/CrossDomain/impact_models.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,1375,.py,Engine.CrossDomain.impact_models,8
+Engine/CrossDomain/impact_rules.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,1332,.py,Engine.CrossDomain.impact_rules,7
+Engine/EventConfidence/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,1338,.py,Engine.EventConfidence,8
+Engine/EventConfidence/confidence_engine.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,6379,.py,Engine.EventConfidence.confidence_engine,5
+Engine/EventConfidence/confidence_models.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,4636,.py,Engine.EventConfidence.confidence_models,8
+Engine/EventConfidence/corroboration.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,3572,.py,Engine.EventConfidence.corroboration,5
+Engine/EventConfidence/source_profiles.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,3207,.py,Engine.EventConfidence.source_profiles,5
+Engine/EventReasoning/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,776,.py,Engine.EventReasoning,9
+Engine/EventReasoning/classifier.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,1798,.py,Engine.EventReasoning.classifier,6
+Engine/EventReasoning/impact.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,4859,.py,Engine.EventReasoning.impact,6
+Engine/EventReasoning/models.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,2429,.py,Engine.EventReasoning.models,9
+Engine/EventReasoning/reasoning_engine.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,6423,.py,Engine.EventReasoning.reasoning_engine,7
+Engine/EventSummarization/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,677,.py,Engine.EventSummarization,5
+Engine/EventSummarization/summary_engine.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,8625,.py,Engine.EventSummarization.summary_engine,4
+Engine/EventSummarization/summary_models.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,2137,.py,Engine.EventSummarization.summary_models,5
+Engine/EventTimeline/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,941,.py,Engine.EventTimeline,8
+Engine/EventTimeline/timeline_builder.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,5345,.py,Engine.EventTimeline.timeline_builder,6
+Engine/EventTimeline/timeline_models.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,3393,.py,Engine.EventTimeline.timeline_models,8
+Engine/EventTimeline/timeline_reasoning.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,1903,.py,Engine.EventTimeline.timeline_reasoning,5
+Engine/Events/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,537,.py,Engine.Events,7
+Engine/Events/event_reasoning.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,2955,.py,Engine.Events.event_reasoning,4
+Engine/Events/facade.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,5681,.py,Engine.Events.facade,7
+Engine/Evidence/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,809,.py,Engine.Evidence,1
+Engine/MultiSport/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,1031,.py,Engine.MultiSport,7
+Engine/MultiSport/connectors.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,4496,.py,Engine.MultiSport.connectors,5
+Engine/MultiSport/models.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,2059,.py,Engine.MultiSport.models,6
+Engine/MultiSport/registry.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,4970,.py,Engine.MultiSport.registry,6
+Engine/README.md,DOC,KEEP_ACTIVE,Active source/config/documentation candidate.,625,.md,,
+Engine/__init__.py,ENGINE,KEEP_ACTIVE,Active source/config/documentation candidate.,381,.py,Engine,36
+Intelligence/Confidence/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,211,.py,Intelligence.Confidence,7
+Intelligence/Confidence/confidence_propagation.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,1548,.py,Intelligence.Confidence.confidence_propagation,7
+Intelligence/Context/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,384,.py,Intelligence.Context,6
+Intelligence/Context/context_intelligence.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,14719,.py,Intelligence.Context.context_intelligence,6
+Intelligence/Explainability/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,482,.py,Intelligence.Explainability,8
+Intelligence/Explainability/models.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,4452,.py,Intelligence.Explainability.models,8
+Intelligence/Foundation/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,529,.py,Intelligence.Foundation,9
+Intelligence/Foundation/modules.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,8529,.py,Intelligence.Foundation.modules,9
+Intelligence/Pipeline/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,333,.py,Intelligence.Pipeline,10
+Intelligence/Pipeline/execution_pipeline.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,6778,.py,Intelligence.Pipeline.execution_pipeline,10
+Intelligence/Player/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,179,.py,Intelligence.Player,11
+Intelligence/Player/player_intelligence.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,21503,.py,Intelligence.Player.player_intelligence,11
+Intelligence/Reasoning/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,838,.py,Intelligence.Reasoning,9
+Intelligence/Reasoning/adapters.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,3179,.py,Intelligence.Reasoning.adapters,8
+Intelligence/Reasoning/engine.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,10155,.py,Intelligence.Reasoning.engine,7
+Intelligence/Reasoning/models.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,4632,.py,Intelligence.Reasoning.models,9
+Intelligence/Runtime/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,515,.py,Intelligence.Runtime,8
+Intelligence/Runtime/models.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,4360,.py,Intelligence.Runtime.models,8
+Intelligence/__init__.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,2546,.py,Intelligence,35
+Intelligence/analysis_profile.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,16257,.py,Intelligence.analysis_profile,3
+Intelligence/evaluation_engine.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,28862,.py,Intelligence.evaluation_engine,4
+Intelligence/league_archetype.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,12158,.py,Intelligence.league_archetype,3
+Intelligence/league_market.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,10586,.py,Intelligence.league_market,3
+Intelligence/manager_behavior.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,13826,.py,Intelligence.manager_behavior,3
+Intelligence/team_direction.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,15354,.py,Intelligence.team_direction,3
+Intelligence/valuation_engine.py,INTELLIGENCE,KEEP_ACTIVE,Active source/config/documentation candidate.,27885,.py,Intelligence.valuation_engine,3
+Knowledge/Events/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2381,.py,Knowledge.Events,53
+Knowledge/Events/acquisition.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,10088,.py,Knowledge.Events.acquisition,24
+Knowledge/Events/connectors.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5829,.py,Knowledge.Events.connectors,20
+Knowledge/Events/event_graph.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4547,.py,Knowledge.Events.event_graph,19
+Knowledge/Events/evidence_fusion.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,14908,.py,Knowledge.Events.evidence_fusion,26
+Knowledge/Events/feeds.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,10212,.py,Knowledge.Events.feeds,26
+Knowledge/Events/live_intelligence.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,13579,.py,Knowledge.Events.live_intelligence,26
+Knowledge/Events/live_sources.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,14977,.py,Knowledge.Events.live_sources,24
+Knowledge/Events/models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5263,.py,Knowledge.Events.models,42
+Knowledge/Events/multi_sport.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1102,.py,Knowledge.Events.multi_sport,20
+Knowledge/Events/nhl_official.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5851,.py,Knowledge.Events.nhl_official,19
+Knowledge/Events/normalizer.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5946,.py,Knowledge.Events.normalizer,25
+Knowledge/Events/registry.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,6036,.py,Knowledge.Events.registry,22
+Knowledge/Events/source_intelligence.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4399,.py,Knowledge.Events.source_intelligence,24
+Knowledge/Graph/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1001,.py,Knowledge.Graph,22
+Knowledge/Graph/builder.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,7243,.py,Knowledge.Graph.builder,10
+Knowledge/Graph/canonical_graph.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,6608,.py,Knowledge.Graph.canonical_graph,14
+Knowledge/Graph/chain_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,10764,.py,Knowledge.Graph.chain_engine,9
+Knowledge/Graph/evidence_chain.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1262,.py,Knowledge.Graph.evidence_chain,11
+Knowledge/Graph/historical_integration.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,11561,.py,Knowledge.Graph.historical_integration,8
+Knowledge/Graph/reasoning_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,14943,.py,Knowledge.Graph.reasoning_engine,8
+Knowledge/Graph/registries.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5513,.py,Knowledge.Graph.registries,6
+Knowledge/Graph/temporal_intelligence.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,19163,.py,Knowledge.Graph.temporal_intelligence,13
+Knowledge/Historical/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1203,.py,Knowledge.Historical,31
+Knowledge/Historical/builder.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3274,.py,Knowledge.Historical.builder,2
+Knowledge/Historical/comparison.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5515,.py,Knowledge.Historical.comparison,2
+Knowledge/Historical/comparison_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,6787,.py,Knowledge.Historical.comparison_engine,3
+Knowledge/Historical/comparison_models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1935,.py,Knowledge.Historical.comparison_models,2
+Knowledge/Historical/confidence.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3766,.py,Knowledge.Historical.confidence,2
+Knowledge/Historical/confidence_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1917,.py,Knowledge.Historical.confidence_engine,3
+Knowledge/Historical/engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5243,.py,Knowledge.Historical.engine,4
+Knowledge/Historical/explainability.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4037,.py,Knowledge.Historical.explainability,4
+Knowledge/Historical/explainability_models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1761,.py,Knowledge.Historical.explainability_models,2
+Knowledge/Historical/graph_bridge.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,9385,.py,Knowledge.Historical.graph_bridge,4
+Knowledge/Historical/grouping.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2611,.py,Knowledge.Historical.grouping,1
+Knowledge/Historical/intelligence.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,8431,.py,Knowledge.Historical.intelligence,5
+Knowledge/Historical/intelligence_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3878,.py,Knowledge.Historical.intelligence_engine,3
+Knowledge/Historical/intelligence_graph_bridge.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,12879,.py,Knowledge.Historical.intelligence_graph_bridge,3
+Knowledge/Historical/intelligence_models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1972,.py,Knowledge.Historical.intelligence_models,1
+Knowledge/Historical/models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1482,.py,Knowledge.Historical.models,6
+Knowledge/Historical/registry.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2675,.py,Knowledge.Historical.registry,2
+Knowledge/Historical/synthesis.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,8272,.py,Knowledge.Historical.synthesis,2
+Knowledge/Historical/synthesis_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4804,.py,Knowledge.Historical.synthesis_engine,5
+Knowledge/Historical/synthesis_models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1799,.py,Knowledge.Historical.synthesis_models,2
+Knowledge/Historical/version.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,650,.py,Knowledge.Historical.version,13
+Knowledge/Identity/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1093,.py,Knowledge.Identity,8
+Knowledge/Identity/graph.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3728,.py,Knowledge.Identity.graph,5
+Knowledge/Identity/models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5173,.py,Knowledge.Identity.models,8
+Knowledge/Identity/registry.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,8757,.py,Knowledge.Identity.registry,7
+Knowledge/Identity/resolver.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3423,.py,Knowledge.Identity.resolver,5
+Knowledge/Intelligence/Entities/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,0,.py,Knowledge.Intelligence.Entities,14
+Knowledge/Intelligence/Entities/entity_extractor.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4228,.py,Knowledge.Intelligence.Entities.entity_extractor,2
+Knowledge/Intelligence/Entities/entity_registry.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,8918,.py,Knowledge.Intelligence.Entities.entity_registry,11
+Knowledge/Intelligence/Entities/fuzzy_match.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1080,.py,Knowledge.Intelligence.Entities.fuzzy_match,1
+Knowledge/Intelligence/Entities/identity_graph.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2010,.py,Knowledge.Intelligence.Entities.identity_graph,4
+Knowledge/Intelligence/Intent/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,0,.py,Knowledge.Intelligence.Intent,2
+Knowledge/Intelligence/Intent/intent_classifier.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,6342,.py,Knowledge.Intelligence.Intent.intent_classifier,1
+Knowledge/Intelligence/Intent/intent_types.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,852,.py,Knowledge.Intelligence.Intent.intent_types,2
+Knowledge/Intelligence/Public/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,0,.py,Knowledge.Intelligence.Public,11
+Knowledge/Intelligence/Public/public_answers.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,41988,.py,Knowledge.Intelligence.Public.public_answers,3
+Knowledge/Intelligence/Public/public_player_profiles.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,15186,.py,Knowledge.Intelligence.Public.public_player_profiles,9
+Knowledge/Intelligence/Public/public_team_profiles.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,13316,.py,Knowledge.Intelligence.Public.public_team_profiles,9
+Knowledge/Intelligence/Routing/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,229,.py,Knowledge.Intelligence.Routing,21
+Knowledge/Intelligence/Routing/multi_sport_router.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,10756,.py,Knowledge.Intelligence.Routing.multi_sport_router,11
+Knowledge/Intelligence/Routing/request_router.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,7596,.py,Knowledge.Intelligence.Routing.request_router,11
+Knowledge/Intelligence/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,0,.py,Knowledge.Intelligence,37
+Knowledge/Packs/NHL/cba/2025_mou/manifest.json,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1115,.json,,
+Knowledge/Packs/NHL/cba/2025_mou/provisions.json,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,6753,.json,,
+Knowledge/Packs/NHL/cba/2025_mou/topic_index.json,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4508,.json,,
+Knowledge/Packs/NHL/player_career/matthews.json,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2935,.json,,
+Knowledge/Packs/NHL/rulebook/2025_2026/manifest.json,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,993,.json,,
+Knowledge/Packs/NHL/rulebook/2025_2026/rules.json,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3337,.json,,
+Knowledge/Packs/NHL/rulebook/2025_2026/topic_index.json,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2286,.json,,
+Knowledge/Sources/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,65,.py,Knowledge.Sources,11
+Knowledge/Sources/public_hockey_packs.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,9871,.py,Knowledge.Sources.public_hockey_packs,4
+Knowledge/Sources/public_hockey_registry.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,12049,.py,Knowledge.Sources.public_hockey_registry,3
+Knowledge/Sources/public_hockey_retrieval.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,16370,.py,Knowledge.Sources.public_hockey_retrieval,4
+Knowledge/Sources/rule_citations.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,7029,.py,Knowledge.Sources.rule_citations,1
+Knowledge/Trends/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3414,.py,Knowledge.Trends,19
+Knowledge/Trends/comparison.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,3039,.py,Knowledge.Trends.comparison,7
+Knowledge/Trends/comparison_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2100,.py,Knowledge.Trends.comparison_engine,6
+Knowledge/Trends/confidence.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4547,.py,Knowledge.Trends.confidence,6
+Knowledge/Trends/confidence_engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1960,.py,Knowledge.Trends.confidence_engine,8
+Knowledge/Trends/confidence_models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1654,.py,Knowledge.Trends.confidence_models,8
+Knowledge/Trends/engine.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,23628,.py,Knowledge.Trends.engine,7
+Knowledge/Trends/enums.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1563,.py,Knowledge.Trends.enums,11
+Knowledge/Trends/explainability.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,1838,.py,Knowledge.Trends.explainability,6
+Knowledge/Trends/metadata.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,694,.py,Knowledge.Trends.metadata,5
+Knowledge/Trends/models.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,6738,.py,Knowledge.Trends.models,13
+Knowledge/Trends/momentum.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,2094,.py,Knowledge.Trends.momentum,6
+Knowledge/Trends/quality.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4112,.py,Knowledge.Trends.quality,7
+Knowledge/Trends/registry.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,5371,.py,Knowledge.Trends.registry,6
+Knowledge/Trends/version.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,885,.py,Knowledge.Trends.version,9
+Knowledge/Trends/windows.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,4036,.py,Knowledge.Trends.windows,7
+Knowledge/__init__.py,KNOWLEDGE,KEEP_ACTIVE,Active source/config/documentation candidate.,18,.py,Knowledge,169
+Providers/Fantrax/__init__.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,203,.py,Providers.Fantrax,27
+Providers/Fantrax/auth/__init__.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,280,.py,Providers.Fantrax.auth,7
+Providers/Fantrax/auth/auth_validator.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,2146,.py,Providers.Fantrax.auth.auth_validator,1
+Providers/Fantrax/auth/connection_wizard.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,6995,.py,Providers.Fantrax.auth.connection_wizard,5
+Providers/Fantrax/auth/cookie_manager.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,3193,.py,Providers.Fantrax.auth.cookie_manager,3
+Providers/Fantrax/auth/session.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1778,.py,Providers.Fantrax.auth.session,1
+Providers/Fantrax/build/__init__.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,18,.py,Providers.Fantrax.build,1
+Providers/Fantrax/build/player_pool_master.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,12695,.py,Providers.Fantrax.build.player_pool_master,1
+Providers/Fantrax/diagnostics.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1627,.py,Providers.Fantrax.diagnostics,2
+Providers/Fantrax/endpoints.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1385,.py,Providers.Fantrax.endpoints,2
+Providers/Fantrax/fantrax_client.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,10007,.py,Providers.Fantrax.fantrax_client,15
+Providers/Fantrax/fantrax_provider.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,7488,.py,Providers.Fantrax.fantrax_provider,2
+Providers/Fantrax/fetch/__init__.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,18,.py,Providers.Fantrax.fetch,2
+Providers/Fantrax/fetch/diagnose_provider.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,945,.py,Providers.Fantrax.fetch.diagnose_provider,1
+Providers/Fantrax/fetch/discover_provider_capabilities.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,7317,.py,Providers.Fantrax.fetch.discover_provider_capabilities,1
+Providers/Fantrax/fetch/fetch_all.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1119,.py,Providers.Fantrax.fetch.fetch_all,1
+Providers/Fantrax/fetch/fetch_league.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,757,.py,Providers.Fantrax.fetch.fetch_league,1
+Providers/Fantrax/fetch/fetch_player_pool.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,15603,.py,Providers.Fantrax.fetch.fetch_player_pool,2
+Providers/Fantrax/fetch/fetch_player_stats.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,4909,.py,Providers.Fantrax.fetch.fetch_player_stats,1
+Providers/Fantrax/fetch/fetch_transactions.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1370,.py,Providers.Fantrax.fetch.fetch_transactions,1
+Providers/NHL/__init__.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,32,.py,Providers.NHL,2
+Providers/NHL/nhl_client.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,2564,.py,Providers.NHL.nhl_client,2
+Providers/__init__.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,18,.py,Providers,40
+Providers/base/__init__.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,835,.py,Providers.base,15
+Providers/base/connection_state.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,808,.py,Providers.base.connection_state,6
+Providers/base/events.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1803,.py,Providers.base.events,5
+Providers/base/provider.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1959,.py,Providers.base.provider,7
+Providers/base/registry.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,3317,.py,Providers.base.registry,11
+Providers/base/session.py,PROVIDER,KEEP_ACTIVE,Active source/config/documentation candidate.,1220,.py,Providers.base.session,6
+README.md,DOC,KEEP_ACTIVE,Active source/config/documentation candidate.,1766,.md,,
+RELEASE_NOTES_v0.5.0-drop4e5.md,DOC,KEEP_ACTIVE,Active source/config/documentation candidate.,482,.md,,
+Reasoning/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,46,.py,Reasoning,44
+Reasoning/adapters/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,206,.py,Reasoning.adapters,5
+Reasoning/adapters/player_evidence_adapter.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,3686,.py,Reasoning.adapters.player_evidence_adapter,5
+Reasoning/bridges/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,35,.py,Reasoning.bridges,7
+Reasoning/bridges/base_bridge.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,155,.py,Reasoning.bridges.base_bridge,7
+Reasoning/career/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,144,.py,Reasoning.career,3
+Reasoning/career/baseline_engine.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,2520,.py,Reasoning.career.baseline_engine,3
+Reasoning/career/career_provider.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,1397,.py,Reasoning.career.career_provider,3
+Reasoning/comparison_reasoning_engine.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,15575,.py,Reasoning.comparison_reasoning_engine,2
+Reasoning/composition/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,177,.py,Reasoning.composition,8
+Reasoning/composition/career_identity_enricher.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,9502,.py,Reasoning.composition.career_identity_enricher,1
+Reasoning/composition/executive_brief.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,15199,.py,Reasoning.composition.executive_brief,8
+Reasoning/composition/fantasy_context_enricher.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,895,.py,Reasoning.composition.fantasy_context_enricher,1
+Reasoning/evidence/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,35,.py,Reasoning.evidence,4
+Reasoning/evidence/evidence_bundle.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,254,.py,Reasoning.evidence.evidence_bundle,2
+Reasoning/evidence/evidence_fusion.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,395,.py,Reasoning.evidence.evidence_fusion,1
+Reasoning/evidence/evidence_merger.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,205,.py,Reasoning.evidence.evidence_merger,1
+Reasoning/evidence/evidence_normalizer.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,383,.py,Reasoning.evidence.evidence_normalizer,1
+Reasoning/models/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,35,.py,Reasoning.models,11
+Reasoning/models/confidence.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,188,.py,Reasoning.models.confidence,2
+Reasoning/models/evidence_reference.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,333,.py,Reasoning.models.evidence_reference,1
+Reasoning/models/finding.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,488,.py,Reasoning.models.finding,1
+Reasoning/models/player_assessment.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,2697,.py,Reasoning.models.player_assessment,3
+Reasoning/models/player_profile.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,1042,.py,Reasoning.models.player_profile,7
+Reasoning/primitives/__init__.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,35,.py,Reasoning.primitives,11
+Reasoning/primitives/assessment_engine.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,373,.py,Reasoning.primitives.assessment_engine,1
+Reasoning/primitives/asset_assessor.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,527,.py,Reasoning.primitives.asset_assessor,2
+Reasoning/primitives/finding_builder.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,388,.py,Reasoning.primitives.finding_builder,1
+Reasoning/primitives/player_assessment_builder.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,5148,.py,Reasoning.primitives.player_assessment_builder,2
+Reasoning/primitives/player_assessor.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,4758,.py,Reasoning.primitives.player_assessor,5
+Reasoning/primitives/player_context_builder.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,2048,.py,Reasoning.primitives.player_context_builder,3
+Reasoning/primitives/player_evidence_interpreter.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,1659,.py,Reasoning.primitives.player_evidence_interpreter,2
+Reasoning/primitives/player_narrative_builder.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,1752,.py,Reasoning.primitives.player_narrative_builder,1
+Reasoning/reasoning_context.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,170,.py,Reasoning.reasoning_context,1
+Reasoning/reasoning_engine.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,1867,.py,Reasoning.reasoning_engine,10
+Reasoning/reasoning_registry.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,639,.py,Reasoning.reasoning_registry,2
+Reasoning/reasoning_request.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,193,.py,Reasoning.reasoning_request,4
+Reasoning/team_reasoning_engine.py,REASONING,KEEP_ACTIVE,Active source/config/documentation candidate.,8422,.py,Reasoning.team_reasoning_engine,2
+Scout.bat,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,1064,.bat,,
+Scout/README.md,DOC,KEEP_ACTIVE,Active source/config/documentation candidate.,1904,.md,,
+Scout/__init__.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,0,.py,Scout,56
+Scout/app.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,68696,.py,Scout.app,13
+Scout/conversation/__init__.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,241,.py,Scout.conversation,46
+Scout/conversation/composition.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,8850,.py,Scout.conversation.composition,14
+Scout/conversation/context.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,3691,.py,Scout.conversation.context,20
+Scout/conversation/player_route_hotfix.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,1366,.py,Scout.conversation.player_route_hotfix,10
+Scout/conversation/responses.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,2227,.py,Scout.conversation.responses,14
+Scout/conversation/router.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,81530,.py,Scout.conversation.router,39
+Scout/run_scout.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,3791,.py,Scout.run_scout,5
+Scout/stop_scout_windows.py,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,1897,.py,Scout.stop_scout_windows,4
+Scout/ui_action_repair.js,SCOUT,KEEP_ACTIVE,Active source/config/documentation candidate.,3827,.js,,
+Sports/__init__.py,SPORTS,KEEP_ACTIVE,Active source/config/documentation candidate.,343,.py,Sports,5
+Sports/registry.py,SPORTS,KEEP_ACTIVE,Active source/config/documentation candidate.,5790,.py,Sports.registry,5
+Stop Scout Port 8765.bat,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,418,.bat,,
+Tools/athena_housekeeper.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,6437,.py,Tools.athena_housekeeper,0
+Tools/athena_studio.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,86564,.py,Tools.athena_studio,0
+Tools/audit_evidence_paths.py,AUDIT_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,14399,.py,Tools.audit_evidence_paths,0
+Tools/audit_file_usefulness.py,AUDIT_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,9340,.py,Tools.audit_file_usefulness,0
+Tools/build_public_hockey_knowledge_packs.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1161,.py,Tools.build_public_hockey_knowledge_packs,0
+Tools/build_scout_exe.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1495,.py,Tools.build_scout_exe,0
+Tools/check_scout_port.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,520,.py,Tools.check_scout_port,0
+Tools/cleanup_3g_phase1_runtime.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,2069,.py,Tools.cleanup_3g_phase1_runtime,0
+Tools/cleanup_3g_phase2_residue.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,6544,.py,Tools.cleanup_3g_phase2_residue,0
+Tools/cleanup_3g_phase3_final_hygiene.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,9068,.py,Tools.cleanup_3g_phase3_final_hygiene,0
+Tools/cleanup_acceptance_pathway_residue.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,3260,.py,Tools.cleanup_acceptance_pathway_residue,0
+Tools/cleanup_athena_leftovers.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,6166,.py,Tools.cleanup_athena_leftovers,0
+Tools/cleanup_one_click_workspace_guard.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1070,.py,Tools.cleanup_one_click_workspace_guard,0
+Tools/cleanup_repository_noise.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,3999,.py,Tools.cleanup_repository_noise,0
+Tools/cleanup_safe_repository_noise.py,CLEANUP_TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,3472,.py,Tools.cleanup_safe_repository_noise,0
+Tools/launch_scout.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,2685,.py,Tools.launch_scout,0
+Tools/launch_scout_fresh.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,2668,.py,Tools.launch_scout_fresh,0
+Tools/patch_scout_app_for_ui_actions.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1412,.py,Tools.patch_scout_app_for_ui_actions,0
+Tools/patch_scout_app_inline_ui_actions.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,4900,.py,Tools.patch_scout_app_inline_ui_actions,0
+Tools/query_context_intelligence.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1382,.py,Tools.query_context_intelligence,0
+Tools/query_player_intelligence.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,978,.py,Tools.query_player_intelligence,0
+Tools/query_public_hockey_knowledge.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1423,.py,Tools.query_public_hockey_knowledge,0
+Tools/register_public_hockey_sources.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1334,.py,Tools.register_public_hockey_sources,0
+Tools/runtime_cleanup.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,5089,.py,Tools.runtime_cleanup,2
+Tools/stop_scout.py,TOOL,KEEP_ACTIVE,Active source/config/documentation candidate.,1727,.py,Tools.stop_scout,0
+__init__.py,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,916,.py,,
+scout.js,ROOT_OR_MISC,KEEP_ACTIVE,Active source/config/documentation candidate.,21214,.js,,
+docs/ATHENA_ALPHA_UX_LOCKDOWN_v0.5.0-drop4e5.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1776,.md,,
+docs/Canonical Knowledge Model.md,DOC,KEEP_DOC,Project documentation/audit artifact.,10361,.md,,
+docs/Canonical Transaction Engine.md,DOC,KEEP_DOC,Project documentation/audit artifact.,2541,.md,,
+docs/EVIDENCE_PATH_AUDIT_v0.5.5.5.19.md,DOC,KEEP_DOC,Project documentation/audit artifact.,17963,.md,,
+docs/EVIDENCE_TRACEABILITY_AUDIT_v0.5.5.5.20.md,DOC,KEEP_DOC,Project documentation/audit artifact.,10738,.md,,
+docs/Event and Impact Model Specification.md,DOC,KEEP_DOC,Project documentation/audit artifact.,4836,.md,,
+docs/FILE_USEFULNESS_AUDIT_v0.5.5.5.21.md,DOC,KEEP_DOC,Project documentation/audit artifact.,20327,.md,,
+docs/FILE_USEFULNESS_INVENTORY_v0.5.5.5.21.csv,DOC,KEEP_DOC,Project documentation/audit artifact.,149210,.csv,,
+docs/Fantrax,DOC,KEEP_DOC,Project documentation/audit artifact.,0,[none],,
+docs/Fantrax Cookie Auth and Team Rosters.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1626,.md,,
+docs/Fantrax Live Player Pool.md,DOC,KEEP_DOC,Project documentation/audit artifact.,3584,.md,,
+docs/Fantrax Player Export Contract Import.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1259,.md,,
+docs/Fantrax Player Stats Fetch.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1491,.md,,
+docs/Fantrax Provider 2.0.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1811,.md,,
+docs/Fantrax Provider Validation Harness.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1487,.md,,
+docs/Knowledge Enrichment Plan.md,DOC,KEEP_DOC,Project documentation/audit artifact.,4739,.md,,
+docs/Knowledge Model Implementation Roadmap.md,DOC,KEEP_DOC,Project documentation/audit artifact.,6231,.md,,
+docs/Live Fantrax Contract Parser Fix.md,DOC,KEEP_DOC,Project documentation/audit artifact.,894,.md,,
+docs/PROGRAM_STRUCTURE_DIRECTION_v0.5.5.5.19.md,DOC,KEEP_DOC,Project documentation/audit artifact.,2375,.md,,
+docs/Platform Configuration Framework.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1097,.md,,
+docs/Platform Vocabulary.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1431,.md,,
+docs/Player Bio Enrichment.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1733,.md,,
+docs/Player Contract Enrichment.md,DOC,KEEP_DOC,Project documentation/audit artifact.,2178,.md,,
+docs/Player Identity Resolver.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1678,.md,,
+docs/Player Pool Master Correction.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1275,.md,,
+docs/Player Production Import.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1106,.md,,
+docs/Player Production NHL Enrichment.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1046,.md,,
+docs/Provider Completion Plan.md,DOC,KEEP_DOC,Project documentation/audit artifact.,2000,.md,,
+docs/REPOSITORY_NOISE_AND_CONSOLIDATION_AUDIT_v0.5.5.5.20.md,DOC,KEEP_DOC,Project documentation/audit artifact.,4645,.md,,
+docs/Repository Cleanup Baseline.md,DOC,KEEP_DOC,Project documentation/audit artifact.,2424,.md,,
+docs/SCOUT_ROUTE_MAP_v0.5.5.5.18.md,DOC,KEEP_DOC,Project documentation/audit artifact.,5756,.md,,
+docs/Transaction Pipeline.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1111,.md,,
+docs/Valuation Engine Specification.md,DOC,KEEP_DOC,Project documentation/audit artifact.,7427,.md,,
+docs/architecture.md,DOC,KEEP_DOC,Project documentation/audit artifact.,589,.md,,
+docs/data_model.md,DOC,KEEP_DOC,Project documentation/audit artifact.,23,.md,,
+docs/pipeline.md,DOC,KEEP_DOC,Project documentation/audit artifact.,27,.md,,
+docs/products/AI Content Platform.md,DOC,KEEP_DOC,Project documentation/audit artifact.,568,.md,,
+docs/products/Fantasy Sports Intelligence.md,DOC,KEEP_DOC,Project documentation/audit artifact.,963,.md,,
+docs/products/Public Sports Intelligence.md,DOC,KEEP_DOC,Project documentation/audit artifact.,670,.md,,
+docs/provider_spec.md,DOC,KEEP_DOC,Project documentation/audit artifact.,27,.md,,
+docs/v0.4.3,DOC,KEEP_DOC,Project documentation/audit artifact.,0,.3,,
+docs/v0.4.3 Scout Connection Context Routing.md,DOC,KEEP_DOC,Project documentation/audit artifact.,1951,.md,,
+docs/v0.4.4 Scout Port and Version Fix.md,DOC,KEEP_DOC,Project documentation/audit artifact.,600,.md,,
+Tests/core_self_test.py,TEST,KEEP_TEST,Regression/acceptance test.,1298,.py,Tests.core_self_test,0
+Tests/fixtures/fake_build_player_master.py,TEST,KEEP_TEST,Regression/acceptance test.,271,.py,Tests.fixtures.fake_build_player_master,0
+Tests/fixtures/fake_build_player_pool.py,TEST,KEEP_TEST,Regression/acceptance test.,274,.py,Tests.fixtures.fake_build_player_pool,0
+Tests/fixtures/fake_fetch_partial_fantrax.py,TEST,KEEP_TEST,Regression/acceptance test.,511,.py,Tests.fixtures.fake_fetch_partial_fantrax,0
+Tests/test_asset_registry.py,TEST,KEEP_TEST,Regression/acceptance test.,18,.py,Tests.test_asset_registry,0
+Tests/test_team_direction.py,TEST,KEEP_TEST,Regression/acceptance test.,18,.py,Tests.test_team_direction,0
+Tests/test_team_profile.py,TEST,KEEP_TEST,Regression/acceptance test.,18,.py,Tests.test_team_profile,0
+Tests/validate_3g_phase1_runtime_hygiene.py,TEST,KEEP_TEST,Regression/acceptance test.,4061,.py,Tests.validate_3g_phase1_runtime_hygiene,0
+Tests/validate_3g_phase2_residue_cleanup.py,TEST,KEEP_TEST,Regression/acceptance test.,4261,.py,Tests.validate_3g_phase2_residue_cleanup,0
+Tests/validate_3g_phase3_final_hygiene.py,TEST,KEEP_TEST,Regression/acceptance test.,5840,.py,Tests.validate_3g_phase3_final_hygiene,0
+Tests/validate_4e2_epic_completion.py,TEST,KEEP_TEST,Regression/acceptance test.,3437,.py,Tests.validate_4e2_epic_completion,0
+Tests/validate_4e2_player_reasoning.py,TEST,KEEP_TEST,Regression/acceptance test.,4385,.py,Tests.validate_4e2_player_reasoning,0
+Tests/validate_acceptance_display_and_analysis_hotfix.py,TEST,KEEP_TEST,Regression/acceptance test.,3162,.py,Tests.validate_acceptance_display_and_analysis_hotfix,0
+Tests/validate_acceptance_pathway_cleanup.py,TEST,KEEP_TEST,Regression/acceptance test.,2849,.py,Tests.validate_acceptance_pathway_cleanup,0
+Tests/validate_acceptance_repository_cleanup_v055514.py,TEST,KEEP_TEST,Regression/acceptance test.,3621,.py,Tests.validate_acceptance_repository_cleanup_v055514,0
+Tests/validate_aligned_055513_patch.py,TEST,KEEP_TEST,Regression/acceptance test.,1696,.py,Tests.validate_aligned_055513_patch,0
+Tests/validate_alpha_launch_experience.py,TEST,KEEP_TEST,Regression/acceptance test.,7796,.py,Tests.validate_alpha_launch_experience,0
+Tests/validate_athena_connect.py,TEST,KEEP_TEST,Regression/acceptance test.,5781,.py,Tests.validate_athena_connect,0
+Tests/validate_athena_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,4191,.py,Tests.validate_athena_foundation,0
+Tests/validate_athena_provider_registry_connect.py,TEST,KEEP_TEST,Regression/acceptance test.,6140,.py,Tests.validate_athena_provider_registry_connect,0
+Tests/validate_athena_studio.py,TEST,KEEP_TEST,Regression/acceptance test.,1612,.py,Tests.validate_athena_studio,0
+Tests/validate_athena_studio_beta_ui.py,TEST,KEEP_TEST,Regression/acceptance test.,3899,.py,Tests.validate_athena_studio_beta_ui,0
+Tests/validate_athena_studio_operations_console.py,TEST,KEEP_TEST,Regression/acceptance test.,5234,.py,Tests.validate_athena_studio_operations_console,0
+Tests/validate_athena_studio_phase1.py,TEST,KEEP_TEST,Regression/acceptance test.,3508,.py,Tests.validate_athena_studio_phase1,0
+Tests/validate_athena_studio_phase2.py,TEST,KEEP_TEST,Regression/acceptance test.,3255,.py,Tests.validate_athena_studio_phase2,0
+Tests/validate_athena_studio_pif_inspector.py,TEST,KEEP_TEST,Regression/acceptance test.,1937,.py,Tests.validate_athena_studio_pif_inspector,0
+Tests/validate_athena_studio_tile_ui.py,TEST,KEEP_TEST,Regression/acceptance test.,3698,.py,Tests.validate_athena_studio_tile_ui,0
+Tests/validate_athena_studio_toolbar.py,TEST,KEEP_TEST,Regression/acceptance test.,3599,.py,Tests.validate_athena_studio_toolbar,0
+Tests/validate_athena_sync.py,TEST,KEEP_TEST,Regression/acceptance test.,5650,.py,Tests.validate_athena_sync,0
+Tests/validate_capability_based_sync.py,TEST,KEEP_TEST,Regression/acceptance test.,8184,.py,Tests.validate_capability_based_sync,0
+Tests/validate_clean_baseline.py,TEST,KEEP_TEST,Regression/acceptance test.,4314,.py,Tests.validate_clean_baseline,0
+Tests/validate_comparison_reasoning_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,6207,.py,Tests.validate_comparison_reasoning_engine,0
+Tests/validate_context_graph_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,3346,.py,Tests.validate_context_graph_foundation,0
+Tests/validate_context_graph_historical_integration.py,TEST,KEEP_TEST,Regression/acceptance test.,5204,.py,Tests.validate_context_graph_historical_integration,0
+Tests/validate_context_intelligence_profiles.py,TEST,KEEP_TEST,Regression/acceptance test.,6640,.py,Tests.validate_context_intelligence_profiles,0
+Tests/validate_cross_domain_event_impact.py,TEST,KEEP_TEST,Regression/acceptance test.,5558,.py,Tests.validate_cross_domain_event_impact,0
+Tests/validate_cross_sport_reasoning_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,5385,.py,Tests.validate_cross_sport_reasoning_engine,0
+Tests/validate_debug_download_and_credentials.py,TEST,KEEP_TEST,Regression/acceptance test.,5312,.py,Tests.validate_debug_download_and_credentials,0
+Tests/validate_debug_export.py,TEST,KEEP_TEST,Regression/acceptance test.,3948,.py,Tests.validate_debug_export,0
+Tests/validate_diagnostics_log_export_workflow.py,TEST,KEEP_TEST,Regression/acceptance test.,2511,.py,Tests.validate_diagnostics_log_export_workflow,0
+Tests/validate_diagnostics_recovery.py,TEST,KEEP_TEST,Regression/acceptance test.,6046,.py,Tests.validate_diagnostics_recovery,0
+Tests/validate_engine_namespace.py,TEST,KEEP_TEST,Regression/acceptance test.,3734,.py,Tests.validate_engine_namespace,0
+Tests/validate_epic4_acceptance_suite.py,TEST,KEEP_TEST,Regression/acceptance test.,15870,.py,Tests.validate_epic4_acceptance_suite,0
+Tests/validate_event_acquisition_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,4472,.py,Tests.validate_event_acquisition_engine,0
+Tests/validate_event_confidence_source_corroboration.py,TEST,KEEP_TEST,Regression/acceptance test.,6256,.py,Tests.validate_event_confidence_source_corroboration,0
+Tests/validate_event_discovery_feed_registry.py,TEST,KEEP_TEST,Regression/acceptance test.,6560,.py,Tests.validate_event_discovery_feed_registry,0
+Tests/validate_event_intelligence_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,457,.py,Tests.validate_event_intelligence_foundation,0
+Tests/validate_event_registry_source_intelligence.py,TEST,KEEP_TEST,Regression/acceptance test.,7635,.py,Tests.validate_event_registry_source_intelligence,0
+Tests/validate_event_summarization_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,3682,.py,Tests.validate_event_summarization_engine,0
+Tests/validate_event_timeline_intelligence.py,TEST,KEEP_TEST,Regression/acceptance test.,6783,.py,Tests.validate_event_timeline_intelligence,0
+Tests/validate_evidence_chain_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,3602,.py,Tests.validate_evidence_chain_engine,0
+Tests/validate_evidence_path_audit_v055519.py,TEST,KEEP_TEST,Regression/acceptance test.,2698,.py,Tests.validate_evidence_path_audit_v055519,0
+Tests/validate_evidence_traceability_audit_v055520.py,TEST,KEEP_TEST,Regression/acceptance test.,3591,.py,Tests.validate_evidence_traceability_audit_v055520,0
+Tests/validate_explainable_intelligence_pipeline.py,TEST,KEEP_TEST,Regression/acceptance test.,4878,.py,Tests.validate_explainable_intelligence_pipeline,0
+Tests/validate_fantrax_auth_secret_classification.py,TEST,KEEP_TEST,Regression/acceptance test.,3375,.py,Tests.validate_fantrax_auth_secret_classification,0
+Tests/validate_fantrax_header_auth_integration.py,TEST,KEEP_TEST,Regression/acceptance test.,4389,.py,Tests.validate_fantrax_header_auth_integration,0
+Tests/validate_fantrax_provider.py,TEST,KEEP_TEST,Regression/acceptance test.,14271,.py,Tests.validate_fantrax_provider,0
+Tests/validate_fantrax_provider_adapter.py,TEST,KEEP_TEST,Regression/acceptance test.,5002,.py,Tests.validate_fantrax_provider_adapter,0
+Tests/validate_fantrax_secret_persistence.py,TEST,KEEP_TEST,Regression/acceptance test.,6337,.py,Tests.validate_fantrax_secret_persistence,0
+Tests/validate_file_usefulness_audit_v055521.py,TEST,KEEP_TEST,Regression/acceptance test.,2540,.py,Tests.validate_file_usefulness_audit_v055521,0
+Tests/validate_historical_comparison_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,4798,.py,Tests.validate_historical_comparison_engine,0
+Tests/validate_historical_explainability.py,TEST,KEEP_TEST,Regression/acceptance test.,3523,.py,Tests.validate_historical_explainability,0
+Tests/validate_historical_graph_bridge.py,TEST,KEEP_TEST,Regression/acceptance test.,4287,.py,Tests.validate_historical_graph_bridge,0
+Tests/validate_historical_intelligence.py,TEST,KEEP_TEST,Regression/acceptance test.,3939,.py,Tests.validate_historical_intelligence,0
+Tests/validate_historical_intelligence_graph_bridge.py,TEST,KEEP_TEST,Regression/acceptance test.,5234,.py,Tests.validate_historical_intelligence_graph_bridge,0
+Tests/validate_historical_snapshot_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,4663,.py,Tests.validate_historical_snapshot_foundation,0
+Tests/validate_historical_trend_synthesis.py,TEST,KEEP_TEST,Regression/acceptance test.,4540,.py,Tests.validate_historical_trend_synthesis,0
+Tests/validate_knowledge_events_imports.py,TEST,KEEP_TEST,Regression/acceptance test.,2858,.py,Tests.validate_knowledge_events_imports,0
+Tests/validate_live_event_filtering_and_analytical_routing_v055516.py,TEST,KEEP_TEST,Regression/acceptance test.,3026,.py,Tests.validate_live_event_filtering_and_analytical_routing_v055516,0
+Tests/validate_live_event_reasoning.py,TEST,KEEP_TEST,Regression/acceptance test.,4387,.py,Tests.validate_live_event_reasoning,0
+Tests/validate_live_event_source_integration.py,TEST,KEEP_TEST,Regression/acceptance test.,4778,.py,Tests.validate_live_event_source_integration,0
+Tests/validate_multi_sport_intelligence_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,4598,.py,Tests.validate_multi_sport_intelligence_foundation,0
+Tests/validate_multi_sport_provider_connectors.py,TEST,KEEP_TEST,Regression/acceptance test.,4392,.py,Tests.validate_multi_sport_provider_connectors,1
+Tests/validate_multi_sport_scout_routing.py,TEST,KEEP_TEST,Regression/acceptance test.,3122,.py,Tests.validate_multi_sport_scout_routing,0
+Tests/validate_multisource_evidence_fusion.py,TEST,KEEP_TEST,Regression/acceptance test.,5443,.py,Tests.validate_multisource_evidence_fusion,0
+Tests/validate_official_nhl_feed_connectors.py,TEST,KEEP_TEST,Regression/acceptance test.,5445,.py,Tests.validate_official_nhl_feed_connectors,0
+Tests/validate_one_click_fantrax_connect.py,TEST,KEEP_TEST,Regression/acceptance test.,6363,.py,Tests.validate_one_click_fantrax_connect,0
+Tests/validate_one_click_workspace_guard.py,TEST,KEEP_TEST,Regression/acceptance test.,3645,.py,Tests.validate_one_click_workspace_guard,0
+Tests/validate_partial_sync_degradation.py,TEST,KEEP_TEST,Regression/acceptance test.,6743,.py,Tests.validate_partial_sync_degradation,0
+Tests/validate_pif1_build001.py,TEST,KEEP_TEST,Regression/acceptance test.,2038,.py,Tests.validate_pif1_build001,0
+Tests/validate_pif1_build002.py,TEST,KEEP_TEST,Regression/acceptance test.,3188,.py,Tests.validate_pif1_build002,0
+Tests/validate_pif1_build003.py,TEST,KEEP_TEST,Regression/acceptance test.,2944,.py,Tests.validate_pif1_build003,0
+Tests/validate_pif1_build004.py,TEST,KEEP_TEST,Regression/acceptance test.,3193,.py,Tests.validate_pif1_build004,0
+Tests/validate_player_assessment_models.py,TEST,KEEP_TEST,Regression/acceptance test.,258,.py,Tests.validate_player_assessment_models,0
+Tests/validate_player_assessment_reasoning.py,TEST,KEEP_TEST,Regression/acceptance test.,1621,.py,Tests.validate_player_assessment_reasoning,0
+Tests/validate_player_context.py,TEST,KEEP_TEST,Regression/acceptance test.,289,.py,Tests.validate_player_context,0
+Tests/validate_player_intelligence_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,3629,.py,Tests.validate_player_intelligence_foundation,0
+Tests/validate_player_narrative.py,TEST,KEEP_TEST,Regression/acceptance test.,401,.py,Tests.validate_player_narrative,0
+Tests/validate_player_reasoning_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,432,.py,Tests.validate_player_reasoning_engine,0
+Tests/validate_provider_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,5396,.py,Tests.validate_provider_foundation,0
+Tests/validate_public_analyst_composition_v055511.py,TEST,KEEP_TEST,Regression/acceptance test.,2980,.py,Tests.validate_public_analyst_composition_v055511,0
+Tests/validate_public_gap_language_and_targeted_analysis_v055517.py,TEST,KEEP_TEST,Regression/acceptance test.,3144,.py,Tests.validate_public_gap_language_and_targeted_analysis_v055517,0
+Tests/validate_public_hockey_knowledge_packs.py,TEST,KEEP_TEST,Regression/acceptance test.,5124,.py,Tests.validate_public_hockey_knowledge_packs,0
+Tests/validate_public_hockey_knowledge_registry.py,TEST,KEEP_TEST,Regression/acceptance test.,4820,.py,Tests.validate_public_hockey_knowledge_registry,0
+Tests/validate_public_hockey_knowledge_retrieval.py,TEST,KEEP_TEST,Regression/acceptance test.,4928,.py,Tests.validate_public_hockey_knowledge_retrieval,0
+Tests/validate_reasoning_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,4412,.py,Tests.validate_reasoning_engine,0
+Tests/validate_reasoning_foundation.py,TEST,KEEP_TEST,Regression/acceptance test.,47,.py,Tests.validate_reasoning_foundation,0
+Tests/validate_reasoning_framework.py,TEST,KEEP_TEST,Regression/acceptance test.,312,.py,Tests.validate_reasoning_framework,0
+Tests/validate_reasoning_pipeline.py,TEST,KEEP_TEST,Regression/acceptance test.,559,.py,Tests.validate_reasoning_pipeline,0
+Tests/validate_reasoning_reintegration.py,TEST,KEEP_TEST,Regression/acceptance test.,2791,.py,Tests.validate_reasoning_reintegration,0
+Tests/validate_renderer_cleanup.py,TEST,KEEP_TEST,Regression/acceptance test.,5032,.py,Tests.validate_renderer_cleanup,0
+Tests/validate_response_composition_visibility.py,TEST,KEEP_TEST,Regression/acceptance test.,4850,.py,Tests.validate_response_composition_visibility,0
+Tests/validate_rule_citation_cards.py,TEST,KEEP_TEST,Regression/acceptance test.,3166,.py,Tests.validate_rule_citation_cards,0
+Tests/validate_runtime_cleanup.py,TEST,KEEP_TEST,Regression/acceptance test.,1499,.py,Tests.validate_runtime_cleanup,0
+Tests/validate_runtime_orchestration_observability.py,TEST,KEEP_TEST,Regression/acceptance test.,3901,.py,Tests.validate_runtime_orchestration_observability,0
+Tests/validate_scout_alpha.py,TEST,KEEP_TEST,Regression/acceptance test.,2776,.py,Tests.validate_scout_alpha,0
+Tests/validate_scout_athena_end_to_end.py,TEST,KEEP_TEST,Regression/acceptance test.,17756,.py,Tests.validate_scout_athena_end_to_end,0
+Tests/validate_scout_build_001.py,TEST,KEEP_TEST,Regression/acceptance test.,2854,.py,Tests.validate_scout_build_001,0
+Tests/validate_scout_build_002.py,TEST,KEEP_TEST,Regression/acceptance test.,780,.py,Tests.validate_scout_build_002,0
+Tests/validate_scout_build_003.py,TEST,KEEP_TEST,Regression/acceptance test.,1750,.py,Tests.validate_scout_build_003,0
+Tests/validate_scout_build_004.py,TEST,KEEP_TEST,Regression/acceptance test.,1195,.py,Tests.validate_scout_build_004,0
+Tests/validate_scout_chat_layout_and_auth_bridge.py,TEST,KEEP_TEST,Regression/acceptance test.,2322,.py,Tests.validate_scout_chat_layout_and_auth_bridge,0
+Tests/validate_scout_composition_depth_fix.py,TEST,KEEP_TEST,Regression/acceptance test.,4532,.py,Tests.validate_scout_composition_depth_fix,0
+Tests/validate_scout_composition_root_fix.py,TEST,KEEP_TEST,Regression/acceptance test.,4175,.py,Tests.validate_scout_composition_root_fix,0
+Tests/validate_scout_connection_feedback.py,TEST,KEEP_TEST,Regression/acceptance test.,3573,.py,Tests.validate_scout_connection_feedback,0
+Tests/validate_scout_connection_hotfix.py,TEST,KEEP_TEST,Regression/acceptance test.,6099,.py,Tests.validate_scout_connection_hotfix,0
+Tests/validate_scout_evaluation_trace_binding.py,TEST,KEEP_TEST,Regression/acceptance test.,8390,.py,Tests.validate_scout_evaluation_trace_binding,0
+Tests/validate_scout_interaction_ux.py,TEST,KEEP_TEST,Regression/acceptance test.,2808,.py,Tests.validate_scout_interaction_ux,0
+Tests/validate_scout_public_hockey_answer_binding.py,TEST,KEEP_TEST,Regression/acceptance test.,4767,.py,Tests.validate_scout_public_hockey_answer_binding,0
+Tests/validate_scout_route_map_and_targeted_routing_v055518.py,TEST,KEEP_TEST,Regression/acceptance test.,3199,.py,Tests.validate_scout_route_map_and_targeted_routing_v055518,0
+Tests/validate_scout_runtime_acceptance_hotfix.py,TEST,KEEP_TEST,Regression/acceptance test.,9691,.py,Tests.validate_scout_runtime_acceptance_hotfix,0
+Tests/validate_scout_ux_cleanup.py,TEST,KEEP_TEST,Regression/acceptance test.,1930,.py,Tests.validate_scout_ux_cleanup,0
+Tests/validate_studio_browser_self_refresh.py,TEST,KEEP_TEST,Regression/acceptance test.,1865,.py,Tests.validate_studio_browser_self_refresh,0
+Tests/validate_studio_polish_repository.py,TEST,KEEP_TEST,Regression/acceptance test.,3398,.py,Tests.validate_studio_polish_repository,0
+Tests/validate_studio_reload_workflow.py,TEST,KEEP_TEST,Regression/acceptance test.,2424,.py,Tests.validate_studio_reload_workflow,0
+Tests/validate_team_reasoning_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,3855,.py,Tests.validate_team_reasoning_engine,0
+Tests/validate_temporal_intelligence.py,TEST,KEEP_TEST,Regression/acceptance test.,4345,.py,Tests.validate_temporal_intelligence,0
+Tests/validate_transaction_pipeline.py,TEST,KEEP_TEST,Regression/acceptance test.,5856,.py,Tests.validate_transaction_pipeline,0
+Tests/validate_trend_confidence.py,TEST,KEEP_TEST,Regression/acceptance test.,3999,.py,Tests.validate_trend_confidence,0
+Tests/validate_trend_domain.py,TEST,KEEP_TEST,Regression/acceptance test.,5710,.py,Tests.validate_trend_domain,0
+Tests/validate_trend_engine.py,TEST,KEEP_TEST,Regression/acceptance test.,6188,.py,Tests.validate_trend_engine,0
+Tests/validate_ui_and_credentials.py,TEST,KEEP_TEST,Regression/acceptance test.,3283,.py,Tests.validate_ui_and_credentials,0
+Tests/validate_unified_identity_cross_sport_graph.py,TEST,KEEP_TEST,Regression/acceptance test.,6473,.py,Tests.validate_unified_identity_cross_sport_graph,0
+Tests/validate_validation_aggregator_hotfix.py,TEST,KEEP_TEST,Regression/acceptance test.,2145,.py,Tests.validate_validation_aggregator_hotfix,0
+Tests/version_compat.py,TEST,KEEP_TEST,Regression/acceptance test.,1226,.py,Tests.version_compat,4
+Tools/doctor_4e2_player_reasoning.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2128,.py,Tools.doctor_4e2_player_reasoning,0
+Tools/doctor_athena_studio.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1804,.py,Tools.doctor_athena_studio,0
+Tools/doctor_athena_studio_beta_ui.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2115,.py,Tools.doctor_athena_studio_beta_ui,0
+Tools/doctor_athena_studio_operations_console.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3325,.py,Tools.doctor_athena_studio_operations_console,0
+Tools/doctor_athena_studio_phase1.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3102,.py,Tools.doctor_athena_studio_phase1,0
+Tools/doctor_athena_studio_phase2.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1829,.py,Tools.doctor_athena_studio_phase2,0
+Tools/doctor_athena_studio_pif_inspector.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1843,.py,Tools.doctor_athena_studio_pif_inspector,0
+Tools/doctor_athena_studio_tile_ui.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1823,.py,Tools.doctor_athena_studio_tile_ui,0
+Tools/doctor_athena_studio_toolbar.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1996,.py,Tools.doctor_athena_studio_toolbar,0
+Tools/doctor_comparison_reasoning_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3671,.py,Tools.doctor_comparison_reasoning_engine,0
+Tools/doctor_context_graph.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3271,.py,Tools.doctor_context_graph,1
+Tools/doctor_context_graph_historical_integration.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4996,.py,Tools.doctor_context_graph_historical_integration,0
+Tools/doctor_credential_persistence.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2216,.py,Tools.doctor_credential_persistence,0
+Tools/doctor_cross_domain_event_impact.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4103,.py,Tools.doctor_cross_domain_event_impact,0
+Tools/doctor_cross_sport_reasoning_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3623,.py,Tools.doctor_cross_sport_reasoning_engine,0
+Tools/doctor_diagnostics_log_export_workflow.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2445,.py,Tools.doctor_diagnostics_log_export_workflow,0
+Tools/doctor_engine_namespace.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2118,.py,Tools.doctor_engine_namespace,0
+Tools/doctor_epic4_acceptance_suite.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2868,.py,Tools.doctor_epic4_acceptance_suite,0
+Tools/doctor_event_acquisition_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3050,.py,Tools.doctor_event_acquisition_engine,0
+Tools/doctor_event_confidence_source_corroboration.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3991,.py,Tools.doctor_event_confidence_source_corroboration,0
+Tools/doctor_event_discovery_feed_registry.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4412,.py,Tools.doctor_event_discovery_feed_registry,0
+Tools/doctor_event_intelligence_foundation.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,447,.py,Tools.doctor_event_intelligence_foundation,0
+Tools/doctor_event_registry_source_intelligence.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4615,.py,Tools.doctor_event_registry_source_intelligence,0
+Tools/doctor_event_summarization_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3282,.py,Tools.doctor_event_summarization_engine,0
+Tools/doctor_event_timeline_intelligence.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4034,.py,Tools.doctor_event_timeline_intelligence,0
+Tools/doctor_evidence_chain.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3998,.py,Tools.doctor_evidence_chain,1
+Tools/doctor_evidence_path_audit.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2392,.py,Tools.doctor_evidence_path_audit,0
+Tools/doctor_evidence_traceability_audit.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2900,.py,Tools.doctor_evidence_traceability_audit,0
+Tools/doctor_explainable_intelligence_pipeline.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3783,.py,Tools.doctor_explainable_intelligence_pipeline,0
+Tools/doctor_file_usefulness_audit.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2618,.py,Tools.doctor_file_usefulness_audit,0
+Tools/doctor_historical_comparison_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,5947,.py,Tools.doctor_historical_comparison_engine,0
+Tools/doctor_historical_explainability.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3610,.py,Tools.doctor_historical_explainability,0
+Tools/doctor_historical_graph_bridge.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3883,.py,Tools.doctor_historical_graph_bridge,0
+Tools/doctor_historical_intelligence.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3475,.py,Tools.doctor_historical_intelligence,0
+Tools/doctor_historical_intelligence_graph_bridge.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4479,.py,Tools.doctor_historical_intelligence_graph_bridge,0
+Tools/doctor_historical_snapshot_foundation.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4663,.py,Tools.doctor_historical_snapshot_foundation,0
+Tools/doctor_historical_trend_synthesis.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4383,.py,Tools.doctor_historical_trend_synthesis,0
+Tools/doctor_live_event_reasoning.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3218,.py,Tools.doctor_live_event_reasoning,0
+Tools/doctor_live_event_source_integration.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4546,.py,Tools.doctor_live_event_source_integration,0
+Tools/doctor_multi_sport_intelligence_foundation.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4243,.py,Tools.doctor_multi_sport_intelligence_foundation,0
+Tools/doctor_multi_sport_provider_connectors.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3910,.py,Tools.doctor_multi_sport_provider_connectors,1
+Tools/doctor_multi_sport_scout_routing.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1988,.py,Tools.doctor_multi_sport_scout_routing,0
+Tools/doctor_multisource_evidence_fusion.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3748,.py,Tools.doctor_multisource_evidence_fusion,0
+Tools/doctor_official_nhl_feed_connectors.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3084,.py,Tools.doctor_official_nhl_feed_connectors,0
+Tools/doctor_pif1_build001.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2493,.py,Tools.doctor_pif1_build001,0
+Tools/doctor_pif1_build002.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2992,.py,Tools.doctor_pif1_build002,0
+Tools/doctor_pif1_build003.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2941,.py,Tools.doctor_pif1_build003,0
+Tools/doctor_pif1_build004.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2186,.py,Tools.doctor_pif1_build004,0
+Tools/doctor_reasoning_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3284,.py,Tools.doctor_reasoning_engine,1
+Tools/doctor_reasoning_foundation.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,43,.py,Tools.doctor_reasoning_foundation,0
+Tools/doctor_reasoning_framework.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,146,.py,Tools.doctor_reasoning_framework,0
+Tools/doctor_reasoning_pipeline.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,855,.py,Tools.doctor_reasoning_pipeline,0
+Tools/doctor_reasoning_reintegration.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1671,.py,Tools.doctor_reasoning_reintegration,0
+Tools/doctor_renderer_cleanup.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2275,.py,Tools.doctor_renderer_cleanup,0
+Tools/doctor_repository.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3421,.py,Tools.doctor_repository,1
+Tools/doctor_runtime_cleanup.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1532,.py,Tools.doctor_runtime_cleanup,0
+Tools/doctor_runtime_orchestration_observability.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3442,.py,Tools.doctor_runtime_orchestration_observability,0
+Tools/doctor_scout_build_001.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1570,.py,Tools.doctor_scout_build_001,0
+Tools/doctor_scout_build_002.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,279,.py,Tools.doctor_scout_build_002,0
+Tools/doctor_scout_build_003.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1719,.py,Tools.doctor_scout_build_003,0
+Tools/doctor_scout_build_004.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1279,.py,Tools.doctor_scout_build_004,0
+Tools/doctor_scout_route_map.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1413,.py,Tools.doctor_scout_route_map,0
+Tools/doctor_scout_runtime.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1178,.py,Tools.doctor_scout_runtime,0
+Tools/doctor_scout_runtime_acceptance_hotfix.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,7968,.py,Tools.doctor_scout_runtime_acceptance_hotfix,0
+Tools/doctor_scout_ui.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1233,.py,Tools.doctor_scout_ui,0
+Tools/doctor_scout_ui_actions.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1660,.py,Tools.doctor_scout_ui_actions,0
+Tools/doctor_scout_ux_cleanup.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1645,.py,Tools.doctor_scout_ux_cleanup,0
+Tools/doctor_studio_browser_self_refresh.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1307,.py,Tools.doctor_studio_browser_self_refresh,0
+Tools/doctor_studio_polish.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2412,.py,Tools.doctor_studio_polish,0
+Tools/doctor_studio_reload_workflow.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,1507,.py,Tools.doctor_studio_reload_workflow,0
+Tools/doctor_team_reasoning_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2695,.py,Tools.doctor_team_reasoning_engine,0
+Tools/doctor_temporal_intelligence.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,3136,.py,Tools.doctor_temporal_intelligence,1
+Tools/doctor_trend_confidence.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2505,.py,Tools.doctor_trend_confidence,0
+Tools/doctor_trend_domain.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4130,.py,Tools.doctor_trend_domain,1
+Tools/doctor_trend_engine.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,4851,.py,Tools.doctor_trend_engine,1
+Tools/doctor_unified_identity_cross_sport_graph.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,5387,.py,Tools.doctor_unified_identity_cross_sport_graph,0
+Tools/doctor_validation_aggregator.py,DOCTOR,KEEP_VALIDATION_OR_DOCTOR,Operational validation/doctor tooling.,2078,.py,Tools.doctor_validation_aggregator,0
+Athena/capabilities.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,14129,.py,Athena.capabilities,25
+Athena/connect.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,9431,.py,Athena.connect,21
+Athena/debug_export.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,10734,.py,Athena.debug_export,15
+Athena/exceptions.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,802,.py,Athena.exceptions,29
+Athena/operation_result.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,2686,.py,Athena.operation_result,16
+Athena/orchestrator.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,2574,.py,Athena.orchestrator,17
+Athena/status.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,4079,.py,Athena.status,19
+Athena/sync.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,28843,.py,Athena.sync,16
+Athena/workspace.py,ATHENA_PACKAGE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,7485,.py,Athena.workspace,34
+Intelligence/Runtime/orchestrator.py,INTELLIGENCE,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,11845,.py,Intelligence.Runtime.orchestrator,7
+Tools/doctor.py,TOOL,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,8182,.py,Tools.doctor,2
+build_engine.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,1761,.py,build_engine,0
+capabilities.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,290,.py,capabilities,0
+connect.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,276,.py,connect,0
+debug_export.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,280,.py,debug_export,0
+doctor.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,133,.py,doctor,0
+exceptions.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,282,.py,exceptions,0
+launch.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,1833,.py,launch,0
+operation_result.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,294,.py,operation_result,0
+orchestrator.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,286,.py,orchestrator,0
+status.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,274,.py,status,0
+sync.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,270,.py,sync,0
+workspace.py,ROOT_OR_MISC,LEGACY_SHIM_REVIEW,Root or package-level Python shim/alias; confirm entrypoint usage before deletion.,280,.py,workspace,0
+Diagnostics/__init__.py,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,326,.py,Diagnostics,3
+Diagnostics/diagnostics.py,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1859,.py,Diagnostics.diagnostics,2
+Diagnostics/events.py,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,964,.py,Diagnostics.events,3
+Diagnostics/trace.py,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,393,.py,Diagnostics.trace,3
+Logs/athena_studio_history.jsonl,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,661332,.jsonl,,
+Logs/athena_studio_scout.log,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1542,.log,,
+Logs/athena_studio_settings.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,107,.json,,
+Logs/fantrax_player_pool_fetch.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,594,.json,,
+Logs/scout_launch_error.txt,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,758,.txt,,
+Logs/scout_stop_log.txt,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,62,.txt,,
+Output/_core_self_test.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,269,.json,,
+Output/analysis_profile.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1913,.csv,,
+Output/analysis_profile.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,4384,.json,,
+Output/canonical_context_graph.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,791103,.json,,
+Output/canonical_context_graph_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,480,.json,,
+Output/canonical_context_graph_with_historical_intelligence.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1314946,.json,,
+Output/canonical_context_graph_with_historical_intelligence_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1144,.json,,
+Output/draft_picks.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,167,.csv,,
+Output/draft_picks.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,2,.json,,
+Output/evidence_chain_player_003kg.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,40954,.json,,
+Output/historical_comparison_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,538,.json,,
+Output/historical_comparisons.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,81070,.json,,
+Output/historical_graph_bridge_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,505,.json,,
+Output/historical_graph_nodes.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,245945,.json,,
+Output/historical_graph_relationships.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,65115,.json,,
+Output/historical_intelligence.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,74612,.json,,
+Output/historical_intelligence_graph_bridge_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,794,.json,,
+Output/historical_intelligence_graph_nodes.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,114311,.json,,
+Output/historical_intelligence_graph_relationships.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,91792,.json,,
+Output/historical_intelligence_signal_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,483,.json,,
+Output/historical_intelligence_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,548,.json,,
+Output/historical_series.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,792853,.json,,
+Output/historical_snapshots.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,659968,.json,,
+Output/historical_trend_signals.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,35613,.json,,
+Output/historical_trend_synthesis_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,644,.json,,
+Output/knowledge_readiness.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,2796,.csv,,
+Output/knowledge_readiness.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,14322,.json,,
+Output/league_archetype.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1163,.csv,,
+Output/league_archetype.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,3240,.json,,
+Output/league_market.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,218,.csv,,
+Output/league_market.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,4181,.json,,
+Output/league_profile.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,483,.csv,,
+Output/league_profile.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,3955,.json,,
+Output/league_settings.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,332,.csv,,
+Output/league_settings.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,2729,.json,,
+Output/manager_behavior.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1733,.csv,,
+Output/manager_behavior.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,41600,.json,,
+Output/player_bio.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,54195,.csv,,
+Output/player_bio.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,249360,.json,,
+Output/player_contracts.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,29949,.csv,,
+Output/player_contracts.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,173013,.json,,
+Output/player_contracts_import_template.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,100,.csv,,
+Output/player_identity_map.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,29588,.csv,,
+Output/player_identity_map.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,168204,.json,,
+Output/player_intelligence_sidney_crosby.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,2626,.json,,
+Output/player_master.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,33471,.csv,,
+Output/player_master.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,129109,.json,,
+Output/player_pool_master.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,45398,.csv,,
+Output/player_pool_master.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,237676,.json,,
+Output/player_production.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,47067,.csv,,
+Output/player_production.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,247471,.json,,
+Output/player_production_import_template.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,8573,.csv,,
+Output/player_profiles.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,34876,.csv,,
+Output/player_profiles.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,196386,.json,,
+Output/player_status.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,30400,.csv,,
+Output/player_status.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,127908,.json,,
+Output/player_values.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,63878,.csv,,
+Output/player_values.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,512498,.json,,
+Output/public_hockey_knowledge_packs.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1367,.json,,
+Output/public_hockey_knowledge_registry.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,9729,.json,,
+Output/public_hockey_retrieval_ltir_waivers_icing.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,7800,.json,,
+Output/reasoning_package_player_003kg.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,24341,.json,,
+Output/team_direction.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,3217,.csv,,
+Output/team_direction.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,37473,.json,,
+Output/team_profiles.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,2800,.csv,,
+Output/team_profiles.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,51143,.json,,
+Output/temporal_evidence_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,570,.json,,
+Output/temporal_evidence_timeline.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,563115,.json,,
+Output/transaction_history.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,18550,.csv,,
+Output/transaction_history.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,862876,.json,,
+Output/transaction_master.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,12945,.csv,,
+Output/transaction_master.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,688046,.json,,
+Output/trend_engine_report.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,935,.json,,
+Output/trend_intelligence_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,850,.json,,
+Output/trend_results.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,18636211,.json,,
+Output/trend_series.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1400900,.json,,
+Raw/Fantrax-Players-JHLPAA.csv,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,453996,.csv,,
+Raw/fantrax_player_pool.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,143953,.json,,
+Raw/league_info.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,541112,.json,,
+Raw/nhl_player_landing.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,10775703,.json,,
+Raw/nhl_skater_summary.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,658723,.json,,
+Raw/transactions.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,242461,.json,,
+Reports/scout_session_log.json,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,2065,.json,,
+Reports/scout_session_log.txt,RUNTIME_OR_ARTIFACT,RUNTIME_DATA_REVIEW,Runtime/generated data or diagnostic output; useful for runs but not active source.,1401,.txt,,

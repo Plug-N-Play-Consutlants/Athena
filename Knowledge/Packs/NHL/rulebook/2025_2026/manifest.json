@@ -1,0 +1,31 @@
+{
+  "pack_schema": "athena.knowledge_pack.v1",
+  "athena_version": "0.5.0-drop4a4",
+  "source_id": "nhl_official_rules_2025_2026",
+  "title": "National Hockey League Official Rules 2025-2026",
+  "authority": "National Hockey League",
+  "document_type": "official_rulebook",
+  "season": "2025-2026",
+  "effective_date": "2025-2026 season",
+  "scope": [
+    "game_rules",
+    "officiating",
+    "equipment",
+    "penalties",
+    "game_flow",
+    "roster_lineup_rules"
+  ],
+  "modes": [
+    "public_sports",
+    "fantasy_league"
+  ],
+  "citation_policy": "cite_source_and_section",
+  "source_document": {
+    "present": true,
+    "path": "Knowledge\\Sources\\Documents\\nhl.pdf",
+    "size_bytes": 21695323,
+    "sha256": "d941edf9d78ef26527c4daddd9f84cf6f7b574ea78d6770ef227b189eb5ce10f"
+  },
+  "topic_count": 6,
+  "runtime_principle": "Athena reasons from compact, versioned knowledge packs generated from authoritative sources, not from source PDFs at runtime."
+}

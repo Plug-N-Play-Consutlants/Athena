@@ -1,0 +1,7 @@
+{
+  "provider": {
+    "endpoints": {
+      "player_stats": "players/getPlayerStats"
+    }
+  }
+}

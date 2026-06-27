@@ -1,0 +1,7 @@
+{
+  "error": {
+    "onScreen": false,
+    "code": "WARNING",
+    "message": "Invalid URL for API service/fxea/draft/getFutureDraftPicks"
+  }
+}

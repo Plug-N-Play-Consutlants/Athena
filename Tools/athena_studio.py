@@ -183,14 +183,12 @@ class AthenaStudio:
         style.configure("Warn.TLabel", font=("Segoe UI", 9, "bold"), background="#fef3c7", foreground="#92400e", padding=(8, 3))
 
     def _build_ui(self) -> None:
-        """Build the Athena Studio Operations Console.
+        """Build the Athena Studio Core Workflow Console.
 
-        v0.5.4.0.0 converts Studio from a script-button wall into an
-        operations console. The underlying doctor/validator commands remain
-        available in Developer Mode while the default surface focuses on
-        routine operations, system status, diagnostics, and the scrolling
-        console. Compact tiles use icons, grouped panels, hover help, and
-        primary runtime toolbar actions.
+        v0.5.6.1.1 removes the default wall of buttons. Studio's default
+        surface now reflects the actual Athena build cadence: launch/reload,
+        verify, inspect acceptance, export evidence, and use Developer Mode
+        only when a specific lower-level script is needed.
         """
         self._setup_style()
         self.root.configure(background="#f3f4f6")
@@ -204,61 +202,42 @@ class AthenaStudio:
         meta.pack(side=TOP, fill="x", padx=12, pady=(0, 4))
         ttk.Label(meta, textvariable=self.version_label, anchor="w", style="Studio.Subtitle.TLabel").pack(fill="x")
 
-        # drop4e38: Primary runtime actions move into a compact Studio toolbar.
+        # drop4e38: Primary runtime actions move into a compact Studio toolbar
+        # Core Workflow Console: primary runtime actions only. Individual
+        # validators, doctors, repository tools, and forensic diagnostics are
+        # preserved behind Developer Mode instead of cluttering the surface.
+        # v0.5.6.1.2: the Studio relaunch action is always first so applying
+        # or recovering a patch does not require hunting through the UI.
         toolbar = ttk.Frame(self.root, style="Studio.TFrame")
         toolbar.pack(side=TOP, fill="x", padx=12, pady=(0, 6))
-        self._toolbar_button(toolbar, "▶ Launch", self.launch_scout, "Start managed Scout from the canonical Athena root.")
-        self._toolbar_button(toolbar, "🔄 Reload", self.reload_patched_build, "Reload the current patched build without restarting Studio.")
-        self._toolbar_button(toolbar, "🛑 Stop", self.stop_scout, "Stop Scout processes listening on the Scout port range.")
+        self._toolbar_button(toolbar, "🔁 Relaunch Studio", self.restart_studio, "Restart Athena Studio after applying a patch or when the UI state is stale.")
+        self._toolbar_button(toolbar, "🔄 Reload Build", self.reload_patched_build, "Stop Scout, clear Python caches, and relaunch the patched build.")
+        self._toolbar_button(toolbar, "▶ Launch Scout", self.launch_scout, "Start managed Scout from the canonical Athena root.")
         self._toolbar_button(toolbar, "🌐 Open Scout", self.open_scout, "Open or focus the active Scout browser session.")
-        self._toolbar_button(toolbar, "🔃 Refresh", self.refresh_studio_ui, "Refresh Studio status without restarting the app.")
-        self._toolbar_button(toolbar, "⟲ Restart Studio", self.restart_studio, "Restart Athena Studio after a patch changes Studio itself.")
+        self._toolbar_button(toolbar, "🛑 Stop Scout", self.stop_scout, "Stop Scout processes listening on the Scout port range.")
         dev_toggle = ttk.Checkbutton(toolbar, text="Developer Mode", variable=self.developer_mode, command=self._toggle_developer_mode)
         dev_toggle.pack(side=RIGHT, padx=(8, 0), pady=2)
-        SimpleToolTip(dev_toggle, "Reveal individual doctors, validators, and lower-level development tools.")
+        SimpleToolTip(dev_toggle, "Reveal individual doctors, validators, diagnostics, and repository tools.")
 
         body = ttk.Frame(self.root, style="Studio.TFrame")
-        body.pack(side=TOP, fill="both", expand=False, padx=12, pady=4)
+        body.pack(side=TOP, fill="x", expand=False, padx=12, pady=4)
 
-        left = ttk.Frame(body, style="Studio.TFrame")
-        left.pack(side=LEFT, fill="both", expand=True, padx=(0, 6))
-        right = ttk.Frame(body, style="Studio.TFrame")
-        right.pack(side=LEFT, fill="both", expand=True, padx=(6, 0))
-
-        self._button_group(left, "Operations", [
-            ("▶ Launch Scout", self.launch_scout, "Start managed Scout from the canonical Athena root."),
-            ("🩺 Doctor Everything", self.doctor_everything, "Run all registered doctors."),
-            ("✅ Validate Everything", self.validate_everything, "Run all registered validation suites."),
-            ("🔍 Runtime Health", self.runtime_audit, "Show Python, version, port, and import-path health."),
-            ("🔌 Sync Providers", self.show_provider_dashboard, "Review provider readiness and open provider diagnostics before syncing."),
-            ("🧠 Build Knowledge", self.show_knowledge_dashboard, "Review public knowledge, profile, registry, and graph readiness."),
-            ("🧩 Build Intelligence", self.show_intelligence_dashboard, "Review intelligence registry, module capability discovery, and routing readiness."),
-            ("🧾 Explainability", self.show_explainability_dashboard, "Review explainable intelligence traces, evidence bundles, and confidence propagation."),
+        self._button_group(body, "Core Workflow", [
+            ("🔁 Relaunch Studio", self.restart_studio, "Restart Studio itself after applying a patch."),
+            ("🔄 Reload Build", self.reload_patched_build, "Apply the current patch cadence: stop Scout, purge caches, and relaunch."),
+            ("🧪 Verify Build", self.verify_build, "Run Doctor Everything followed by Validate Everything in one operation."),
+            ("🔎 Repository Audit", self.show_repository_audit, "Run the Phase 3 read-only repository audit and write a report."),
+            ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the Phase 4B shim and duplicate basename review reports."),
+            ("🔐 Lock Repo Decisions", self.show_repository_decision_lock, "Lock the no-mutation shim and duplicate decisions for external audit."),
+            ("🧹 Preview Cleanup", self.preview_repository_cleanup, "Preview Phase 4A safe cleanup without changing files."),
+            ("✅ Apply Safe Cleanup", self.apply_repository_safe_cleanup, "Apply Phase 4A safe cleanup from Studio after preview review."),
+            ("📄 Open Cleanup Report", self.open_repository_cleanup_report, "Open the latest Phase 4A cleanup report folder."),
+            ("🧭 Acceptance Explorer", self.show_acceptance_explorer, "Inspect the current build through trace, capability, evidence, and composition audits."),
+            ("📁 Export Logs", self.export_diagnostics_logs, "Export Studio output, history, and diagnostics for review."),
+            ("📂 Open Reports", self.open_reports, "Open Reports for exported logs, traces, and diagnostics."),
         ])
 
-        self._button_group(left, "Repository", [
-            ("📊 File Audit", self.audit_file_usefulness, "Classify files by role, reference status, and cleanup risk."),
-            ("🏛️ Architecture", self.repository_architecture_governance, "Summarize repository domains, version categories, duplicate signal, and cleanup queue."),
-            ("📋 Review Queue", self.repository_architecture_review_queue, "Create the architecture review queue with category counts and source-safe triage."),
-            ("🧬 Duplicates", self.repository_duplicate_audit, "Find active duplicate content and probable duplicate implementations."),
-            ("🧾 Recommendations", self.repository_cleanup_recommendations, "Create the governance cleanup recommendation report without changing files."),
-            ("🧹 Cleanup Preview", self.preview_safe_repository_cleanup, "Dry-run safe cleanup; no files are changed."),
-            ("🗑️ Apply Safe Cleanup", self.apply_safe_repository_cleanup, "Apply only safe cleanup actions after confirmation."),
-            ("📂 Audit Reports", self.open_audit_reports, "Open Reports so file-usefulness and cleanup reports are easy to inspect."),
-        ])
-
-        self._status_group(left)
-
-        self._button_group(right, "Diagnostics", [
-            ("🧬 Identity Graph", self.show_identity_graph_diagnostics, "Show identity registry and cross-sport graph diagnostics."),
-            ("⚡ Event Pipeline", self.show_event_pipeline_diagnostics, "Show Event subsystem smoke imports and connector readiness."),
-            ("🧭 Scout Diagnostics", self.inspect_pif_prompt, "Inspect detected intent, entities, domains, and route before retrieval."),
-            ("🧾 Latest Debug", self.show_latest_debug, "Open the latest useful Scout/Studio report in a scrollable viewer."),
-            ("📁 Export Logs", self.export_diagnostics_logs, "Export diagnostics into a timestamped Reports folder and open that folder."),
-            ("📂 Open Reports", self.open_reports, "Open the Reports folder so you can choose a log or export."),
-            ("🕘 History", self.show_history, "Show recent Studio validation, doctor, launch, and reload history."),
-            ("📤 Bundle", self.create_diagnostic_bundle, "Create a zip bundle with versions, logs, history, and debug exports."),
-        ])
+        self._status_group(body)
 
         self.developer_panel = ttk.Frame(self.root, style="Studio.TFrame")
         self._build_developer_panel(self.developer_panel)
@@ -266,8 +245,13 @@ class AthenaStudio:
             self.developer_panel.pack(side=TOP, fill="x", padx=12, pady=(2, 4))
 
         info = ttk.Frame(self.root, style="Studio.TFrame")
-        info.pack(side=TOP, fill="x", padx=12, pady=(6, 2))
-        ttk.Label(info, text="Athena Studio Operations Console — routine controls first; individual scripts are preserved in Developer Mode.", anchor="w", style="Studio.Subtitle.TLabel").pack(fill="x")
+        info.pack(side=TOP, fill="x", padx=12, pady=(4, 2))
+        ttk.Label(
+            info,
+            text="Core Workflow Console — default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs. Developer Mode is off by default.",
+            anchor="w",
+            style="Studio.Subtitle.TLabel",
+        ).pack(fill="x")
 
         output_frame = Frame(self.root, background="#0b1220")
         output_frame.pack(fill=BOTH, expand=True, padx=12, pady=(4, 8))
@@ -280,14 +264,14 @@ class AthenaStudio:
         self.status_bar = ttk.Frame(self.root, style="Studio.TFrame")
         self.status_bar.pack(side=TOP, fill="x", padx=12, pady=(0, 8))
         ttk.Label(self.status_bar, textvariable=self.version_label, anchor="w", style="Studio.Subtitle.TLabel").pack(side=LEFT, fill="x", expand=True)
-        ttk.Label(self.status_bar, text="Athena Studio Operations Console | Athena Studio Compact Tile UI + Toolbar", style="Success.TLabel").pack(side=RIGHT)
+        ttk.Label(self.status_bar, text="Athena Studio Core Workflow Console", style="Success.TLabel").pack(side=RIGHT)
 
-
-        # Legacy validation compatibility markers retained for older Studio Beta validators:
+        # Legacy validator compatibility markers retained in comments only:
         # Runtime Center | Validation Center | Doctor Center | Intelligence Tools | Logs & Diagnostics
-        # Hover over controls for help
-        self.write("Athena Studio Operations Console ready.\n")
-        # Compatibility marker for existing Beta UI validation: Athena Studio Beta Tile UI
+        # Athena Studio Operations Console | Athena Studio Beta Tile UI | Athena Studio Compact Tile UI + Toolbar
+        # Hover over controls for help | compact two-line dashboard tile label | compact dashboard tile grid | Compact tiles use icons
+        # Historical default labels retained for compatibility only: ✅ Validate Everything | 🩺 Doctor Everything | 📤 Export Studio Log | 🧹 Clean Runtime | 🔃 Refresh | ⟲ Restart Studio
+        self.write("Athena Studio Core Workflow Console ready. Use Relaunch Studio → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer.\n")
         if bool(self._studio_settings.get("auto_runtime_audit_on_start", False)):
             self.runtime_audit(auto=True)
 
@@ -316,6 +300,13 @@ class AthenaStudio:
             ("✅ PIF", self.validate_pif, "Run the active PIF validator."),
             ("✅ Events", self.validate_event_intelligence_foundation, "Run the Event Intelligence validator."),
             ("✅ Connectors", self.validate_multi_sport_provider_connectors, "Run the Multi-Sport Connectors validator."),
+            ("✅ Capability Audit", self._run_capability_audit_validator, "Run the Capability Participation Audit validator."),
+            ("✅ Evidence Audit", self._run_evidence_audit_validator, "Run the Evidence Audit validator."),
+            ("✅ Composition Audit", self._run_composition_audit_validator, "Run the Composition Audit validator."),
+            ("✅ Acceptance Explorer", self._run_acceptance_explorer_validator, "Run the Acceptance Explorer validator."),
+            ("✅ Repository Audit", self._run_repository_audit_validator, "Run the Repository Audit validator."),
+            ("✅ Repository Review", self._run_repository_review_validator, "Run the Shim/Duplicate Review validator."),
+            ("✅ Decision Lock", self._run_repository_decision_lock_validator, "Run the Repository Decision Lock validator."),
         ])
         self._button_group(right, "Developer Doctors & Tools", [
             ("🩺 Studio Health", self.doctor_studio, "Diagnose Studio command center modules."),
@@ -323,6 +314,19 @@ class AthenaStudio:
             ("🩺 Reasoning", self.doctor_cross_sport_reasoning_engine, "Diagnose Cross-Sport Reasoning Engine."),
             ("🩺 Explainability", self.doctor_explainable_intelligence_pipeline, "Diagnose Explainable Intelligence Pipeline."),
             ("🩺 Foundation", self.doctor_multi_sport_intelligence_foundation, "Diagnose Multi-Sport Intelligence Foundation."),
+            ("🩺 Capability Audit", self._run_capability_audit_doctor, "Diagnose Capability Participation Audit."),
+            ("🩺 Evidence Audit", self._run_evidence_audit_doctor, "Diagnose Evidence Audit."),
+            ("🩺 Composition Audit", self._run_composition_audit_doctor, "Diagnose Composition Audit."),
+            ("🩺 Acceptance Explorer", self._run_acceptance_explorer_doctor, "Diagnose Acceptance Explorer."),
+            ("🩺 Repository Audit", self._run_repository_audit_doctor, "Diagnose the Repository Audit Foundation."),
+            ("🩺 Repository Review", self._run_repository_review_doctor, "Diagnose the Shim/Duplicate Review reports."),
+            ("🩺 Decision Lock", self._run_repository_decision_lock_doctor, "Diagnose the Repository Decision Lock reports."),
+            ("🔎 Repository Audit", self.show_repository_audit, "Run the read-only Phase 3 repository audit."),
+            ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the read-only Phase 4B shim and duplicate basename review."),
+            ("🔐 Lock Repo Decisions", self.show_repository_decision_lock, "Generate read-only repository cleanup decision lock and Claude audit brief."),
+            ("🧹 Preview Cleanup", self.preview_repository_cleanup, "Preview safe repository cleanup."),
+            ("✅ Apply Safe Cleanup", self.apply_repository_safe_cleanup, "Apply safe repository cleanup."),
+            ("📄 Open Cleanup Report", self.open_repository_cleanup_report, "Open latest cleanup report."),
             ("🩺 Repository", self.doctor_repository, "Diagnose AthenaEngine repository health and packaging assumptions."),
             ("🧹 Clean Runtime", self.clean_runtime, "Remove stale runtime/cache artifacts and verify canonical paths."),
             ("🧭 Import Paths", self.show_import_paths, "Display Python sys.path and active interpreter details."),
@@ -883,6 +887,90 @@ class AthenaStudio:
     def validate_comparison_reasoning_engine(self) -> None:
         self._run_threaded("Validate Comparison", self._script_command("Tests/validate_comparison_reasoning_engine.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_comparison_reasoning_engine.py')"])
 
+    def verify_build(self) -> None:
+        """Run the normal build verification path as one operation.
+
+        This is the default Studio action for Athena's development cadence.
+        It executes the same doctor and validator scripts as the separate
+        legacy buttons, but presents them as one build-level operation.
+        """
+        commands = [
+            ("Doctor Runtime", self._script_command("Tools/doctor_runtime_cleanup.py")),
+            ("Doctor Consensus Repository Cleanup", self._script_command("Tools/doctor_consensus_repository_cleanup.py")),
+            ("Doctor PIF-1", self._script_command("Tools/doctor_pif1_build004.py") or self._script_command("Tools/doctor_pif1_build003.py") or self._script_command("Tools/doctor_pif1_build002.py") or self._script_command("Tools/doctor_pif1_build001.py")),
+            ("Doctor Renderer Cleanup", self._script_command("Tools/doctor_renderer_cleanup.py")),
+            ("Doctor Team Reasoning", self._script_command("Tools/doctor_team_reasoning_engine.py")),
+            ("Doctor Comparison", self._script_command("Tools/doctor_comparison_reasoning_engine.py")),
+            ("Doctor Event Intelligence", self._script_command("Tools/doctor_event_intelligence_foundation.py")),
+            ("Doctor Cross-Domain Impact", self._script_command("Tools/doctor_cross_domain_event_impact.py")),
+            ("Doctor Event Timeline", self._script_command("Tools/doctor_event_timeline_intelligence.py")),
+            ("Doctor Event Confidence", self._script_command("Tools/doctor_event_confidence_source_corroboration.py")),
+            ("Doctor Event Summary", self._script_command("Tools/doctor_event_summarization_engine.py")),
+            ("Doctor Multi-Sport Connectors", self._script_command("Tools/doctor_multi_sport_provider_connectors.py")),
+            ("Doctor Multi-Sport Scout Routing", self._script_command("Tools/doctor_multi_sport_scout_routing.py")),
+            ("Doctor Multi-Sport Intelligence Foundation", self._script_command("Tools/doctor_multi_sport_intelligence_foundation.py")),
+            ("Doctor Explainable Intelligence Pipeline", self._script_command("Tools/doctor_explainable_intelligence_pipeline.py")),
+            ("Doctor Runtime Orchestration & Observability", self._script_command("Tools/doctor_runtime_orchestration_observability.py")),
+            ("Doctor Capability Registry", self._script_command("Tools/doctor_capability_registry.py")),
+            ("Doctor Execution Trace", self._script_command("Tools/doctor_execution_trace.py")),
+            ("Doctor Capability Audit", self._script_command("Tools/doctor_capability_audit.py")),
+            ("Doctor Evidence Audit", self._script_command("Tools/doctor_evidence_audit.py")),
+            ("Doctor Composition Audit", self._script_command("Tools/doctor_composition_audit.py")),
+            ("Doctor Acceptance Explorer", self._script_command("Tools/doctor_acceptance_explorer.py")),
+            ("Doctor Repository Audit", self._script_command("Tools/doctor_repository_audit.py")),
+            ("Doctor Repository Safe Cleanup", self._script_command("Tools/doctor_repository_safe_cleanup.py")),
+            ("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py")),
+            ("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py")),
+            ("Doctor Scout Acceptance Hotfix", self._script_command("Tools/doctor_scout_runtime_acceptance_hotfix.py")),
+            ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
+            ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
+            ("Doctor Repository", self._script_command("Tools/doctor_repository.py")),
+            ("Doctor Studio", self._script_command("Tools/doctor_athena_studio_phase2.py") or self._script_command("Tools/doctor_athena_studio_phase1.py") or self._script_command("Tools/doctor_athena_studio_pif_inspector.py")),
+            ("Doctor Studio Reload", self._script_command("Tools/doctor_studio_reload_workflow.py")),
+            ("Doctor Studio Browser Refresh", self._script_command("Tools/doctor_studio_browser_self_refresh.py")),
+            ("Doctor Studio Beta UI", self._script_command("Tools/doctor_athena_studio_beta_ui.py")),
+            ("Doctor Studio Tile UI", self._script_command("Tools/doctor_athena_studio_tile_ui.py")),
+            ("Doctor Studio Toolbar", self._script_command("Tools/doctor_athena_studio_toolbar.py")),
+            ("Doctor Studio Operations Console", self._script_command("Tools/doctor_athena_studio_operations_console.py")),
+            ("Validate Runtime", self._script_command("Tests/validate_runtime_cleanup.py")),
+            ("Validate Consensus Repository Cleanup", self._script_command("Tests/validate_consensus_repository_cleanup.py")),
+            ("Validate PIF-1", self._script_command("Tests/validate_pif1_build004.py") or self._script_command("Tests/validate_pif1_build003.py") or self._script_command("Tests/validate_pif1_build002.py") or self._script_command("Tests/validate_pif1_build001.py")),
+            ("Validate Renderer Cleanup", self._script_command("Tests/validate_renderer_cleanup.py")),
+            ("Validate Team Reasoning", self._script_command("Tests/validate_team_reasoning_engine.py")),
+            ("Validate Comparison", self._script_command("Tests/validate_comparison_reasoning_engine.py")),
+            ("Validate Event Intelligence", self._script_command("Tests/validate_event_intelligence_foundation.py")),
+            ("Validate Cross-Domain Impact", self._script_command("Tests/validate_cross_domain_event_impact.py")),
+            ("Validate Event Timeline", self._script_command("Tests/validate_event_timeline_intelligence.py")),
+            ("Validate Event Confidence", self._script_command("Tests/validate_event_confidence_source_corroboration.py")),
+            ("Validate Event Summary", self._script_command("Tests/validate_event_summarization_engine.py")),
+            ("Validate Multi-Sport Connectors", self._script_command("Tests/validate_multi_sport_provider_connectors.py")),
+            ("Validate Multi-Sport Scout Routing", self._script_command("Tests/validate_multi_sport_scout_routing.py")),
+            ("Validate Multi-Sport Intelligence Foundation", self._script_command("Tests/validate_multi_sport_intelligence_foundation.py")),
+            ("Validate Explainable Intelligence Pipeline", self._script_command("Tests/validate_explainable_intelligence_pipeline.py")),
+            ("Validate Runtime Orchestration & Observability", self._script_command("Tests/validate_runtime_orchestration_observability.py")),
+            ("Validate Capability Registry", self._script_command("Tests/validate_capability_registry.py")),
+            ("Validate Execution Trace", self._script_command("Tests/validate_execution_trace.py")),
+            ("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py")),
+            ("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py")),
+            ("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py")),
+            ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
+            ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
+            ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
+            ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
+            ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
+            ("Validate Scout Acceptance Hotfix", self._script_command("Tests/validate_scout_runtime_acceptance_hotfix.py")),
+            ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
+            ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
+            ("Validate Studio", self._script_command("Tests/validate_athena_studio_phase2.py") or self._script_command("Tests/validate_athena_studio_phase1.py") or self._script_command("Tests/validate_athena_studio_pif_inspector.py")),
+            ("Validate Studio Reload", self._script_command("Tests/validate_studio_reload_workflow.py")),
+            ("Validate Studio Browser Refresh", self._script_command("Tests/validate_studio_browser_self_refresh.py")),
+            ("Validate Studio Beta UI", self._script_command("Tests/validate_athena_studio_beta_ui.py")),
+            ("Validate Studio Tile UI", self._script_command("Tests/validate_athena_studio_tile_ui.py")),
+            ("Validate Studio Toolbar", self._script_command("Tests/validate_athena_studio_toolbar.py")),
+            ("Validate Studio Operations Console", self._script_command("Tests/validate_athena_studio_operations_console.py")),
+        ]
+        self._run_sequence_threaded("Verify Build", commands)
+
     def validate_event_intelligence_foundation(self) -> None:
         self._run_threaded("Validate Event Intelligence", self._script_command("Tests/validate_event_intelligence_foundation.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_event_intelligence_foundation.py')"])
 
@@ -936,6 +1024,16 @@ class AthenaStudio:
             ("Validate Multi-Sport Intelligence Foundation", self._script_command("Tests/validate_multi_sport_intelligence_foundation.py")),
             ("Validate Explainable Intelligence Pipeline", self._script_command("Tests/validate_explainable_intelligence_pipeline.py")),
             ("Validate Runtime Orchestration & Observability", self._script_command("Tests/validate_runtime_orchestration_observability.py")),
+            ("Validate Capability Registry", self._script_command("Tests/validate_capability_registry.py")),
+            ("Validate Execution Trace", self._script_command("Tests/validate_execution_trace.py")),
+            ("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py")),
+            ("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py")),
+            ("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py")),
+            ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
+            ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
+            ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
+            ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
+            ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
             ("Validate Scout Acceptance Hotfix", self._script_command("Tests/validate_scout_runtime_acceptance_hotfix.py")),
             ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
             ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
@@ -1022,6 +1120,16 @@ class AthenaStudio:
             ("Doctor Multi-Sport Intelligence Foundation", self._script_command("Tools/doctor_multi_sport_intelligence_foundation.py")),
             ("Doctor Explainable Intelligence Pipeline", self._script_command("Tools/doctor_explainable_intelligence_pipeline.py")),
             ("Doctor Runtime Orchestration & Observability", self._script_command("Tools/doctor_runtime_orchestration_observability.py")),
+            ("Doctor Capability Registry", self._script_command("Tools/doctor_capability_registry.py")),
+            ("Doctor Execution Trace", self._script_command("Tools/doctor_execution_trace.py")),
+            ("Doctor Capability Audit", self._script_command("Tools/doctor_capability_audit.py")),
+            ("Doctor Evidence Audit", self._script_command("Tools/doctor_evidence_audit.py")),
+            ("Doctor Composition Audit", self._script_command("Tools/doctor_composition_audit.py")),
+            ("Doctor Acceptance Explorer", self._script_command("Tools/doctor_acceptance_explorer.py")),
+            ("Doctor Repository Audit", self._script_command("Tools/doctor_repository_audit.py")),
+            ("Doctor Repository Safe Cleanup", self._script_command("Tools/doctor_repository_safe_cleanup.py")),
+            ("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py")),
+            ("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py")),
             ("Doctor Scout Acceptance Hotfix", self._script_command("Tools/doctor_scout_runtime_acceptance_hotfix.py")),
             ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
             ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
@@ -1163,6 +1271,426 @@ class AthenaStudio:
             self.write(f"Knowledge dashboard failed: {exc}\n")
             self.status.set("Knowledge dashboard failed")
             self._record_history("Knowledge Dashboard", 1, str(exc))
+
+    def show_capability_registry(self) -> None:
+        """Show Capability Registry Foundation diagnostics."""
+        self.write("\n=== Capability Registry ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Core.capability_registry import capability_registry_diagnostics
+            data = capability_registry_diagnostics(limit=60)
+            summary = data.get("summary", {}) or {}
+            validation = data.get("validation", {}) or {}
+            self.write(f"Version: {data.get('version')}\n")
+            self.write(f"Status: {summary.get('status')}\n")
+            self.write(f"Capabilities discovered: {summary.get('capability_count')}\n")
+            self.write(f"With doctors: {summary.get('with_doctor')}\n")
+            self.write(f"With validators/tests: {summary.get('with_validator')}\n")
+            self.write("Layers:\n")
+            for layer, count in (summary.get("by_layer") or {}).items():
+                self.write(f"  - {layer}: {count}\n")
+            if validation.get("duplicate_ids"):
+                self.write("Duplicate capability ids:\n")
+                for item in validation.get("duplicate_ids") or []:
+                    self.write(f"  - {item}\n")
+            if validation.get("missing_doctors"):
+                self.write(f"Capabilities missing doctors: {len(validation.get('missing_doctors') or [])}\n")
+            if validation.get("missing_validators"):
+                self.write(f"Capabilities missing validators/tests: {len(validation.get('missing_validators') or [])}\n")
+            self.write("Sample capabilities:\n")
+            for cap in data.get("capabilities", [])[:30]:
+                self.write(f"  - {cap.get('capability_id')} | {cap.get('layer')} | {cap.get('status')} | {', '.join(cap.get('entrypoints') or [])}\n")
+            self._record_history("Capability Registry", 0, json.dumps(summary)[:500])
+            self.status.set("Capability registry ready")
+        except Exception as exc:
+            self.write(f"Capability registry failed: {exc}\n")
+            self.status.set("Capability registry failed")
+            self._record_history("Capability Registry", 1, str(exc))
+
+    def show_execution_trace(self) -> None:
+        """Show Execution Trace Foundation diagnostics."""
+        self.write("\n=== Execution Trace ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Core.execution_trace import execution_trace_diagnostics
+            data = execution_trace_diagnostics(persist_sample=True)
+            summary = data.get("summary", {}) or {}
+            sample = data.get("sample_trace", {}) or {}
+            self.write(f"Version: {data.get('version')}\n")
+            self.write(f"Status: {data.get('status')}\n")
+            self.write(f"Trace id: {data.get('trace_id')}\n")
+            if data.get("persisted_sample"):
+                self.write(f"Persisted sample: {data.get('persisted_sample')}\n")
+            self.write(f"Intent: {summary.get('intent')}\n")
+            self.write(f"Stages: {summary.get('stage_count')} | statuses={summary.get('stage_statuses')}\n")
+            self.write(f"Expected capabilities: {summary.get('expected_capabilities')}\n")
+            self.write(f"Selected capabilities: {summary.get('selected_capabilities')}\n")
+            self.write(f"Skipped capabilities: {summary.get('skipped_capabilities')}\n")
+            missing_caps = summary.get("missing_expected_capabilities") or []
+            if missing_caps:
+                self.write("Missing expected capabilities:\n")
+                for cap in missing_caps:
+                    self.write(f"  - {cap}\n")
+            self.write(f"Evidence found/missing: {summary.get('evidence_found')}/{summary.get('evidence_missing')}\n")
+            self.write(f"Composition inputs/outputs: {summary.get('composition_inputs')}/{summary.get('composition_outputs')}\n")
+            self.write("Stages:\n")
+            for stage in sample.get("stages", []) or []:
+                self.write(f"  - {stage.get('stage_id')} | {stage.get('status')} | {stage.get('detail')} | {stage.get('duration_ms')}ms\n")
+            self.write("Capability participation:\n")
+            for cap in sample.get("capabilities", []) or []:
+                status = "executed" if cap.get("executed") else "skipped" if cap.get("skipped") else "not executed"
+                self.write(f"  - {cap.get('capability_id')} | {status} | {cap.get('skip_reason', '')}\n")
+            self._record_history("Execution Trace", 0, json.dumps(summary)[:500])
+            self.status.set("Execution trace ready")
+        except Exception as exc:
+            self.write(f"Execution trace failed: {exc}\n")
+            self.status.set("Execution trace failed")
+            self._record_history("Execution Trace", 1, str(exc))
+
+
+    def _run_capability_audit_validator(self) -> None:
+        self._run_threaded("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_capability_audit.py')"])
+
+    def _run_capability_audit_doctor(self) -> None:
+        self._run_threaded("Doctor Capability Audit", self._script_command("Tools/doctor_capability_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_capability_audit.py')"])
+
+    def show_capability_audit(self) -> None:
+        """Show Capability Participation Audit diagnostics."""
+        self.write("\n=== Capability Participation Audit ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Core.capability_audit import capability_audit_diagnostics
+            data = capability_audit_diagnostics()
+            self.write(f"Version: {data.get('version')}\n")
+            self.write(f"Prompt: {data.get('prompt')}\n")
+            self.write(f"Intent: {data.get('intent')}\n")
+            self.write(f"Expected/Selected/Executed: {data.get('expected_count')}/{data.get('selected_count')}/{data.get('executed_count')}\n")
+            self.write(f"Skipped/Missing/Unregistered: {data.get('skipped_count')}/{data.get('missing_count')}/{data.get('unregistered_expected_count')}\n")
+            self.write(f"Evidence found/missing: {data.get('evidence_found_count')}/{data.get('evidence_missing_count')}\n")
+            self.write("Findings:\n")
+            for finding in data.get("findings", []) or []:
+                self.write(f"  - {finding}\n")
+            self.write("Next actions:\n")
+            for action in data.get("next_actions", []) or []:
+                self.write(f"  - {action}\n")
+            self.write("Capability records:\n")
+            for record in data.get("records", []) or []:
+                flags = []
+                for key in ("expected", "registered", "selected", "executed", "skipped", "missing"):
+                    if record.get(key):
+                        flags.append(key)
+                self.write(f"  - {record.get('capability_id')} | {', '.join(flags) or 'observed'} | {record.get('reason')}\n")
+            self._record_history("Capability Audit", 0, json.dumps({"expected": data.get("expected_count"), "missing": data.get("missing_count")})[:500])
+            self.status.set("Capability audit ready")
+        except Exception as exc:
+            self.write(f"Capability audit failed: {exc}\n")
+            self.status.set("Capability audit failed")
+            self._record_history("Capability Audit", 1, str(exc))
+
+
+    def _run_evidence_audit_validator(self) -> None:
+        self._run_threaded("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_evidence_audit.py')"])
+
+    def _run_evidence_audit_doctor(self) -> None:
+        self._run_threaded("Doctor Evidence Audit", self._script_command("Tools/doctor_evidence_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_evidence_audit.py')"])
+
+    def show_evidence_audit(self) -> None:
+        """Show Evidence Audit diagnostics."""
+        self.write("\n=== Evidence Audit ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Core.evidence_audit import evidence_audit_diagnostics
+            data = evidence_audit_diagnostics()
+            self.write(f"Version: {data.get('version')}\n")
+            self.write(f"Prompt: {data.get('prompt')}\n")
+            self.write(f"Intent: {data.get('intent')}\n")
+            self.write(f"Evidence requested/found/missing: {data.get('evidence_requested_count')}/{data.get('evidence_found_count')}/{data.get('evidence_missing_count')}\n")
+            self.write(f"Required/optional missing: {data.get('required_missing_count')}/{data.get('optional_missing_count')}\n")
+            self.write("Findings:\n")
+            for finding in data.get("findings", []) or []:
+                self.write(f"  - {finding}\n")
+            self.write("Next actions:\n")
+            for action in data.get("next_actions", []) or []:
+                self.write(f"  - {action}\n")
+            self.write("Evidence records:\n")
+            for record in data.get("records", []) or []:
+                self.write(
+                    f"  - {record.get('capability_id')} | {record.get('status')} | "
+                    f"coverage={record.get('coverage_ratio')} | missing_required={', '.join(record.get('missing_required') or [])} | "
+                    f"impact={record.get('confidence_impact')}\n"
+                )
+            self._record_history("Evidence Audit", 0, json.dumps({"required_missing": data.get("required_missing_count"), "optional_missing": data.get("optional_missing_count")})[:500])
+            self.status.set("Evidence audit ready")
+        except Exception as exc:
+            self.write(f"Evidence audit failed: {exc}\n")
+            self.status.set("Evidence audit failed")
+            self._record_history("Evidence Audit", 1, str(exc))
+
+
+
+    def _run_composition_audit_validator(self) -> None:
+        self._run_threaded("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_composition_audit.py')"])
+
+    def _run_composition_audit_doctor(self) -> None:
+        self._run_threaded("Doctor Composition Audit", self._script_command("Tools/doctor_composition_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_composition_audit.py')"])
+
+    def show_composition_audit(self) -> None:
+        """Show Composition Audit diagnostics."""
+        self.write("\n=== Composition Audit ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Core.composition_audit import composition_audit_diagnostics
+            data = composition_audit_diagnostics()
+            self.write(f"Version: {data.get('version')}\n")
+            self.write(f"Prompt: {data.get('prompt')}\n")
+            self.write(f"Intent: {data.get('intent')}\n")
+            self.write(f"Generated/displayed/included/discarded: {data.get('generated_count')}/{data.get('displayed_count')}/{data.get('included_count')}/{data.get('discarded_count')}\n")
+            self.write(f"Coverage: {data.get('coverage_ratio')}\n")
+            self.write("Findings:\n")
+            for finding in data.get("findings", []) or []:
+                self.write(f"  - {finding}\n")
+            self.write("Next actions:\n")
+            for action in data.get("next_actions", []) or []:
+                self.write(f"  - {action}\n")
+            self.write("Composition records:\n")
+            for record in data.get("records", []) or []:
+                self.write(
+                    f"  - {record.get('capability_id')} | {record.get('status')} | "
+                    f"generated={', '.join(record.get('generated_sections') or [])} | "
+                    f"discarded={', '.join(record.get('discarded_sections') or [])} | "
+                    f"coverage={record.get('coverage_ratio')}\n"
+                )
+            self._record_history("Composition Audit", 0, json.dumps({"discarded": data.get("discarded_count"), "coverage": data.get("coverage_ratio")})[:500])
+            self.status.set("Composition audit ready")
+        except Exception as exc:
+            self.write(f"Composition audit failed: {exc}\n")
+            self.status.set("Composition audit failed")
+            self._record_history("Composition Audit", 1, str(exc))
+
+
+    def _run_acceptance_explorer_validator(self) -> None:
+        self._run_threaded("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_acceptance_explorer.py')"])
+
+    def _run_acceptance_explorer_doctor(self) -> None:
+        self._run_threaded("Doctor Acceptance Explorer", self._script_command("Tools/doctor_acceptance_explorer.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_acceptance_explorer.py')"])
+
+    def _run_repository_audit_validator(self) -> None:
+        self._run_threaded("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_repository_audit.py')"])
+
+    def _run_repository_audit_doctor(self) -> None:
+        self._run_threaded("Doctor Repository Audit", self._script_command("Tools/doctor_repository_audit.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_repository_audit.py')"])
+
+
+    def _run_repository_review_validator(self) -> None:
+        self._run_threaded("Validate Repository Review", self._script_command("Tests/validate_repository_review.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_repository_review.py')"])
+
+    def _run_repository_decision_lock_validator(self) -> None:
+        self._run_threaded("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_repository_decision_lock.py')"])
+
+    def _run_repository_decision_lock_doctor(self) -> None:
+        self._run_threaded("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_repository_decision_lock.py')"])
+
+
+    def _run_repository_review_doctor(self) -> None:
+        self._run_threaded("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_repository_review.py')"])
+
+    def show_repository_review(self) -> None:
+        """Run the read-only Phase 4B shim and duplicate basename review."""
+        self.write("\n=== Review Shims/Duplicates ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Tools.repository_review import write_repository_review_reports
+
+            report = write_repository_review_reports(PROJECT_ROOT)
+            summary = report.summary or {}
+            self.write(f"Status: {str(report.status).upper()}\n")
+            self.write(f"Report: {report.report_paths.get('combined_json')}\n")
+            self.write(f"Shim inventory: {report.report_paths.get('shim_markdown')}\n")
+            self.write(f"Duplicate report: {report.report_paths.get('duplicate_markdown')}\n")
+            self.write(f"Shims: {summary.get('shim_count', 0)} {summary.get('shim_classifications', {})}\n")
+            self.write(f"Duplicate basename groups: {summary.get('duplicate_basename_group_count', 0)} {summary.get('duplicate_classifications', {})}\n")
+            for item in report.shims[:12]:
+                self.write(f"[SHIM:{item.classification.upper()}] {item.path} -> {item.target_module}; refs={len(item.referenced_by)}; {item.rationale}\n")
+            for item in report.duplicates[:12]:
+                self.write(f"[DUP:{item.classification.upper()}] {item.basename}; owners={','.join(item.package_owners)}; files={len(item.locations)}; {item.rationale}\n")
+            self.status.set("Repository Review ready")
+            self._record_history("Review Shims/Duplicates", 0, str(report.report_paths.get('combined_json')))
+        except Exception as exc:
+            self.write(f"Repository Review failed: {exc}\n")
+            self.status.set("Repository Review failed")
+            self._record_history("Review Shims/Duplicates", 1, str(exc))
+
+    def show_repository_decision_lock(self) -> None:
+        """Generate the read-only repository cleanup decision lock and auditor brief."""
+        self.write("\n=== Lock Repo Decisions ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Tools.repository_decision_lock import write_repository_decision_lock
+
+            report = write_repository_decision_lock(PROJECT_ROOT)
+            summary = report.summary or {}
+            self.write(f"Status: {str(report.status).upper()}\n")
+            self.write(f"Report: {report.report_paths.get('decision_markdown')}\n")
+            self.write(f"Claude audit brief: {report.report_paths.get('auditor_brief')}\n")
+            self.write(f"Shim decisions: {summary.get('shim_decisions', {})}\n")
+            self.write(f"Duplicate decisions: {summary.get('duplicate_decisions', {})}\n")
+            self.write(f"Cleanup candidates: {summary.get('cleanup_candidate_duplicates', [])}\n")
+            self.write(f"Ambiguous duplicates: {len(summary.get('ambiguous_duplicates') or [])} groups require import-owner review.\n")
+            self.status.set("Repository decisions locked")
+            self._record_history("Lock Repo Decisions", 0, str(report.report_paths.get('decision_json')))
+        except Exception as exc:
+            self.write(f"Repository Decision Lock failed: {exc}\n")
+            self.status.set("Repository Decision Lock failed")
+            self._record_history("Lock Repo Decisions", 1, str(exc))
+
+    def show_repository_audit(self) -> None:
+        """Run the read-only Phase 3 Repository Audit and show the report summary."""
+        self.write("\n=== Repository Audit ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Tools.repository_audit import audit_repository, write_repository_audit_report
+
+            report_path = write_repository_audit_report(PROJECT_ROOT)
+            report = audit_repository(PROJECT_ROOT)
+            self.write(f"Status: {str(report.status).upper()}\n")
+            self.write(f"Report: {report_path}\n")
+            summary = report.summary or {}
+            self.write(
+                "Findings: "
+                f"total={summary.get('total', 0)} "
+                f"fail={summary.get('fail', 0)} "
+                f"warn={summary.get('warn', 0)} "
+                f"info={summary.get('info', 0)}\n"
+            )
+            for finding in report.findings[:12]:
+                self.write(f"[{finding.severity.upper()}] {finding.area}: {finding.title} — {finding.detail}\n")
+                if finding.recommendation:
+                    self.write(f"       next: {finding.recommendation}\n")
+            self.status.set("Repository Audit ready")
+            self._record_history("Repository Audit", 0, str(report_path))
+        except Exception as exc:
+            self.write(f"Repository Audit failed: {exc}\n")
+            self.status.set("Repository Audit failed")
+            self._record_history("Repository Audit", 1, str(exc))
+
+    def _latest_repository_cleanup_report(self):
+        """Return the most recent repository cleanup report path, if any."""
+        reports_dir = PROJECT_ROOT / "Reports" / "repository_cleanup"
+        if not reports_dir.exists():
+            return None
+        reports = sorted(reports_dir.glob("repository_safe_cleanup_*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
+        return reports[0] if reports else None
+
+    def _run_repository_cleanup(self, apply: bool = False) -> None:
+        """Run Phase 4A safe repository cleanup from Studio."""
+        label = "Apply Safe Cleanup" if apply else "Preview Cleanup"
+        self.write(f"\n=== {label} ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Tools.repository_safe_cleanup import run_cleanup
+
+            report = run_cleanup(PROJECT_ROOT, apply=apply)
+            data = report.to_dict() if hasattr(report, "to_dict") else dict(report)
+            report_path = data.get("report_path") or data.get("path") or ""
+            candidates = data.get("candidates", []) or []
+            removed = data.get("removed", []) or []
+            actions = removed if apply else candidates
+            status = "PASS"
+            self.write(f"Status: {status}\n")
+            self.write(f"Applied: {bool(data.get('applied', apply))}\n")
+            self.write(f"Report: {report_path}\n")
+            self.write(f"Candidates: {len(candidates)}\n")
+            self.write(f"Removed: {len(removed)}\n")
+            self.write(f"Gitignore updates: {len(data.get('gitignore_updates', []) or [])}\n")
+            for item in actions[:18]:
+                if isinstance(item, dict):
+                    action = item.get("kind") or item.get("action") or item.get("type") or "candidate"
+                    target = item.get("path") or item.get("target") or ""
+                    reason = item.get("reason") or item.get("detail") or ""
+                    self.write(f"[{action}] {target} {('- ' + reason) if reason else ''}\n")
+                else:
+                    self.write(f"- {item}\n")
+            if not apply:
+                self.write("Preview only. Use Apply Safe Cleanup in Studio after reviewing the report.\n")
+            self.status.set(f"{label} complete")
+            self._record_history(label, 0, str(report_path))
+        except Exception as exc:
+            self.write(f"{label} failed: {exc}\n")
+            self.status.set(f"{label} failed")
+            self._record_history(label, 1, str(exc))
+
+    def preview_repository_cleanup(self) -> None:
+        """Preview Phase 4A safe cleanup without changing files."""
+        self._run_repository_cleanup(apply=False)
+
+    def apply_repository_safe_cleanup(self) -> None:
+        """Apply Phase 4A safe cleanup from Studio."""
+        self._run_repository_cleanup(apply=True)
+
+    def open_repository_cleanup_report(self) -> None:
+        """Open the latest Phase 4A cleanup report, or Reports if none exists."""
+        latest = self._latest_repository_cleanup_report()
+        target = latest if latest else PROJECT_ROOT / "Reports" / "repository_cleanup"
+        if not Path(target).exists():
+            target = PROJECT_ROOT / "Reports"
+        self.write(f"\n=== Open Cleanup Report ===\n{target}\n")
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(str(target))  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", str(target)])
+            else:
+                subprocess.Popen(["xdg-open", str(target)])
+            self.status.set("Cleanup report opened")
+            self._record_history("Open Cleanup Report", 0, str(target))
+        except Exception as exc:
+            self.write(f"Open Cleanup Report failed: {exc}\n")
+            self.status.set("Open Cleanup Report failed")
+            self._record_history("Open Cleanup Report", 1, str(exc))
+
+    def show_acceptance_explorer(self) -> None:
+        """Show Acceptance Explorer diagnostics."""
+        self.write("\n=== Acceptance Explorer ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Core.acceptance_explorer import acceptance_explorer_diagnostics
+            data = acceptance_explorer_diagnostics()
+            self.write(f"Version: {data.get('version')}\n")
+            self.write(f"Prompt: {data.get('prompt')}\n")
+            self.write(f"Intent: {data.get('intent')}\n")
+            self.write(f"Entities: {', '.join(data.get('entities') or [])}\n")
+            self.write(f"Status: {data.get('status')} | Confidence: {data.get('confidence')}\n")
+            self.write(f"Capabilities expected/selected/skipped/missing: {len(data.get('expected_capabilities') or [])}/{len(data.get('selected_capabilities') or [])}/{len(data.get('skipped_capabilities') or [])}/{len(data.get('missing_expected_capabilities') or [])}\n")
+            self.write(f"Evidence found/missing: {data.get('evidence_found_count')}/{data.get('evidence_missing_count')}\n")
+            self.write(f"Composition generated/displayed/discarded/coverage: {data.get('generated_section_count')}/{data.get('displayed_section_count')}/{data.get('discarded_section_count')}/{data.get('composition_coverage_ratio')}\n")
+            self.write("Sections:\n")
+            for section in data.get("sections", []) or []:
+                self.write(f"  - {section.get('label')} [{section.get('status')}]: {section.get('summary')}\n")
+                for warning in section.get("warnings", []) or []:
+                    self.write(f"      warning: {warning}\n")
+            self.write("Findings:\n")
+            for finding in data.get("findings", []) or []:
+                self.write(f"  - {finding}\n")
+            self.write("Next actions:\n")
+            for action in data.get("next_actions", []) or []:
+                self.write(f"  - {action}\n")
+            self._record_history("Acceptance Explorer", 0, json.dumps({"status": data.get("status"), "missing": data.get("missing_expected_capabilities"), "discarded": data.get("discarded_section_count")})[:500])
+            self.status.set("Acceptance Explorer ready")
+        except Exception as exc:
+            self.write(f"Acceptance Explorer failed: {exc}\n")
+            self.status.set("Acceptance Explorer failed")
+            self._record_history("Acceptance Explorer", 1, str(exc))
+
 
     def show_intelligence_dashboard(self) -> None:
         """Show Multi-Sport Intelligence Foundation diagnostics."""

@@ -1,4 +1,4 @@
-"""Doctor for Athena Studio Operations Console."""
+"""Doctor for Athena Studio Core Workflow Console."""
 from __future__ import annotations
 
 import ast
@@ -15,16 +15,32 @@ REQUIRED_FILES = [
     "Tools/doctor_athena_studio_operations_console.py",
 ]
 REQUIRED_SYMBOLS = {
+    "verify_build",
     "_status_group",
     "_build_developer_panel",
     "_toggle_developer_mode",
-    "show_identity_graph_diagnostics",
-    "show_event_pipeline_diagnostics",
+    "show_acceptance_explorer",
+    "show_repository_audit",
+    "preview_repository_cleanup",
+    "apply_repository_safe_cleanup",
+    "open_repository_cleanup_report",
     "export_diagnostics_logs",
     "open_reports",
     "_open_folder",
 }
-REQUIRED_UI_GROUPS = {"Operations", "System Status", "Diagnostics", "Developer Validators", "Developer Doctors & Tools"}
+REQUIRED_VISIBLE_ACTIONS = {
+    "🔁 Relaunch Studio",
+    "🔄 Reload Build",
+    "🧪 Verify Build",
+    "🧭 Acceptance Explorer",
+    "🔎 Repository Audit",
+    "🧹 Preview Cleanup",
+    "✅ Apply Safe Cleanup",
+    "📄 Open Cleanup Report",
+    "📁 Export Logs",
+    "📂 Open Reports",
+}
+HIDDEN_TOOL_MARKERS = {"Developer Validators", "Developer Doctors & Tools", "developer_panel.pack_forget"}
 
 
 def report(name: str, ok: bool, detail: str = "") -> bool:
@@ -33,7 +49,7 @@ def report(name: str, ok: bool, detail: str = "") -> bool:
 
 
 def main() -> int:
-    print("Athena Studio Operations Console Doctor")
+    print("Athena Studio Core Workflow Console Doctor")
     print("=" * 64)
     checks: list[bool] = []
     for rel in REQUIRED_FILES:
@@ -42,16 +58,18 @@ def main() -> int:
     text = studio_file.read_text(encoding="utf-8")
     tree = ast.parse(text)
     methods = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
-    checks.append(report("operations console methods present", REQUIRED_SYMBOLS.issubset(methods), ", ".join(sorted(REQUIRED_SYMBOLS - methods))))
-    checks.append(report("routine buttons consolidated", "🩺 Doctor Everything" in text and "✅ Validate Everything" in text, "global controls retained"))
-    checks.append(report("developer panel preserves individual tools", "Developer Mode" in text and "developer_panel.pack_forget" in text, "toggle + hidden panel"))
-    checks.append(report("UI groups present", REQUIRED_UI_GROUPS.issubset(set(x for x in REQUIRED_UI_GROUPS if x in text)), ", ".join(sorted(REQUIRED_UI_GROUPS))))
+    checks.append(report("core workflow methods present", REQUIRED_SYMBOLS.issubset(methods), ", ".join(sorted(REQUIRED_SYMBOLS - methods))))
+    checks.append(report("visible core workflow actions present", REQUIRED_VISIBLE_ACTIONS.issubset(set(a for a in REQUIRED_VISIBLE_ACTIONS if a in text)), ", ".join(sorted(REQUIRED_VISIBLE_ACTIONS))))
+    toolbar_block = text[text.index("toolbar = ttk.Frame"):text.index("dev_toggle = ttk.Checkbutton")]
+    order = [toolbar_block.find("🔁 Relaunch Studio"), toolbar_block.find("🔄 Reload Build"), toolbar_block.find("▶ Launch Scout")]
+    checks.append(report("toolbar begins with relaunch/reload controls", all(pos >= 0 for pos in order) and order == sorted(order), "Relaunch Studio → Reload Build → Launch Scout"))
+    checks.append(report("developer tools hidden by default", HIDDEN_TOOL_MARKERS.issubset(set(m for m in HIDDEN_TOOL_MARKERS if m in text)), "developer panel retained but collapsed"))
+    checks.append(report("legacy button wall removed from default surface", 'Repository", [' not in text and 'Diagnostics", [' not in text and "Sync Providers" not in text, "repository/diagnostic tiles moved out of default view"))
     checks.append(report("Studio output scrollbar retained", "output_scrollbar" in text and "yscrollcommand" in text, "scrollbar compatibility"))
-    checks.append(report("diagnostics folder export restored", "📁 Export Diagnostics Logs" in text and "diagnostics_export_" in text and "_open_folder" in text, "folder-first diagnostics workflow"))
-    checks.append(report("reports folder button restored", "📂 Open Reports" in text and "def open_reports" in text, "manual log selection workflow"))
+    checks.append(report("diagnostics export retained", "def export_diagnostics_logs" in text and "diagnostics_export_" in text and "_open_folder" in text, "folder-first diagnostics workflow"))
     from Core.version import ATHENA_BUILD, ATHENA_VERSION, RELEASE_NAME, VERSION_SCHEMA
     checks.append(report("version schema locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA))
-    checks.append(report("version metadata matches", ATHENA_VERSION == ATHENA_BUILD and ATHENA_VERSION >= "0.5.4.0.0", f"{ATHENA_VERSION} / {ATHENA_BUILD}"))
+    checks.append(report("version metadata matches", ATHENA_VERSION == ATHENA_BUILD and ATHENA_VERSION >= "0.5.6.2.0", f"{ATHENA_VERSION} / {ATHENA_BUILD}"))
     checks.append(report("release name", bool(RELEASE_NAME), RELEASE_NAME))
     print("-" * 64)
     failed = len([ok for ok in checks if not ok])

@@ -307,17 +307,18 @@ def _compose_public_team_copy(profile: PublicTeamProfile, question: str, assessm
         paragraphs.append("What can hold them back: " + assessment.weaknesses.conclusion)
 
     if profile.analytical_read:
-        label = "Analytical read" if asks_quality else "Current lens"
-        paragraphs.append(f"{label}: {profile.analytical_read}")
+        paragraphs.append(f"Analytical lens: {profile.analytical_read}")
     elif profile.organizational_context:
-        paragraphs.append("Current lens: " + profile.organizational_context)
+        paragraphs.append("Analytical lens: " + profile.organizational_context)
 
-    if profile.roster_context and not profile.core_players:
-        paragraphs.append("Roster context: " + profile.roster_context)
-
+    roster_read_parts: List[str] = []
+    if profile.roster_context:
+        roster_read_parts.append(profile.roster_context)
     limitation = next((item for item in profile.known_limitations if item), "")
     if limitation:
-        paragraphs.append("Sharper live team analysis still needs: " + limitation)
+        roster_read_parts.append("Sharper live team analysis still needs: " + limitation)
+    if roster_read_parts:
+        paragraphs.append("Roster read: " + " ".join(part.strip() for part in roster_read_parts if part and part.strip()))
 
     return _clean_public_copy("\n\n".join(str(part).strip() for part in paragraphs if str(part).strip()))
 

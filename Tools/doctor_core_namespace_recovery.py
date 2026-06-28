@@ -1,8 +1,8 @@
-"""Doctor for v0.5.5.5.24 Core namespace recovery.
+"""Doctor for canonical root Core namespace.
 
-Athena runtime modules still import ``Core.*`` directly.  This doctor verifies
-that the root Core namespace exists, resolves to repository-root paths, and
-matches the release version exposed through the legacy Intelligence/Core copy.
+Core/ is the only active Core namespace after consensus repository cleanup.
+Legacy Intelligence/Core must not be required by doctors, validators, or runtime
+paths.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def main() -> int:
     core_dir = ROOT / "Core"
     legacy_dir = ROOT / "Intelligence" / "Core"
     check("root_core_exists", core_dir.exists(), str(core_dir))
-    check("legacy_core_retained", legacy_dir.exists(), str(legacy_dir))
+    check("legacy_core_removed_or_absent", not legacy_dir.exists(), str(legacy_dir))
 
     try:
         version = importlib.import_module("Core.version")
@@ -39,20 +39,11 @@ def main() -> int:
 
     check("core_imports_resolve", imported, detail)
     if imported:
-        check("version_advanced", getattr(version, "ATHENA_VERSION", "") == "0.5.5.5.24", getattr(version, "ATHENA_VERSION", ""))
+        check("version_advanced", getattr(version, "ATHENA_VERSION", "") >= "0.5.5.5.26", getattr(version, "ATHENA_VERSION", ""))
         check("project_root_is_repo_root", Path(paths.PROJECT_ROOT).resolve() == ROOT.resolve(), str(paths.PROJECT_ROOT))
         check("logger_api_available", all(hasattr(logger, name) for name in ["log", "log_header", "log_section"]), "log/log_header/log_section")
 
-    try:
-        legacy_version = importlib.import_module("Intelligence.Core.version")
-        legacy_ok = getattr(legacy_version, "ATHENA_VERSION", "") == getattr(version, "ATHENA_VERSION", None)
-        legacy_detail = getattr(legacy_version, "ATHENA_VERSION", "")
-    except Exception as exc:  # pragma: no cover
-        legacy_ok = False
-        legacy_detail = repr(exc)
-    check("legacy_version_matches", legacy_ok, legacy_detail)
-
-    print("Core Namespace Recovery / Version Alignment Doctor")
+    print("Canonical Core Namespace Doctor")
     print("=" * 60)
     failed = 0
     for name, ok, detail in rows:

@@ -12,3 +12,8 @@ Output/
 Reports/
 Logs/
 Runtime/
+# Local workspace/runtime state
+Configuration/workspace.json
+
+# Runtime quarantine snapshots are generated artifacts, not source
+Archive/runtime_quarantine/

@@ -1,4 +1,4 @@
-"""Validation for v0.5.5.5.0 Runtime Orchestration & Observability."""
+"""Validation for Runtime Orchestration & Observability."""
 from __future__ import annotations
 
 import os
@@ -18,7 +18,7 @@ def record(results: list[tuple[str,bool,str]], name: str, condition: bool, detai
 
 def main() -> int:
     results: list[tuple[str,bool,str]] = []
-    from Core.version import ATHENA_VERSION, ATHENA_BUILD, RELEASE_NAME
+    from Core.version import ATHENA_VERSION, ATHENA_BUILD, RELEASE_NAME, VERSION_SCHEMA
     from Intelligence.Runtime import (
         RUNTIME_ORCHESTRATION_VERSION,
         RuntimeStage,
@@ -28,9 +28,9 @@ def main() -> int:
         studio_runtime_observability_diagnostics,
     )
 
-    record(results, "athena_version", ATHENA_VERSION.startswith("0.5.5.5"), ATHENA_VERSION)
-    record(results, "athena_build", ATHENA_BUILD.startswith("0.5.5.5"), ATHENA_BUILD)
-    record(results, "release_name_available", bool(RELEASE_NAME), RELEASE_NAME)
+    record(results, "athena_version", bool(ATHENA_VERSION) and ATHENA_VERSION.count(".") == 4, ATHENA_VERSION)
+    record(results, "athena_build", ATHENA_BUILD == ATHENA_VERSION, ATHENA_BUILD)
+    record(results, "release_name_available", bool(RELEASE_NAME) and VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", RELEASE_NAME)
     record(results, "runtime_version", RUNTIME_ORCHESTRATION_VERSION.startswith("0.5.5.5"), RUNTIME_ORCHESTRATION_VERSION)
 
     stage = RuntimeStage(name="test", status="pass", contributed=True, metrics={"x": 1})

@@ -96,7 +96,7 @@ def main() -> int:
 
     checks.append(report("version is 0.5.2.4.0", _version_at_least(ATHENA_VERSION, "0.5.2.4.0") and ATHENA_BUILD == ATHENA_VERSION, ATHENA_VERSION))
     checks.append(report("version schema locked", bool(re.fullmatch(r"\d+\.\d+\.\d+\.\d+\.\d+", ATHENA_VERSION)) and VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA))
-    checks.append(report("release metadata identifies Event Confidence", RELEASE_EPIC == "5" and RELEASE_SPRINT.isdigit() and bool(RELEASE_NAME), RELEASE_NAME))
+    checks.append(report("release metadata available", bool(RELEASE_EPIC) and bool(RELEASE_SPRINT) and bool(RELEASE_NAME), RELEASE_NAME))
     checks.append(report("confidence engine version matches release", EVENT_CONFIDENCE_ENGINE_VERSION == "0.5.2.4.0", EVENT_CONFIDENCE_ENGINE_VERSION))
 
     official = profile_for_source("nhl_api")

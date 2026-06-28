@@ -1,4 +1,4 @@
-"""Validation for v0.5.5.5.25 Release Metadata Alignment."""
+"""Validation for v0.5.5.5.26 Consensus Repository Cleanup."""
 from __future__ import annotations
 
 import subprocess
@@ -28,10 +28,10 @@ def main() -> int:
     rows: list[tuple[str, bool, str]] = []
     from Core.version import ATHENA_BUILD, ATHENA_VERSION, RELEASE_NAME, SCOUT_VERSION
 
-    record(rows, "athena_version", ATHENA_VERSION == "0.5.5.5.25", ATHENA_VERSION)
+    record(rows, "athena_version", ATHENA_VERSION == "0.5.5.5.26", ATHENA_VERSION)
     record(rows, "athena_build", ATHENA_BUILD == ATHENA_VERSION, ATHENA_BUILD)
     record(rows, "scout_version", SCOUT_VERSION == f"v{ATHENA_VERSION}", SCOUT_VERSION)
-    record(rows, "release_name", RELEASE_NAME == "Release Metadata Alignment", RELEASE_NAME)
+    record(rows, "release_name", RELEASE_NAME == "Consensus Repository Cleanup", RELEASE_NAME)
 
     scripts = [
         "Tools/doctor_release_metadata_alignment.py",
@@ -48,7 +48,7 @@ def main() -> int:
         record(rows, f"script_pass:{rel}", result.returncode == 0, detail)
 
     failed = [row for row in rows if not row[1]]
-    print("Release Metadata Alignment Validation")
+    print("Consensus Repository Cleanup Metadata Validation")
     print("=" * 64)
     for name, ok, detail in rows:
         print(f"[{'PASS' if ok else 'FAIL'}] {name}: {detail}")

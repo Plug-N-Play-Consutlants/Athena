@@ -157,3 +157,11 @@ This sprint does not add product UX. It provides a developer validation checkpoi
 - Added timeline reasoning payloads and risk flags for availability/context sequences.
 - Added Studio buttons and aggregate Doctor/Validate Everything registration.
 - Added Event Timeline doctor and validator.
+
+## v0.5.6.0.0 - Intent Classification Foundation
+
+- Added `Intelligence/Orchestration` as the first Epic 5A orchestration layer.
+- Added canonical intent taxonomy, deterministic request intent classifier, execution plan model, and developer-only orchestration trace payloads.
+- Established organizational-impact planning for prompts such as "How does Gavin McKenna improve the Leafs?" so entities become inputs to analysis rather than routing destinations.
+- Added validation coverage in `Tests/validate_intent_classification_foundation_v056000.py`.
+- Updated core version metadata to `0.5.6.0.0`.

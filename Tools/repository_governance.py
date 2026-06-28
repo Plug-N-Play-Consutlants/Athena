@@ -526,7 +526,7 @@ def version_constant_category(item: dict[str, str]) -> str:
         return "generator_version"
     if name in INTERNAL_VERSION_NAMES:
         return "internal_engine_version"
-    if name in RELEASE_VERSION_NAMES and path in {"Core/version.py", "Intelligence/Core/version.py"}:
+    if name in RELEASE_VERSION_NAMES and path == "Core/version.py":
         return "release_version"
     if name in {"SCOUT_VERSION"}:
         return "release_version"
@@ -556,10 +556,7 @@ def detect_version_drift(root: Path, py_files: list[Path]) -> dict[str, object]:
     preferred = [
         ("Core/version.py", "ATHENA_VERSION"),
         ("Core/version.py", "ATHENA_BUILD"),
-        ("Intelligence/Core/version.py", "ATHENA_VERSION"),
-        ("Intelligence/Core/version.py", "ATHENA_BUILD"),
         ("Core/version.py", "VERSION"),
-        ("Intelligence/Core/version.py", "VERSION"),
     ]
     for preferred_path, preferred_name in preferred:
         for item in constants:

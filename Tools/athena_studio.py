@@ -780,13 +780,17 @@ class AthenaStudio:
             return
         ok = messagebox.askyesno(
             "Apply Safe Cleanup",
-            "This applies only reproducible cache/bytecode cleanup. Root history archival remains preview-only unless a future approved workflow adds it. Continue?",
+            "This applies delete-safe cleanup plus approved consensus repository cleanup: duplicate Intelligence/Core, runtime quarantine snapshots, committed workspace state, and root release-history archival. Continue?",
             parent=self.root,
         )
         if not ok:
             self.write("Safe cleanup cancelled.\n")
             return
-        self._run_threaded("Apply Safe Cleanup", command + ["--apply-delete-safe"])
+        consensus = self._script_command("Tools/apply_consensus_repository_cleanup.py")
+        commands = [("Apply Delete-Safe Cleanup", command + ["--apply-delete-safe"])]
+        if consensus:
+            commands.append(("Apply Consensus Repository Cleanup", consensus + ["--apply"]))
+        self._run_sequence_threaded("Apply Safe Cleanup", commands)
 
     def open_audit_reports(self) -> None:
         """Open the reports area used by repository/file usefulness audits."""
@@ -917,6 +921,7 @@ class AthenaStudio:
     def validate_everything(self) -> None:
         commands = [
             ("Validate Runtime", self._script_command("Tests/validate_runtime_cleanup.py")),
+            ("Validate Consensus Repository Cleanup", self._script_command("Tests/validate_consensus_repository_cleanup.py")),
             ("Validate PIF-1", self._script_command("Tests/validate_pif1_build004.py") or self._script_command("Tests/validate_pif1_build003.py") or self._script_command("Tests/validate_pif1_build002.py") or self._script_command("Tests/validate_pif1_build001.py")),
             ("Validate Renderer Cleanup", self._script_command("Tests/validate_renderer_cleanup.py")),
             ("Validate Team Reasoning", self._script_command("Tests/validate_team_reasoning_engine.py")),
@@ -1002,6 +1007,7 @@ class AthenaStudio:
     def doctor_everything(self) -> None:
         commands = [
             ("Doctor Runtime", self._script_command("Tools/doctor_runtime_cleanup.py")),
+            ("Doctor Consensus Repository Cleanup", self._script_command("Tools/doctor_consensus_repository_cleanup.py")),
             ("Doctor PIF-1", self._script_command("Tools/doctor_pif1_build004.py") or self._script_command("Tools/doctor_pif1_build003.py") or self._script_command("Tools/doctor_pif1_build002.py") or self._script_command("Tools/doctor_pif1_build001.py")),
             ("Doctor Renderer Cleanup", self._script_command("Tools/doctor_renderer_cleanup.py")),
             ("Doctor Team Reasoning", self._script_command("Tools/doctor_team_reasoning_engine.py")),

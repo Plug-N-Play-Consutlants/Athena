@@ -1,4 +1,4 @@
-"""Doctor for v0.5.5.5.25 Release Metadata Alignment."""
+"""Doctor for v0.5.5.5.26 Consensus Repository Cleanup."""
 from __future__ import annotations
 
 import sys
@@ -32,23 +32,19 @@ def main() -> int:
             VERSION,
             VERSION_SCHEMA,
         )
-        checks.append(check("version_advanced", _version_tuple(ATHENA_VERSION) >= (0, 5, 5, 5, 25), ATHENA_VERSION))
+        checks.append(check("version_advanced", _version_tuple(ATHENA_VERSION) >= (0, 5, 5, 5, 26), ATHENA_VERSION))
         checks.append(check("build_matches_version", ATHENA_BUILD == ATHENA_VERSION, f"{ATHENA_BUILD} / {ATHENA_VERSION}"))
         checks.append(check("scout_matches_version", SCOUT_VERSION == f"v{ATHENA_VERSION}", SCOUT_VERSION))
         checks.append(check("compat_version_alias", VERSION == ATHENA_VERSION, VERSION))
         checks.append(check("schema_locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA))
         checks.append(check("release_name_available", bool(RELEASE_NAME), RELEASE_NAME))
-        checks.append(check("release_metadata_alignment", RELEASE_NAME == "Release Metadata Alignment", RELEASE_NAME))
-        checks.append(check("release_fields", (RELEASE_EPIC, RELEASE_SPRINT, RELEASE_PATCH, RELEASE_HOTFIX) == ("5", "5", "5", "25"), f"{RELEASE_EPIC}.{RELEASE_SPRINT}.{RELEASE_PATCH}.{RELEASE_HOTFIX}"))
+        checks.append(check("release_metadata_alignment", RELEASE_NAME == "Consensus Repository Cleanup", RELEASE_NAME))
+        checks.append(check("release_fields", (RELEASE_EPIC, RELEASE_SPRINT, RELEASE_PATCH, RELEASE_HOTFIX) == ("5", "5", "5", "26"), f"{RELEASE_EPIC}.{RELEASE_SPRINT}.{RELEASE_PATCH}.{RELEASE_HOTFIX}"))
     except Exception as exc:
         checks.append(check("core_version_import", False, f"{type(exc).__name__}: {exc}"))
 
-    try:
-        from Intelligence.Core.version import ATHENA_VERSION as INTELLIGENCE_CORE_VERSION, RELEASE_NAME as INTELLIGENCE_CORE_RELEASE
-        checks.append(check("intelligence_core_mirror_version", INTELLIGENCE_CORE_VERSION == "0.5.5.5.25", INTELLIGENCE_CORE_VERSION))
-        checks.append(check("intelligence_core_mirror_release", INTELLIGENCE_CORE_RELEASE == "Release Metadata Alignment", INTELLIGENCE_CORE_RELEASE))
-    except Exception as exc:
-        checks.append(check("intelligence_core_version_import", False, f"{type(exc).__name__}: {exc}"))
+    legacy_core = ROOT / "Intelligence" / "Core"
+    checks.append(check("legacy_intelligence_core_removed", not legacy_core.exists(), str(legacy_core)))
 
     for rel in [
         "Tools/doctor_runtime_orchestration_observability.py",

@@ -46,7 +46,7 @@ def main() -> int:
 
     checks.append(report("version is 0.5.2.2.1 or later", _version_at_least(ATHENA_VERSION, "0.5.2.2.1") and ATHENA_BUILD == ATHENA_VERSION, ATHENA_VERSION))
     checks.append(report("version schema locked", bool(re.fullmatch(r"\d+\.\d+\.\d+\.\d+\.\d+", ATHENA_VERSION)) and VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA))
-    checks.append(report("release metadata identifies Epic 5 Sprint 2", RELEASE_EPIC == "5" and bool(RELEASE_NAME), RELEASE_NAME))
+    checks.append(report("release metadata available", bool(RELEASE_EPIC) and bool(RELEASE_NAME), RELEASE_NAME))
 
     registry = seed_event_registry()
     checks.append(report("source registry still seeded", registry.source_count() >= 6 and len(registry.trusted_sources()) >= 5, f"sources={registry.source_count()} trusted={len(registry.trusted_sources())}"))

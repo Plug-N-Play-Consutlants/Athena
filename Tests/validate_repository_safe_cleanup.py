@@ -36,7 +36,13 @@ def main() -> int:
     studio = (ROOT / "Tools" / "athena_studio.py").read_text(encoding="utf-8", errors="ignore")
     failures += 0 if emit("studio_preview_button", "🧹 Preview Cleanup" in studio, "core workflow") else 1
     failures += 0 if emit("studio_apply_button", "✅ Apply Safe Cleanup" in studio, "core workflow") else 1
-    failures += 0 if emit("studio_open_report_button", "📄 Open Cleanup Report" in studio, "core workflow") else 1
+    consolidated_report_access = any(marker in studio for marker in (
+        "📄 Open Cleanup Report",
+        "📂 Open Reports",
+        "open_repository_cleanup_report",
+        "open_reports_folder",
+    ))
+    failures += 0 if emit("studio_report_access", consolidated_report_access, "core workflow or consolidated reports") else 1
     failures += 0 if emit("verify_build_includes_cleanup_validator", "Validate Repository Safe Cleanup" in studio, "Verify Build") else 1
     failures += 0 if emit("verify_build_includes_cleanup_doctor", "Doctor Repository Safe Cleanup" in studio, "Verify Build") else 1
 

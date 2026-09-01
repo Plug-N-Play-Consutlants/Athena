@@ -9,8 +9,9 @@ provider, build, knowledge, or intelligence modules directly.
 from Athena.connect import connect_fantrax, connect_provider, infer_fantrax_context, infer_provider_context
 from Athena.exceptions import AthenaConfigurationError, AthenaError, AthenaNotImplementedError
 from Athena.orchestrator import AthenaOrchestrator, ask, connect, status, sync, workspace
+from Core.version import ATHENA_VERSION
 
-__version__ = "0.5.1.3.0"
+__version__ = ATHENA_VERSION
 
 __all__ = [
     "AthenaOrchestrator",

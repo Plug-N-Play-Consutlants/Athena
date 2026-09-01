@@ -19,7 +19,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from Core.version import ATHENA_VERSION, SCOUT_VERSION, ENGINE_LABEL  # noqa: E402
 from Athena.workspace import load_workspace, secrets_status  # noqa: E402
 
-VERSION = "0.5.0-drop3g3"
+VERSION = ATHENA_VERSION
 PLACEHOLDER_IDS = {
     "validation_league_id",
     "test_league_id_provider_registry",

@@ -1,0 +1,3 @@
+# AthenaEngine runtime dependencies
+# Keep this file synchronized with pyproject.toml until packaging is fully locked.
+requests>=2.31,<3

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "athenaengine"
+version = "0.5.6.2.6"
+description = "AthenaEngine deterministic sports intelligence platform."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31,<3",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[tool.setuptools]
+packages = [
+    "Athena",
+    "Core",
+    "Diagnostics",
+    "Engine",
+    "Intelligence",
+    "Knowledge",
+    "Providers",
+    "Reasoning",
+    "Scout",
+    "Sports",
+]
+
+[tool.athena]
+build = "0.5.6.2.6"
+release_name = "Release Hygiene Foundation"
+version_schema = "major.epic.sprint.patch.hotfix"
+studio_first = true

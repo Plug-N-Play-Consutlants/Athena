@@ -1,4 +1,21 @@
+
+## v0.6.4.0.0 — Adaptive Investigation Strategy Foundation
+
+- Added intent-aware investigation strategies separating concise updates from rich profiles/comparisons/deep analysis/advisory experiences.
+- Added bounded working investigation state scaffolding.
+- Added context priority and composition contracts.
+- Extended module insertion contracts with capability-token discovery and resolution.
+- Added adaptive investigation diagnostics, validator, and doctor.
+- Preserved existing Scout response behavior in this foundation build; runtime wiring follows through registry/orchestration seams rather than renderer rewrites.
+
 # Changelog
+
+## v0.6.3.0.0 — Foundational Governance and Module Adaptivity
+
+- Added permanent Athena Foundation documents for constitution, manifesto, intelligence model, Scout principles, engineering principles, product vision, roadmap, and decision records.
+- Added module insertion contracts for insertion-adaptive intelligence expansion.
+- Advanced release metadata to `0.6.3.0.0`.
+
 
 ## v0.5.3.1.3 — Event Registry Normalizer + Studio Scrollbar Hotfix
 
@@ -165,3 +182,10 @@ This sprint does not add product UX. It provides a developer validation checkpoi
 - Established organizational-impact planning for prompts such as "How does Gavin McKenna improve the Leafs?" so entities become inputs to analysis rather than routing destinations.
 - Added validation coverage in `Tests/validate_intent_classification_foundation_v056000.py`.
 - Updated core version metadata to `0.5.6.0.0`.
+
+## 0.6.4.1.0 — Adaptive Investigation Runtime Integration
+- Makes investigation strategy consumable at runtime through a shared bridge.
+- Adds entity-safe graceful fallback from unavailable live evidence to the most recent trustworthy relevant evidence.
+- Adds freshness metadata and explicit fallback limitations.
+- Adds bounded session investigation continuation while preserving rich profile/comparison output contracts.
+- Adds Sports Ecosystem Investigative Intelligence to future roadmap objectives.

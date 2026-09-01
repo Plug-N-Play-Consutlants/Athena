@@ -317,6 +317,31 @@ INDEX_HTML = r'''<!doctype html>
     .action-note { margin-top:8px; color:var(--warn); font-size:11px; font-weight:700; }
     .card .label { color:var(--muted); font-size:12px; margin-bottom:6px; }
     .card .value { font-size:22px; font-weight:700; }
+
+    .experience { margin:16px 0 18px; border:1px solid var(--line); border-radius:18px; overflow:hidden; background:#11141b; }
+    .player-header { display:grid; grid-template-columns:92px 1fr; gap:16px; padding:18px; align-items:center; border-bottom:1px solid var(--line); }
+    .player-photo { width:92px; height:92px; border-radius:16px; background:var(--panel2); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; overflow:hidden; color:var(--muted); font-weight:800; font-size:24px; }
+    .player-photo img { width:100%; height:100%; object-fit:cover; display:block; }
+    .player-name { font-size:28px; font-weight:800; letter-spacing:-0.03em; margin-bottom:4px; }
+    .player-meta { color:var(--muted); font-size:14px; margin-bottom:10px; }
+    .badges { display:flex; flex-wrap:wrap; gap:6px; }
+    .badge { border:1px solid rgba(246,207,143,.45); color:var(--warn); border-radius:999px; padding:5px 9px; font-size:11px; font-weight:800; letter-spacing:.04em; }
+    .stat-boxes { display:grid; grid-template-columns:repeat(auto-fit,minmax(92px,1fr)); gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); }
+    .stat-box { background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .stat-box .stat-label { color:var(--muted); font-size:12px; margin-bottom:5px; }
+    .stat-box .stat-value { font-size:22px; font-weight:800; }
+    .experience-tabs { display:flex; gap:8px; padding:12px 18px 0; }
+    .experience-tab-button { background:transparent; color:var(--text); border-color:var(--line); border-radius:999px; padding:8px 12px; font-size:13px; }
+    .experience-tab-button.active { background:var(--accent); color:#10131a; }
+    .experience-tab-panel { display:none; padding:16px 18px 18px; }
+    .experience-tab-panel.active { display:block; }
+    .experience-section { margin:0 0 14px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,.06); }
+    .experience-section:last-child { border-bottom:0; margin-bottom:0; padding-bottom:0; }
+    .experience-section-title { color:#dbe3f1; text-transform:uppercase; letter-spacing:.08em; font-size:12px; font-weight:800; margin-bottom:6px; }
+    .stats-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+    .stats-table th, .stats-table td { border-bottom:1px solid var(--line); padding:8px; text-align:left; }
+    .stats-table th { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.06em; }
+    .experience-fallback { color:var(--muted); font-size:13px; padding:12px 18px 18px; }
     h3 { margin:18px 0 8px; font-size:15px; color:#dbe3f1; text-transform:uppercase; letter-spacing:.08em; }
     ul { margin:8px 0 0 20px; padding:0; }
     li { margin:7px 0; line-height:1.4; }
@@ -547,6 +572,110 @@ function isPublicLikeMode() {
   return !isDeveloperModeActive();
 }
 
+
+function findExperienceSection(answer, type) {
+  const ar = answer && answer.athena_response;
+  const sections = ar && Array.isArray(ar.ui_sections) ? ar.ui_sections : [];
+  return sections.find(s => s && s.section_type === type) || null;
+}
+
+function renderPlayerPhoto(identity) {
+  const name = String((identity && identity.full_name) || 'Player');
+  const initials = name.split(/\s+/).filter(Boolean).slice(0,2).map(part => part[0]).join('').toUpperCase() || '#';
+  const url = String((identity && identity.photo_url) || '').trim();
+  if (url) return `<div class="player-photo"><img src="${esc(url)}" alt="${esc(name)} photo" onerror="this.parentElement.textContent='${esc(initials)}'; this.remove();"></div>`;
+  return `<div class="player-photo" aria-label="Photo unavailable">${esc(initials)}</div>`;
+}
+
+function renderStatBoxes(boxes) {
+  const list = Array.isArray(boxes) ? boxes : [];
+  const byLabel = {};
+  list.forEach(box => { if (box && box.label) byLabel[String(box.label)] = box; });
+  const ordered = ['Goals', 'Assists', 'Points', 'P/GP', '+/-'].map(label => byLabel[label] || {label, value:'—'});
+  return `<div class="stat-boxes">${ordered.map(box => `<div class="stat-box"><div class="stat-label">${esc(box.label || '')}</div><div class="stat-value">${esc(box.value || '—')}</div></div>`).join('')}</div>`;
+}
+
+function renderStatsTable(rows) {
+  const data = Array.isArray(rows) ? rows : [];
+  if (!data.length) return '<div class="experience-fallback">Multi-season statistics are not available from the current evidence pack yet.</div>';
+  const keys = ['season','team','gp','g','a','pts','ppg','plus_minus'];
+  const labels = ['Season','Team','GP','G','A','PTS','P/GP','+/-'];
+  const note = data.length === 1 ? '<div class="experience-fallback">Current-season evidence only. Multi-season rows are not attached yet.</div>' : '';
+  return `${note}<table class="stats-table"><thead><tr>${labels.map(label => `<th>${esc(label)}</th>`).join('')}</tr></thead><tbody>${data.map(row => `<tr>${keys.map(key => `<td>${esc(row && row[key] !== undefined ? row[key] : '')}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+function switchExperienceTab(rootId, tabName) {
+  const root = document.getElementById(rootId);
+  if (!root) return;
+  root.querySelectorAll('.experience-tab-button').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
+  root.querySelectorAll('.experience-tab-panel').forEach(panel => panel.classList.toggle('active', panel.dataset.tab === tabName));
+}
+
+function renderCurrentAssessment(assessment) {
+  const entries = Object.entries(assessment || {}).filter(([key, value]) => value !== null && value !== undefined && String(value).trim() !== '');
+  if (!entries.length) return 'Assessment pending.';
+  return entries.map(([key, value]) => {
+    const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    return `<span class="assessment-pill"><strong>${esc(label)}:</strong> ${esc(value)}</span>`;
+  }).join(' ');
+}
+
+function renderExperienceEvidencePanel(answer, playerData) {
+  const panel = findExperienceSection(answer, 'expandable_evidence_panel');
+  const pdata = (panel && panel.data) || {};
+  const coverage = playerData && playerData.coverage ? playerData.coverage : (pdata.current_coverage || {});
+  const current = Array.isArray(coverage.current) ? coverage.current : (Array.isArray(pdata.evidence_used) ? pdata.evidence_used : []);
+  const planned = Array.isArray(coverage.planned) ? coverage.planned : [];
+  const limits = Array.isArray(pdata.limitations) ? pdata.limitations : [];
+  if (!current.length && !planned.length && !limits.length) return '';
+  const currentHtml = current.length ? `<div><strong>Evidence Used</strong><ul>${current.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>` : '';
+  const plannedHtml = planned.length ? `<div><strong>Current Coverage</strong><ul>${planned.map(item => `<li>Future: ${esc(item)}</li>`).join('')}</ul></div>` : '';
+  const limitsHtml = limits.length ? `<div><strong>Coverage Notes</strong><ul>${limits.map(item => `<li>${esc(item)}</li>`).join('')}</ul></div>` : '';
+  return `<details class="experience-evidence"><summary>Evidence & Coverage</summary>${currentHtml}${plannedHtml}${limitsHtml}</details>`;
+}
+
+function renderExperience(answer) {
+  const player = findExperienceSection(answer, 'player_experience');
+  if (!player) return '';
+  const data = player.data || {};
+  const identity = data.identity || {};
+  const rootId = 'experience_' + Math.random().toString(36).slice(2);
+  const number = identity.jersey_number ? `#${identity.jersey_number}` : '#—';
+  const meta = [number, identity.position || 'Position —', identity.team || 'Team —'].filter(Boolean).join(' • ');
+  const badges = Array.isArray(identity.assessment_badges) && identity.assessment_badges.length ? identity.assessment_badges.slice(0,3) : ['Assessment Pending'];
+  const tabs = Array.isArray(player.children) ? player.children : [];
+  const analysis = tabs.find(t => t && t.title === 'Analysis') || null;
+  const stats = tabs.find(t => t && t.title === 'Stats') || null;
+  const analysisSections = analysis && Array.isArray(analysis.children) ? analysis.children : [];
+  const statsData = (stats && stats.data) || {};
+  const contractLine = identity.contract ? `<div class="identity-extra"><strong>Contract:</strong> ${esc(identity.contract)}</div>` : '';
+  const evidencePanel = renderExperienceEvidencePanel(answer, data);
+  return `<section class="experience" id="${rootId}">
+    <div class="player-header">
+      ${renderPlayerPhoto(identity)}
+      <div>
+        <div class="player-name">${esc(identity.full_name || player.title || 'Player')}</div>
+        <div class="player-meta">${esc(meta)}</div>
+        <div class="badges">${badges.map(b => `<span class="badge">${esc(b)}</span>`).join('')}</div>
+        ${contractLine}
+      </div>
+    </div>
+    ${renderStatBoxes(data.stat_boxes)}
+    <div class="experience-tabs">
+      <button type="button" class="experience-tab-button active" data-tab="Analysis" onclick="switchExperienceTab('${rootId}', 'Analysis')">Analysis</button>
+      <button type="button" class="experience-tab-button" data-tab="Stats" onclick="switchExperienceTab('${rootId}', 'Stats')">Stats</button>
+    </div>
+    <div class="experience-tab-panel active" data-tab="Analysis">${analysisSections.map(sec => `<div class="experience-section"><div class="experience-section-title">${esc(sec.title || '')}</div><div>${esc(sec.summary || 'No section detail available yet.')}</div></div>`).join('')}</div>
+    <div class="experience-tab-panel" data-tab="Stats">
+      <div class="experience-section"><div class="experience-section-title">Athena Insight</div><div>${esc(statsData.athena_insight || player.summary || 'No insight available yet.')}</div></div>
+      <div class="experience-section"><div class="experience-section-title">Trend Summary</div><div>${esc(statsData.trend_summary || 'Trend summary is pending richer historical statistics.')}</div></div>
+      <div class="experience-section"><div class="experience-section-title">Current Assessment</div><div>${renderCurrentAssessment(statsData.current_assessment || {})}</div></div>
+      <div class="experience-section"><div class="experience-section-title">Season Statistics</div>${renderStatsTable(statsData.season_statistics)}</div>
+    </div>
+    ${evidencePanel}
+  </section>`;
+}
+
 function renderAnswer(answer, userText=null) {
   const developerActive = isDeveloperModeActive();
   const developerVisible = developerActive;
@@ -586,7 +715,8 @@ function renderAnswer(answer, userText=null) {
   const confidence = (developerActive && answer.confidence !== null && answer.confidence !== undefined) ? `<div class="confidence">Confidence: ${esc(answer.confidence)}</div>` : '';
   const natural = publicText || answer.natural_language_response || answer.response_text || answer.scout_message || '';
   const displayText = natural; // compatibility marker: canonical public text selected after diagnostic gating
-  const naturalBlock = natural ? `<div class="answer-copy">${esc(natural)}</div>` : '';
+  const experienceBlock = renderExperience(answer);
+  const naturalBlock = (natural && !experienceBlock) ? `<div class="answer-copy">${esc(natural)}</div>` : '';
   const conclusionText = answer.engine_conclusion || '';
   const conclusionIsRedundant = natural && conclusionText && natural.toLowerCase().includes(String(conclusionText).toLowerCase().slice(0, 120));
   const conclusionBlock = (developerActive && conclusionText && !conclusionIsRedundant) ? `<h3>Engine Conclusion</h3><div>${esc(conclusionText || 'No conclusion available.')}</div>` : '';
@@ -594,7 +724,7 @@ function renderAnswer(answer, userText=null) {
   const rawPayload = answer.raw_reasoning_output || (answer.developer && answer.developer.raw_reasoning_output) || '';
   const rawReasoning = (developerActive && rawPayload) ? `<details class="raw-reasoning"><summary>Developer / Raw Reasoning Output</summary><pre>${esc(rawPayload)}</pre></details>` : '';
   const you = userText ? `<div class="you chat-turn"><strong>You:</strong> ${esc(userText)}</div>` : '';
-  conversation.insertAdjacentHTML('beforeend', `${you}<article class="answer chat-turn"><h2>${esc(answer.title || 'Scout response')}</h2>${confidence}${naturalBlock}${(developerActive && cards) ? `<div class="cards">${cards}</div>` : ''}${sourceLinks}${conclusionBlock}${diag}${facts ? `<h3>Observed Facts</h3><ul>${facts}</ul>` : ''}${limits ? `<h3>Known Limitations</h3><ul>${limits}</ul>` : ''}${rawReasoning}${developer}</article>`);
+  conversation.insertAdjacentHTML('beforeend', `${you}<article class="answer chat-turn"><h2>${esc(answer.title || 'Scout response')}</h2>${confidence}${experienceBlock}${naturalBlock}${(developerActive && cards) ? `<div class="cards">${cards}</div>` : ''}${sourceLinks}${conclusionBlock}${diag}${facts ? `<h3>Observed Facts</h3><ul>${facts}</ul>` : ''}${limits ? `<h3>Known Limitations</h3><ul>${limits}</ul>` : ''}${rawReasoning}${developer}</article>`);
   const last = conversation.lastElementChild;
   if (last) last.scrollIntoView({behavior:'smooth', block:'end'});
 }

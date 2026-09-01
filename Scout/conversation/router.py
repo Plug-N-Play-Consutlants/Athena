@@ -56,6 +56,28 @@ def _looks_like_league_intent(q: str) -> bool:
     return any(item in text for item in direct) or bool(LEAGUE_INTENT_RE.search(text))
 
 
+
+def _looks_like_public_sports_context(q: str) -> bool:
+    text = (q or "").strip().lower()
+    if not text:
+        return False
+    public_terms = [
+        "nhl", "maple leafs", "leafs", "toronto maple", "stanley cup", "salary cap", "salary-cap",
+        "competitive window", "roster construction", "player development", "gavin mckenna", "mckenna",
+        "nhl draft", "connor mcdavid", "nathan mackinnon", "connor bedard",
+    ]
+    fantasy_terms = ["my league", "my roster", "my team", "fantrax", "keeper", "keepers", "manager", "managers", "points-only", "points only"]
+    return any(term in text for term in public_terms) and not any(term in text for term in fantasy_terms)
+
+
+def _should_route_to_fantasy_league(question: str, selected_mode: str) -> bool:
+    text = (question or "").strip().lower()
+    if not _looks_like_league_intent(text):
+        return False
+    if selected_mode == "public" and _looks_like_public_sports_context(text):
+        return False
+    return selected_mode != "public" or any(term in text for term in ["my league", "my roster", "my team", "fantrax", "keeper", "keepers", "manager", "managers"])
+
 def _normalise_player_prompt(question: str) -> str:
     """Strip conversational wrappers while preserving the likely player name.
 
@@ -163,6 +185,12 @@ try:
 except Exception:  # pragma: no cover - context intelligence is optional during partial installs
     infer_evaluation_profile = None  # type: ignore
     apply_context_profile = None  # type: ignore
+
+try:
+    from Scout.conversation.orchestration import scout_intent_plan, scout_orchestrated_answer
+except Exception:  # pragma: no cover - orchestration is additive
+    scout_intent_plan = None  # type: ignore
+    scout_orchestrated_answer = None  # type: ignore
 
 
 def _money(value: Any) -> str:
@@ -1436,6 +1464,10 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     raw_question = (question or "").strip()
     q = raw_question.lower()
     selected_mode = (mode or "fantasy").strip().lower()
+    # Prompt semantics must outrank stale UI/provider state. Public NHL prompts
+    # cannot inherit fantasy mode just because the previous request used Fantrax.
+    if _looks_like_public_sports_context(raw_question):
+        selected_mode = "public"
 
     if not q:
         return help_response(ctx, question)
@@ -1444,12 +1476,20 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if any(term in q for term in diagnostic_terms):
         return _diagnostic_runtime_answer(ctx, raw_question, selected_mode)
 
+    orchestration_plan = scout_intent_plan(raw_question, selected_mode) if scout_intent_plan is not None else None
+    if orchestration_plan is not None and getattr(orchestration_plan, "route", "") == "live_event_intelligence":
+        return _live_events_answer(ctx, raw_question, selected_mode)
+    if scout_orchestrated_answer is not None:
+        orchestrated = scout_orchestrated_answer(ctx, raw_question, selected_mode)
+        if orchestrated is not None:
+            return orchestrated
+
     if is_recent_event_query is not None and is_recent_event_query(raw_question):
         return _live_events_answer(ctx, raw_question, selected_mode)
 
     # League/team intent must win before player routing. This prevents prompts
     # such as "Analyze my league" from being treated as a failed player lookup.
-    if _looks_like_league_intent(raw_question):
+    if _should_route_to_fantasy_league(raw_question, selected_mode):
         return analyze_league(ctx)
 
     if any(term in q for term in ["most active", "active managers", "aggressive managers", "who is active", "who are active"]):

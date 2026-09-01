@@ -29,18 +29,24 @@ REQUIRED_SYMBOLS = {
     "_open_folder",
 }
 REQUIRED_VISIBLE_ACTIONS = {
-    "🔁 Relaunch Studio",
-    "🔄 Reload Build",
     "🧪 Verify Build",
     "🧭 Acceptance Explorer",
     "🔎 Repository Audit",
+    "🧾 Review Shims/Duplicates",
+    "🔐 Lock Repo Decisions",
+    "🧱 Release Hygiene",
     "🧹 Preview Cleanup",
     "✅ Apply Safe Cleanup",
-    "📄 Open Cleanup Report",
     "📁 Export Logs",
     "📂 Open Reports",
 }
-HIDDEN_TOOL_MARKERS = {"Developer Validators", "Developer Doctors & Tools", "developer_panel.pack_forget"}
+HIDDEN_TOOL_MARKERS = {"Developer Validation", "Developer Diagnostics", "developer_panel.pack_forget"}
+FORBIDDEN_BUTTON_WALL_ACTIONS = {
+    "✅ Runtime", "✅ PIF", "✅ Events", "✅ Connectors",
+    "✅ Capability Audit", "✅ Evidence Audit", "✅ Composition Audit",
+    "🩺 Capability Audit", "🩺 Evidence Audit", "🩺 Composition Audit",
+    "🩺 Repository Review", "🩺 Decision Lock",
+}
 
 
 def report(name: str, ok: bool, detail: str = "") -> bool:
@@ -64,7 +70,10 @@ def main() -> int:
     order = [toolbar_block.find("🔁 Relaunch Studio"), toolbar_block.find("🔄 Reload Build"), toolbar_block.find("▶ Launch Scout")]
     checks.append(report("toolbar begins with relaunch/reload controls", all(pos >= 0 for pos in order) and order == sorted(order), "Relaunch Studio → Reload Build → Launch Scout"))
     checks.append(report("developer tools hidden by default", HIDDEN_TOOL_MARKERS.issubset(set(m for m in HIDDEN_TOOL_MARKERS if m in text)), "developer panel retained but collapsed"))
-    checks.append(report("legacy button wall removed from default surface", 'Repository", [' not in text and 'Diagnostics", [' not in text and "Sync Providers" not in text, "repository/diagnostic tiles moved out of default view"))
+    dev_block = text[text.index("def _build_developer_panel"):text.index("def _toggle_developer_mode")]
+    leaked = sorted(label for label in FORBIDDEN_BUTTON_WALL_ACTIONS if label in dev_block)
+    checks.append(report("developer button wall suppressed", not leaked, ", ".join(leaked)))
+    checks.append(report("legacy button wall removed from default surface", "Sync Providers" not in text and "Build Knowledge" not in text, "repository/diagnostic tiles moved out of default view"))
     checks.append(report("Studio output scrollbar retained", "output_scrollbar" in text and "yscrollcommand" in text, "scrollbar compatibility"))
     checks.append(report("diagnostics export retained", "def export_diagnostics_logs" in text and "diagnostics_export_" in text and "_open_folder" in text, "folder-first diagnostics workflow"))
     from Core.version import ATHENA_BUILD, ATHENA_VERSION, RELEASE_NAME, VERSION_SCHEMA

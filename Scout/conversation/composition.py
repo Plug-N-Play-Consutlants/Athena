@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Iterable, List
 
+from Experience.renderer import attach_experience_contract
+
 PUBLIC_TEXT_KEYS = ("natural_language_response", "public_comment", "response_text", "scout_message", "engine_conclusion")
 DIAGNOSTIC_KEYS = ("engine_conclusion", "observed_facts", "known_limitations", "raw_reasoning_output", "developer", "operation_result")
 
@@ -168,13 +170,13 @@ def compose_answer_payload(answer: Dict[str, Any]) -> Dict[str, Any]:
     """Return an answer with explicit public and diagnostic surfaces."""
     if not isinstance(answer, dict):
         public_text = _clean_public_text(answer)
-        return {
+        return attach_experience_contract({
             "title": "Scout response",
             "public_comment": public_text,
             "natural_language_response": public_text,
             "diagnostics": {},
-            "display_contract": "public_comment_only",
-        }
+            "display_contract": "athena_response",
+        })
 
     diagnostics = {
         "engine_conclusion": _clean_text(answer.get("engine_conclusion")),
@@ -194,9 +196,9 @@ def compose_answer_payload(answer: Dict[str, Any]) -> Dict[str, Any]:
     composed["response_text"] = public_comment
     composed["scout_message"] = public_comment
     composed["diagnostics"] = diagnostics
-    composed["display_contract"] = "public_comment_only"
+    composed["display_contract"] = "athena_response"
     composed["diagnostic_keys"] = list(DIAGNOSTIC_KEYS)
-    return composed
+    return attach_experience_contract(composed)
 
 
 def public_debug_summary(answer: Dict[str, Any]) -> Dict[str, Any]:

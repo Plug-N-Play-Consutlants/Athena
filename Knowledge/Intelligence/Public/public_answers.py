@@ -13,6 +13,50 @@ from Knowledge.Intelligence.Entities.entity_registry import PublicEntity
 from Knowledge.Intelligence.Public.public_player_profiles import PublicPlayerProfile, profile_for_entity
 from Knowledge.Intelligence.Public.public_team_profiles import PublicTeamProfile, profile_for_team_entity
 from Scout.conversation.responses import developer_info, response
+from Experience.renderer import attach_experience_contract
+
+
+PUBLIC_PLAYER_EXPERIENCE_SEED = {
+    "nhl.player.auston_matthews": {
+        "jersey_number": "34",
+        "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8479318.png",
+        "stats": {"goals": "27", "assists": "26", "points": "53", "ppg": "0.883", "+/-": "--"},
+        "season_statistics": [{"season": "2025-26", "team": "TOR", "gp": "60", "g": "27", "a": "26", "pts": "53", "ppg": "0.883", "plus_minus": "--"}],
+    },
+    "nhl.player.connor_mcdavid": {
+        "jersey_number": "97",
+        "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8478402.png",
+        "stats": {"goals": "48", "assists": "90", "points": "138", "ppg": "1.683", "+/-": "—"},
+        "season_statistics": [{"season": "Current", "team": "EDM", "gp": "82", "g": "48", "a": "90", "pts": "138", "ppg": "1.683", "plus_minus": "—"}],
+    },
+    "nhl.player.nathan_mackinnon": {"jersey_number": "29", "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8477492.png", "stats": {}, "season_statistics": []},
+    "nhl.player.sidney_crosby": {"jersey_number": "87", "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8471675.png", "stats": {}, "season_statistics": []},
+    "nhl.player.leon_draisaitl": {"jersey_number": "29", "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8477934.png", "stats": {}, "season_statistics": []},
+    "nhl.player.cale_makar": {"jersey_number": "8", "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8480069.png", "stats": {}, "season_statistics": []},
+    "nhl.player.connor_bedard": {"jersey_number": "98", "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8484144.png", "stats": {}, "season_statistics": []},
+    "nhl.player.alex_ovechkin": {"jersey_number": "8", "photo_url": "https://assets.nhle.com/mugs/nhl/latest/8471214.png", "stats": {}, "season_statistics": []},
+}
+
+
+def _player_experience_seed(profile: PublicPlayerProfile) -> Dict[str, object]:
+    return dict(PUBLIC_PLAYER_EXPERIENCE_SEED.get(profile.entity_id, {}))
+
+
+def _player_payload(profile: PublicPlayerProfile) -> Dict[str, object]:
+    seed = _player_experience_seed(profile)
+    return {
+        "full_name": profile.display_name,
+        "name": profile.display_name,
+        "jersey_number": str(seed.get("jersey_number") or ""),
+        "team": profile.team,
+        "position": profile.position,
+        "photo_url": str(seed.get("photo_url") or ""),
+        "status": "",
+        "draft": profile.draft,
+        "height": profile.physical_profile.split(" center", 1)[0] if profile.physical_profile and "foot" in profile.physical_profile else "",
+        "nationality": profile.nationality,
+        "role": profile.role,
+    }
 
 
 def _entity_label(entity: PublicEntity) -> str:
@@ -101,8 +145,8 @@ def _set_public_surface(answer: Dict[str, object], text: str) -> Dict[str, objec
     answer["natural_language_response"] = public
     answer["response_text"] = public
     answer["scout_message"] = public
-    answer["display_contract"] = "public_comment_only"
-    return answer
+    answer["display_contract"] = "athena_response"
+    return attach_experience_contract(answer)
 
 
 def _publicize_brief_text(text: str) -> str:
@@ -129,6 +173,35 @@ def _publicize_brief_text(text: str) -> str:
     return text
 
 
+
+def _public_limitations(items: List[Any]) -> List[str]:
+    public: List[str] = []
+    replacements = {
+        "Player Intelligence 4B.1 does not yet evaluate line deployment, power-play role, injuries, schedule strength, or future projection curves.": "Line deployment, power-play role, injury context, schedule strength, and projection curves are not fully attached to this player view yet.",
+        "PIF Build 004 does not yet ingest live injuries, teammate deployment, or current official game logs automatically.": "Live injuries, teammate deployment, and official game-log feeds are not fully attached to this answer path yet.",
+    }
+    for item in items:
+        text = str(item or "").strip()
+        if not text:
+            continue
+        text = replacements.get(text, text)
+        text = re.sub(r"\b(Player Intelligence|PIF Build|Build \d+|drop\w+)\b[^.]*", "the current public evidence path", text).strip()
+        if text and text not in public:
+            public.append(text)
+    return public
+
+
+
+def _ordinal_pick(value: str) -> str:
+    try:
+        n = int(str(value).strip())
+    except (TypeError, ValueError):
+        return str(value).strip()
+    if 10 <= n % 100 <= 20:
+        suffix = "th"
+    else:
+        suffix = {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
 
 
 def _fmt_number(value: Any, places: int = 3) -> str:
@@ -176,7 +249,14 @@ def _compose_public_player_copy(profile: PublicPlayerProfile, question: str, fal
         opening_bits.append(profile.role)
     opening = f"{profile.display_name} is {profile.role}." if profile.role else f"{profile.display_name} is a {profile.position} for {profile.team}."
     if profile.draft:
-        opening = f"{profile.display_name} entered the NHL as the {profile.draft} and has developed into {profile.role}."
+        draft_text = profile.draft
+        match = re.match(r"(\d{4}) NHL Draft, (\d+)(?:st|nd|rd|th)? overall, (.+)", draft_text)
+        if match:
+            year, pick, team = match.groups()
+            draft_text = f"the {_ordinal_pick(pick)} overall pick in the {year} NHL Draft by {team}"
+        else:
+            draft_text = "the " + draft_text
+        opening = f"{profile.display_name} entered the NHL as {draft_text} and has developed into {profile.role}."
 
     paragraphs: List[str] = [opening]
 
@@ -193,7 +273,10 @@ def _compose_public_player_copy(profile: PublicPlayerProfile, question: str, fal
     if profile.physical_profile:
         style = f"{profile.physical_profile} His playing profile is built around {profile.style}" if profile.style else profile.physical_profile
     if style:
-        paragraphs.append(style.rstrip(".") + ".")
+        clean_style = style.rstrip(".").strip()
+        if clean_style and clean_style[0].islower():
+            clean_style = clean_style[0].upper() + clean_style[1:]
+        paragraphs.append(clean_style + ".")
 
     prod = _production_sentence(evaluation)
     if prod:
@@ -407,12 +490,20 @@ def player_profile_answer(ctx, profile: PublicPlayerProfile, question: str) -> D
     if profile.awards:
         observed.append("Awards/legacy signals: " + ", ".join(profile.awards) + ".")
 
+    seed = _player_experience_seed(profile)
+    player_payload = _player_payload(profile)
+    seeded_stats = seed.get("stats") if isinstance(seed.get("stats"), dict) else {}
     cards = [
         {"label": "Player", "value": profile.display_name},
+        {"label": "Number", "value": player_payload.get("jersey_number", "")},
         {"label": "Team", "value": profile.team},
         {"label": "Position", "value": profile.position},
         {"label": "Public value", "value": profile.public_value},
     ]
+    for label, key in [("Goals", "goals"), ("Assists", "assists"), ("Points", "points"), ("P/GP", "ppg"), ("+/-", "+/-")]:
+        value = seeded_stats.get(key) if isinstance(seeded_stats, dict) else ""
+        if value:
+            cards.append({"label": label, "value": str(value)})
 
     if brief:
         title = brief.get("title") or f"{profile.display_name} — {profile.position} / {profile.team}"
@@ -429,8 +520,8 @@ def player_profile_answer(ctx, profile: PublicPlayerProfile, question: str) -> D
             "reasoning_reintegration",
         ]
         missing = (evaluation or {}).get("developer", {}).get("missing", []) if isinstance(evaluation, dict) else []
-        known_limits = list((evaluation or {}).get("limitations") or []) if isinstance(evaluation, dict) else []
-        known_limits.extend(profile.known_limitations)
+        known_limits = _public_limitations(list((evaluation or {}).get("limitations") or []) if isinstance(evaluation, dict) else [])
+        known_limits.extend(_public_limitations(profile.known_limitations))
     else:
         title = f"{profile.display_name} — {profile.position} / {profile.team}"
         confidence = 0.80
@@ -438,7 +529,7 @@ def player_profile_answer(ctx, profile: PublicPlayerProfile, question: str) -> D
         natural = _compose_public_player_copy(profile, question, fallback=conclusion, evaluation=evaluation)
         intelligence_used = ["pif_public_profile_answer", "seed_profile_fallback"]
         missing = ["local_player_reasoning_match"]
-        known_limits = list(profile.known_limitations) + ["PIF public seed profile used because full local player reasoning was unavailable for this entity."]
+        known_limits = _public_limitations(list(profile.known_limitations)) + ["This public profile is using seeded evidence because deeper local player reasoning was unavailable for this entity."]
 
     answer = response(
         intent="public_player_profile",
@@ -463,15 +554,21 @@ def player_profile_answer(ctx, profile: PublicPlayerProfile, question: str) -> D
             missing=missing,
         ),
     )
-    _set_public_surface(answer, natural)
+    answer["player"] = player_payload
+    answer["jersey_number"] = player_payload.get("jersey_number", "")
+    answer["photo_url"] = player_payload.get("photo_url", "")
+    answer["stats"] = seeded_stats
+    answer["season_statistics"] = seed.get("season_statistics") if isinstance(seed.get("season_statistics"), list) else []
+    answer = _set_public_surface(answer, natural)
     answer["developer"]["public_player_profile"] = profile.to_dict()
+    answer["developer"]["player_experience_seed"] = seed
     if isinstance(evaluation, dict):
         answer["developer"]["player_evaluation"] = evaluation
     if assessment is not None:
         answer["developer"]["reasoning_assessment"] = assessment.as_dict() if hasattr(assessment, "as_dict") else str(assessment)
     if brief:
         answer["developer"]["executive_brief"] = brief
-    return answer
+    return attach_experience_contract(answer)
 
 
 def team_profile_answer(ctx, profile: PublicTeamProfile, question: str) -> Dict[str, object]:

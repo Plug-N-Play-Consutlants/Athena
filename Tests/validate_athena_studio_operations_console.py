@@ -30,27 +30,41 @@ REQUIRED_MARKERS = [
     "Athena Studio Core Workflow Console",
     "Core Workflow",
     "Developer Mode",
-    "default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs",
+    "default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs",
 ]
 DEFAULT_ACTIONS = [
-    "🔁 Relaunch Studio",
-    "🔄 Reload Build",
     "🧪 Verify Build",
     "🧭 Acceptance Explorer",
     "🔎 Repository Audit",
+    "🧾 Review Shims/Duplicates",
+    "🔐 Lock Repo Decisions",
+    "🧱 Release Hygiene",
     "🧹 Preview Cleanup",
     "✅ Apply Safe Cleanup",
-    "📄 Open Cleanup Report",
     "📁 Export Logs",
     "📂 Open Reports",
 ]
 DEVELOPER_ACTIONS = [
-    "Developer Validators",
-    "Developer Doctors & Tools",
-    "✅ Runtime",
-    "🩺 Repository",
-    "📜 Scout Log",
+    "Developer Validation",
+    "Developer Diagnostics",
+    "✅ Validate Everything",
+    "🩺 Doctor Everything",
+    "🩺 Studio Health",
     "📁 Export Diagnostics Logs",
+]
+FORBIDDEN_BUTTON_WALL_ACTIONS = [
+    "✅ Runtime",
+    "✅ PIF",
+    "✅ Events",
+    "✅ Connectors",
+    "✅ Capability Audit",
+    "✅ Evidence Audit",
+    "✅ Composition Audit",
+    "🩺 Capability Audit",
+    "🩺 Evidence Audit",
+    "🩺 Composition Audit",
+    "🩺 Repository Review",
+    "🩺 Decision Lock",
 ]
 REMOVED_DEFAULT_SURFACE = [
     "Sync Providers",
@@ -129,6 +143,12 @@ def main() -> int:
             failures.append("Missing Developer Mode actions: " + ", ".join(missing_dev))
         else:
             print(f"[PASS] Developer Mode actions present: {len(DEVELOPER_ACTIONS)}")
+        build_dev = text[text.index("def _build_developer_panel"):text.index("def _toggle_developer_mode")]
+        button_wall_leaks = [a for a in FORBIDDEN_BUTTON_WALL_ACTIONS if a in build_dev]
+        if button_wall_leaks:
+            failures.append("Developer Mode button wall returned: " + ", ".join(button_wall_leaks))
+        else:
+            print("[PASS] Developer Mode button wall suppressed")
         build_ui = text[text.index("def _build_ui"):text.index("def _status_group")]
         visible_leaks = [label for label in REMOVED_DEFAULT_SURFACE if label in build_ui]
         if visible_leaks:

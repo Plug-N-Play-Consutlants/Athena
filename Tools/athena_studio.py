@@ -223,16 +223,14 @@ class AthenaStudio:
         body.pack(side=TOP, fill="x", expand=False, padx=12, pady=4)
 
         self._button_group(body, "Core Workflow", [
-            ("🔁 Relaunch Studio", self.restart_studio, "Restart Studio itself after applying a patch."),
-            ("🔄 Reload Build", self.reload_patched_build, "Apply the current patch cadence: stop Scout, purge caches, and relaunch."),
             ("🧪 Verify Build", self.verify_build, "Run Doctor Everything followed by Validate Everything in one operation."),
             ("🔎 Repository Audit", self.show_repository_audit, "Run the Phase 3 read-only repository audit and write a report."),
             ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the Phase 4B shim and duplicate basename review reports."),
             ("🔐 Lock Repo Decisions", self.show_repository_decision_lock, "Lock the no-mutation shim and duplicate decisions for external audit."),
-            ("🧹 Preview Cleanup", self.preview_repository_cleanup, "Preview Phase 4A safe cleanup without changing files."),
-            ("✅ Apply Safe Cleanup", self.apply_repository_safe_cleanup, "Apply Phase 4A safe cleanup from Studio after preview review."),
-            ("📄 Open Cleanup Report", self.open_repository_cleanup_report, "Open the latest Phase 4A cleanup report folder."),
-            ("🧭 Acceptance Explorer", self.show_acceptance_explorer, "Inspect the current build through trace, capability, evidence, and composition audits."),
+            ("🧱 Release Hygiene", self.show_release_hygiene, "Check packaging, version metadata, CI, and false-green test warnings."),
+            ("🧹 Preview Cleanup", self.preview_repository_cleanup, "Preview safe cleanup without changing files."),
+            ("✅ Apply Safe Cleanup", self.apply_repository_safe_cleanup, "Apply safe cleanup from Studio after preview review."),
+            ("🧭 Acceptance Explorer", self.show_acceptance_explorer, "Inspect trace, capability, evidence, and composition audits."),
             ("📁 Export Logs", self.export_diagnostics_logs, "Export Studio output, history, and diagnostics for review."),
             ("📂 Open Reports", self.open_reports, "Open Reports for exported logs, traces, and diagnostics."),
         ])
@@ -248,7 +246,7 @@ class AthenaStudio:
         info.pack(side=TOP, fill="x", padx=12, pady=(4, 2))
         ttk.Label(
             info,
-            text="Core Workflow Console — default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs. Developer Mode is off by default.",
+            text="Core Workflow Console — default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs. Developer Mode is off by default.",
             anchor="w",
             style="Studio.Subtitle.TLabel",
         ).pack(fill="x")
@@ -271,7 +269,7 @@ class AthenaStudio:
         # Athena Studio Operations Console | Athena Studio Beta Tile UI | Athena Studio Compact Tile UI + Toolbar
         # Hover over controls for help | compact two-line dashboard tile label | compact dashboard tile grid | Compact tiles use icons
         # Historical default labels retained for compatibility only: ✅ Validate Everything | 🩺 Doctor Everything | 📤 Export Studio Log | 🧹 Clean Runtime | 🔃 Refresh | ⟲ Restart Studio
-        self.write("Athena Studio Core Workflow Console ready. Use Relaunch Studio → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer.\n")
+        self.write("Athena Studio Core Workflow Console ready. Use Relaunch Studio → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer.\n")
         if bool(self._studio_settings.get("auto_runtime_audit_on_start", False)):
             self.runtime_audit(auto=True)
 
@@ -285,54 +283,25 @@ class AthenaStudio:
         ttk.Label(frame, text=f"🟢 {summary}", anchor="w", style="Studio.Subtitle.TLabel").pack(fill="x")
 
     def _build_developer_panel(self, parent) -> None:
-        """Build the hidden Developer Mode panel without removing legacy tools."""
+        """Build the hidden Developer Mode panel as grouped actions, not a button wall."""
+        # Individual doctor/validator handlers are intentionally retained as
+        # methods for Verify Build and backward compatibility. They are no
+        # longer rendered as dozens of buttons in Studio. Developer Mode should
+        # expose grouped workflows only.
         left = ttk.Frame(parent, style="Studio.TFrame")
         left.pack(side=LEFT, fill="x", expand=True, padx=(0, 6))
         right = ttk.Frame(parent, style="Studio.TFrame")
         right.pack(side=LEFT, fill="x", expand=True, padx=(6, 0))
-        self._button_group(left, "Developer Validators", [
+        self._button_group(left, "Developer Validation", [
+            ("🧪 Verify Build", self.verify_build, "Run the full build gate."),
+            ("✅ Validate Everything", self.validate_everything, "Run all registered validators."),
             ("✅ Studio Validate", self.validate_studio, "Run Studio validation suites."),
-            ("✅ Current Sprint", self.validate_scout_runtime_acceptance_hotfix, "Verify Scout acceptance/session logging hotfix."),
-            ("✅ Reasoning", self.validate_cross_sport_reasoning_engine, "Verify Cross-Sport Reasoning Engine."),
-            ("✅ Explainability", self.validate_explainable_intelligence_pipeline, "Verify Explainable Intelligence Pipeline."),
-            ("✅ Foundation", self.validate_multi_sport_intelligence_foundation, "Verify Multi-Sport Intelligence Foundation."),
-            ("✅ Runtime", self.validate_runtime, "Run runtime cleanup validation."),
-            ("✅ PIF", self.validate_pif, "Run the active PIF validator."),
-            ("✅ Events", self.validate_event_intelligence_foundation, "Run the Event Intelligence validator."),
-            ("✅ Connectors", self.validate_multi_sport_provider_connectors, "Run the Multi-Sport Connectors validator."),
-            ("✅ Capability Audit", self._run_capability_audit_validator, "Run the Capability Participation Audit validator."),
-            ("✅ Evidence Audit", self._run_evidence_audit_validator, "Run the Evidence Audit validator."),
-            ("✅ Composition Audit", self._run_composition_audit_validator, "Run the Composition Audit validator."),
-            ("✅ Acceptance Explorer", self._run_acceptance_explorer_validator, "Run the Acceptance Explorer validator."),
-            ("✅ Repository Audit", self._run_repository_audit_validator, "Run the Repository Audit validator."),
-            ("✅ Repository Review", self._run_repository_review_validator, "Run the Shim/Duplicate Review validator."),
-            ("✅ Decision Lock", self._run_repository_decision_lock_validator, "Run the Repository Decision Lock validator."),
+            ("🧱 Release Hygiene", self.show_release_hygiene, "Run packaging, version, CI, and false-green checks."),
         ])
-        self._button_group(right, "Developer Doctors & Tools", [
+        self._button_group(right, "Developer Diagnostics", [
+            ("🩺 Doctor Everything", self.doctor_everything, "Run all registered doctors."),
             ("🩺 Studio Health", self.doctor_studio, "Diagnose Studio command center modules."),
-            ("🩺 Current Sprint", self.doctor_scout_runtime_acceptance_hotfix, "Diagnose Scout acceptance/session logging hotfix."),
-            ("🩺 Reasoning", self.doctor_cross_sport_reasoning_engine, "Diagnose Cross-Sport Reasoning Engine."),
-            ("🩺 Explainability", self.doctor_explainable_intelligence_pipeline, "Diagnose Explainable Intelligence Pipeline."),
-            ("🩺 Foundation", self.doctor_multi_sport_intelligence_foundation, "Diagnose Multi-Sport Intelligence Foundation."),
-            ("🩺 Capability Audit", self._run_capability_audit_doctor, "Diagnose Capability Participation Audit."),
-            ("🩺 Evidence Audit", self._run_evidence_audit_doctor, "Diagnose Evidence Audit."),
-            ("🩺 Composition Audit", self._run_composition_audit_doctor, "Diagnose Composition Audit."),
-            ("🩺 Acceptance Explorer", self._run_acceptance_explorer_doctor, "Diagnose Acceptance Explorer."),
-            ("🩺 Repository Audit", self._run_repository_audit_doctor, "Diagnose the Repository Audit Foundation."),
-            ("🩺 Repository Review", self._run_repository_review_doctor, "Diagnose the Shim/Duplicate Review reports."),
-            ("🩺 Decision Lock", self._run_repository_decision_lock_doctor, "Diagnose the Repository Decision Lock reports."),
-            ("🔎 Repository Audit", self.show_repository_audit, "Run the read-only Phase 3 repository audit."),
-            ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the read-only Phase 4B shim and duplicate basename review."),
-            ("🔐 Lock Repo Decisions", self.show_repository_decision_lock, "Generate read-only repository cleanup decision lock and Claude audit brief."),
-            ("🧹 Preview Cleanup", self.preview_repository_cleanup, "Preview safe repository cleanup."),
-            ("✅ Apply Safe Cleanup", self.apply_repository_safe_cleanup, "Apply safe repository cleanup."),
-            ("📄 Open Cleanup Report", self.open_repository_cleanup_report, "Open latest cleanup report."),
-            ("🩺 Repository", self.doctor_repository, "Diagnose AthenaEngine repository health and packaging assumptions."),
-            ("🧹 Clean Runtime", self.clean_runtime, "Remove stale runtime/cache artifacts and verify canonical paths."),
-            ("🧭 Import Paths", self.show_import_paths, "Display Python sys.path and active interpreter details."),
-            ("📜 Scout Log", self.show_scout_log, "Show the managed Scout process log."),
-            ("🧾 Latest Debug", self.show_latest_debug, "Show the most recent Scout debug export."),
-            ("📤 Export Studio Log", self.export_studio_log, "Export current Studio output and history to Reports."),
+            ("🧭 Acceptance Explorer", self.show_acceptance_explorer, "Review acceptance diagnostics."),
             ("📁 Export Diagnostics Logs", self.export_diagnostics_logs, "Export diagnostics into a timestamped Reports folder and open it."),
             ("📂 Open Reports", self.open_reports, "Open Reports folder."),
             ("🧽 Clear Output", self.clear_output, "Clear the visible Studio output panel."),
@@ -916,11 +885,15 @@ class AthenaStudio:
             ("Doctor Capability Audit", self._script_command("Tools/doctor_capability_audit.py")),
             ("Doctor Evidence Audit", self._script_command("Tools/doctor_evidence_audit.py")),
             ("Doctor Composition Audit", self._script_command("Tools/doctor_composition_audit.py")),
+            ("Doctor Experience Layer Foundation", self._script_command("Tools/doctor_experience_layer_foundation.py")),
+            ("Doctor Player Experience", self._script_command("Tools/doctor_player_experience.py")),
             ("Doctor Acceptance Explorer", self._script_command("Tools/doctor_acceptance_explorer.py")),
             ("Doctor Repository Audit", self._script_command("Tools/doctor_repository_audit.py")),
             ("Doctor Repository Safe Cleanup", self._script_command("Tools/doctor_repository_safe_cleanup.py")),
             ("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py")),
             ("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py")),
+            ("Doctor Release Hygiene", self._script_command("Tools/doctor_release_hygiene.py")),
+            ("Doctor Scout Intent Orchestration", self._script_command("Tools/doctor_scout_intent_orchestration.py")),
             ("Doctor Scout Acceptance Hotfix", self._script_command("Tools/doctor_scout_runtime_acceptance_hotfix.py")),
             ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
             ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
@@ -953,11 +926,15 @@ class AthenaStudio:
             ("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py")),
             ("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py")),
             ("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py")),
+            ("Validate Experience Layer Foundation", self._script_command("Tests/validate_experience_layer_foundation.py")),
+            ("Validate Player Experience", self._script_command("Tests/validate_player_experience.py")),
             ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
             ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
             ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
             ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
+            ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),
+            ("Validate Scout Intent Orchestration", self._script_command("Tests/validate_scout_intent_orchestration.py")),
             ("Validate Scout Acceptance Hotfix", self._script_command("Tests/validate_scout_runtime_acceptance_hotfix.py")),
             ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
             ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
@@ -1029,11 +1006,15 @@ class AthenaStudio:
             ("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py")),
             ("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py")),
             ("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py")),
+            ("Validate Experience Layer Foundation", self._script_command("Tests/validate_experience_layer_foundation.py")),
+            ("Validate Player Experience", self._script_command("Tests/validate_player_experience.py")),
             ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
             ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
             ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
             ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
+            ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),
+            ("Validate Scout Intent Orchestration", self._script_command("Tests/validate_scout_intent_orchestration.py")),
             ("Validate Scout Acceptance Hotfix", self._script_command("Tests/validate_scout_runtime_acceptance_hotfix.py")),
             ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
             ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
@@ -1125,11 +1106,15 @@ class AthenaStudio:
             ("Doctor Capability Audit", self._script_command("Tools/doctor_capability_audit.py")),
             ("Doctor Evidence Audit", self._script_command("Tools/doctor_evidence_audit.py")),
             ("Doctor Composition Audit", self._script_command("Tools/doctor_composition_audit.py")),
+            ("Doctor Experience Layer Foundation", self._script_command("Tools/doctor_experience_layer_foundation.py")),
+            ("Doctor Player Experience", self._script_command("Tools/doctor_player_experience.py")),
             ("Doctor Acceptance Explorer", self._script_command("Tools/doctor_acceptance_explorer.py")),
             ("Doctor Repository Audit", self._script_command("Tools/doctor_repository_audit.py")),
             ("Doctor Repository Safe Cleanup", self._script_command("Tools/doctor_repository_safe_cleanup.py")),
             ("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py")),
             ("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py")),
+            ("Doctor Release Hygiene", self._script_command("Tools/doctor_release_hygiene.py")),
+            ("Doctor Scout Intent Orchestration", self._script_command("Tools/doctor_scout_intent_orchestration.py")),
             ("Doctor Scout Acceptance Hotfix", self._script_command("Tools/doctor_scout_runtime_acceptance_hotfix.py")),
             ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
             ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
@@ -1489,6 +1474,9 @@ class AthenaStudio:
     def _run_repository_review_validator(self) -> None:
         self._run_threaded("Validate Repository Review", self._script_command("Tests/validate_repository_review.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_repository_review.py')"])
 
+    def _run_repository_review_doctor(self) -> None:
+        self._run_threaded("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_repository_review.py')"])
+
     def _run_repository_decision_lock_validator(self) -> None:
         self._run_threaded("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_repository_decision_lock.py')"])
 
@@ -1496,8 +1484,48 @@ class AthenaStudio:
         self._run_threaded("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_repository_decision_lock.py')"])
 
 
-    def _run_repository_review_doctor(self) -> None:
-        self._run_threaded("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_repository_review.py')"])
+    def _run_release_hygiene_validator(self) -> None:
+        self._run_threaded("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_release_hygiene.py')"])
+
+    def _run_release_hygiene_doctor(self) -> None:
+        self._run_threaded("Doctor Release Hygiene", self._script_command("Tools/doctor_release_hygiene.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_release_hygiene.py')"])
+
+    def _run_scout_intent_orchestration_validator(self) -> None:
+        self._run_threaded("Validate Scout Intent Orchestration", self._script_command("Tests/validate_scout_intent_orchestration.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_scout_intent_orchestration.py')"])
+
+    def _run_scout_intent_orchestration_doctor(self) -> None:
+        self._run_threaded("Doctor Scout Intent Orchestration", self._script_command("Tools/doctor_scout_intent_orchestration.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_scout_intent_orchestration.py')"])
+
+    def show_release_hygiene(self) -> None:
+        """Run the Studio-first Release Hygiene Foundation check."""
+        self.write("\n=== Release Hygiene ===\n")
+        try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Tools.doctor_release_hygiene import build_report, write_report
+
+            report_path = write_report()
+            report = build_report()
+            summary = report.get("summary", {})
+            self.write(f"Status: {str(report.get('status', '')).upper()}\n")
+            self.write(f"Report: {report_path}\n")
+            self.write(f"Version: {report.get('version')} — {report.get('release_name')}\n")
+            self.write(
+                "Checks: "
+                f"passed={summary.get('passed', 0)} "
+                f"failed={summary.get('failed', 0)} "
+                f"warnings={summary.get('warnings', 0)}\n"
+            )
+            for item in report.get("checks", [])[:14]:
+                self.write(f"[{item.get('status')}] {item.get('name')}: {item.get('detail')}\n")
+            for warning in report.get("warnings", [])[:8]:
+                self.write(f"[WARN] {warning}\n")
+            self.status.set("Release Hygiene ready")
+            self._record_history("Release Hygiene", 0, str(report_path))
+        except Exception as exc:
+            self.write(f"Release Hygiene failed: {exc}\n")
+            self.status.set("Release Hygiene failed")
+            self._record_history("Release Hygiene", 1, str(exc))
 
     def show_repository_review(self) -> None:
         """Run the read-only Phase 4B shim and duplicate basename review."""

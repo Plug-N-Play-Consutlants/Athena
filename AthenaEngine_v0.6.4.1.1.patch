@@ -1,0 +1,435 @@
+diff --git a/Core/version.py b/Core/version.py
+index 0000000..0000000 100644
+--- a/Core/version.py
++++ b/Core/version.py
+@@ -1,12 +1,12 @@
+ """Single source for Athena/Scout version metadata."""
+-ATHENA_VERSION = "0.6.4.1.0"
+-SCOUT_VERSION = "v0.6.4.1.0"
+-ATHENA_BUILD = "0.6.4.1.0"
+-RELEASE_NAME = "Adaptive Investigation Runtime Integration"
++ATHENA_VERSION = "0.6.4.1.1"
++SCOUT_VERSION = "v0.6.4.1.1"
++ATHENA_BUILD = "0.6.4.1.1"
++RELEASE_NAME = "Live Evidence Fallback Routing Hotfix"
+ RELEASE_EPIC = "6"
+ RELEASE_SPRINT = "4"
+ RELEASE_PATCH = "1"
+-RELEASE_HOTFIX = "0"
++RELEASE_HOTFIX = "1"
+ VERSION_SCHEMA = "major.epic.sprint.patch.hotfix"
+ REPOSITORY_NAME = "AthenaEngine"
+ PYTHON_PACKAGE_NAME = "Athena"
+diff --git a/Knowledge/Events/live_intelligence.py b/Knowledge/Events/live_intelligence.py
+index 0000000..0000000 100644
+--- a/Knowledge/Events/live_intelligence.py
++++ b/Knowledge/Events/live_intelligence.py
+@@ -40,6 +40,11 @@ TEAM_QUERY_TERMS = {
+     "oilers": {"oilers", "edmonton"},
+     "canadiens": {"canadiens", "montreal", "habs"},
+ }
++TEAM_ENTITY_KEYS = {
++    "maple_leafs": "nhl.team.toronto_maple_leafs",
++    "oilers": "nhl.team.edmonton_oilers",
++    "canadiens": "nhl.team.montreal_canadiens",
++}
+ EVENT_TYPE_QUERY_TERMS = {
+     "trade": {"trade", "trades", "traded", "acquire", "acquired", "deal", "dealt", "swap"},
+     "injury": {"injury", "injuries", "injured", "day", "day-to-day", "hurt"},
+@@ -72,6 +77,17 @@ def _requested_team_terms(question: str) -> set[str]:
+             found.update(terms)
+     return found
+
++def _requested_team_entities(question: str) -> set[str]:
++    """Return canonical entity keys for team terms already recognized by this source adapter."""
++    text = (question or "").lower()
++    found: set[str] = set()
++    for team_key, terms in TEAM_QUERY_TERMS.items():
++        if any(term in text for term in terms):
++            entity_key = TEAM_ENTITY_KEYS.get(team_key)
++            if entity_key:
++                found.add(entity_key)
++    return found
++
+ def _requested_event_types(question: str) -> set[str]:
+     token_set = set(_tokens(question))
+     requested: set[str] = set()
+@@ -175,6 +189,7 @@ def select_live_evidence(question: str, mode: str = "public", *, allow_network
+             except Exception as exc:  # noqa: BLE001 - live feeds must degrade gracefully
+                 acquisition_errors.append(f"{feed.feed_id}: {type(exc).__name__}: {exc}")
+     team_terms = _requested_team_terms(question)
++    requested_entities = _requested_team_entities(question)
+     requested_types = _requested_event_types(question)
+     strict_query = bool(team_terms or requested_types)
+     allow_strict_sample = os.environ.get("ATHENA_LIVE_USE_SAMPLE_FOR_STRICT", "").strip().lower() in {"1", "true", "yes", "on"}
+@@ -228,6 +243,7 @@ def select_live_evidence(question: str, mode: str = "public", *, allow_network
+         "ignored_count": max(len(deduped) - len(selected), 0),
+         "ignored_events": ignored[:10],
+         "requested_team_terms": sorted(team_terms),
++        "requested_entity_keys": sorted(requested_entities),
+         "requested_event_types": sorted(requested_types),
+         "status": "available" if selected else ("configured_no_matching_events" if (team_terms or requested_types) else "configured_no_events"),
+         "source_mode": source_mode,
+diff --git a/Scout/conversation/router.py b/Scout/conversation/router.py
+index 0000000..0000000 100644
+--- a/Scout/conversation/router.py
++++ b/Scout/conversation/router.py
+@@ -155,6 +155,15 @@ except Exception:  # pragma: no cover - live intelligence remains optional durin
+     select_live_evidence = None  # type: ignore
+     live_intelligence_diagnostics = None  # type: ignore
+ try:
++    from Intelligence.Investigation import EvidenceCandidate, prepare_runtime_context
++except Exception:  # pragma: no cover - adaptive investigation runtime is additive
++    EvidenceCandidate = None  # type: ignore
++    prepare_runtime_context = None  # type: ignore
++try:
++    from Knowledge.Intelligence.Public.public_team_profiles import get_public_team_profile
++except Exception:  # pragma: no cover - public profile fallback remains optional
++    get_public_team_profile = None  # type: ignore
++try:
+     from Intelligence.Runtime import run_runtime_trace
+ except Exception:  # pragma: no cover - runtime diagnostics are additive
+     run_runtime_trace = None  # type: ignore
+@@ -1237,6 +1249,75 @@ def _compose_live_event_narrative(question: str, live: Dict[str, Any], events: Li
+     if live.get("ignored_count"):
+         lines.append(f"I ignored {live.get('ignored_count')} lower-quality or non-matching item(s), including articles that matched the word 'trade' but were not confirmed transaction records.")
+     return "\n\n".join(lines)
++
++def _live_runtime_candidates(live: Dict[str, Any], events: List[Dict[str, Any]]) -> List[Any]:
++    """Adapt selected live evidence or same-entity public context into the Investigation contract.
++
++    Scout does not select fallback evidence itself. It only adapts evidence already
++    owned by Knowledge into EvidenceCandidate records, then delegates selection and
++    entity safety to Intelligence.Investigation.
++    """
++    if EvidenceCandidate is None:
++        return []
++    entity_keys = tuple(str(v) for v in (live.get("requested_entity_keys") or []) if str(v).strip())
++    candidates: List[Any] = []
++    for event in events[:8]:
++        if not isinstance(event, dict):
++            continue
++        candidates.append(EvidenceCandidate(
++            evidence_id=str(event.get("event_id") or event.get("url") or event.get("title") or "live_event"),
++            entity_keys=entity_keys,
++            title=str(event.get("title") or "Recent event"),
++            summary=str(event.get("summary") or event.get("title") or ""),
++            observed_at=str(event.get("published_at") or ""),
++            source=str(event.get("source_id") or "live_events"),
++            confidence=float(event.get("relevance_score") or event.get("source_rank") or 0.7),
++            live=str(event.get("source_mode") or "").lower() == "network",
++            trusted=str(event.get("source_mode") or "").lower() != "sample" or not entity_keys,
++        ))
++    # Only create profile fallback candidates when the request names a canonical
++    # entity and live selection produced no matching evidence. This prevents broad
++    # news prompts from being filled with arbitrary seeded teams.
++    if not candidates and entity_keys and get_public_team_profile is not None:
++        for entity_key in entity_keys:
++            try:
++                profile = get_public_team_profile(entity_key)
++            except Exception:
++                profile = None
++            if profile is None:
++                continue
++            summary = (
++                str(getattr(profile, "organizational_context", "") or "").strip()
++                or str(getattr(profile, "analytical_read", "") or "").strip()
++                or str(getattr(profile, "identity", "") or "").strip()
++            )
++            if not summary:
++                continue
++            candidates.append(EvidenceCandidate(
++                evidence_id=f"public_team_profile:{entity_key}",
++                entity_keys=(entity_key,),
++                title=f"{getattr(profile, 'display_name', entity_key)} context",
++                summary=summary,
++                observed_at="",
++                source="public_team_profile_seed",
++                confidence=0.68,
++                live=False,
++                trusted=True,
++            ))
++    return candidates
++
++def _live_runtime_context(question: str, live: Dict[str, Any], events: List[Dict[str, Any]]):
++    if prepare_runtime_context is None:
++        return None
++    entities = tuple(str(v) for v in (live.get("requested_entity_keys") or []) if str(v).strip())
++    return prepare_runtime_context(
++        "live_event_intelligence",
++        question,
++        domain=str(live.get("league") or "all"),
++        entities=entities,
++        evidence_candidates=_live_runtime_candidates(live, events),
++    )
++
+ def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> Dict[str, Any]:
+     """Answer recent-event prompts with live/cached RSS evidence when configured."""
+     if select_live_evidence is None:
+@@ -1252,6 +1327,9 @@ def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> D
+     scout_live_default = os.environ.get("ATHENA_SCOUT_LIVE_NETWORK", "1").strip().lower() not in {"0", "false", "no", "off"}
+     live = select_live_evidence(question=question, mode=selected_mode or "public", allow_network=scout_live_default, limit=6)
+     events = live.get("events", []) if isinstance(live.get("events"), list) else []
++    runtime_context = _live_runtime_context(question, live, events)
++    runtime_selection = getattr(runtime_context, "evidence_selection", None) if runtime_context is not None else None
++    fallback_items = list(getattr(runtime_selection, "items", ()) or ()) if runtime_selection is not None and getattr(runtime_selection, "tier", "") == "recent_fallback" else []
+     observed = []
+     for event in events[:6]:
+         if not isinstance(event, dict):
+@@ -1261,11 +1339,29 @@ def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> D
+     if not observed:
+         observed = [
+             f"RSS feeds configured: {live.get('feed_count', 0)}.",
+             "No live/cached RSS events matched this prompt.",
+         ]
++        if fallback_items:
++            observed.append(f"Fallback evidence: {fallback_items[0].title} — {fallback_items[0].summary}")
++            observed.append(getattr(runtime_selection, "freshness_note", "Fallback freshness is unavailable."))
+     if events:
+         natural = _compose_live_event_narrative(question, live, events)
+         conclusion = "Scout selected source-backed live/cached event evidence for this recent-event question."
++    elif fallback_items:
++        item = fallback_items[0]
++        freshness = str(getattr(runtime_selection, "freshness_note", "") or "").strip()
++        if item.observed_at:
++            freshness_text = freshness
++        else:
++            freshness_text = "The fallback source does not provide a reliable observation date, so Athena is not presenting it as current news."
++        natural = (
++            "I did not find a matching current live item from the configured sources. "
++            f"{freshness_text} "
++            "The most relevant trustworthy evidence available for the same entity is: "
++            f"{item.title} — {item.summary}\n\n"
++            "Discovery: you can continue into the team's current outlook, roster/cap implications, or ask what evidence would most improve this update."
++        )
++        conclusion = "No matching live item was available, so Scout used the Investigation runtime's same-entity trustworthy fallback instead of ending the answer."
+     else:
+         requested_types = live.get("requested_event_types") or []
+         requested_teams = live.get("requested_team_terms") or []
+@@ -1289,6 +1371,8 @@ def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> D
+         {"label": "Used", "value": live.get("selected_count", 0)},
+         {"label": "Network", "value": "on" if live.get("network_enabled") else "off"},
+     ]
++    if fallback_items:
++        cards.append({"label": "Evidence", "value": "same-entity fallback"})
+     answer = response(
+         intent="live_event_intelligence",
+         title="Recent NHL events",
+@@ -1296,13 +1380,13 @@ def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> D
+         observed_facts=observed,
+-        known_limitations=list(live.get("limitations") or []),
+-        confidence=0.78 if events else 0.42,
++        known_limitations=list(live.get("limitations") or []) + (list(getattr(runtime_selection, "limitations", ()) or ()) if fallback_items else []),
++        confidence=0.78 if events else (0.62 if fallback_items else 0.42),
+         cards=cards,
+         developer=developer_info(
+             "live_event_intelligence",
+             ctx.files_loaded,
+             knowledge_used=["Knowledge.Events.live_sources", "Knowledge.Events.live_intelligence"],
+-            intelligence_used=["live_evidence_selection", "scout_runtime_acceptance_hotfix"],
++            intelligence_used=["live_evidence_selection", "adaptive_investigation_runtime", "live_evidence_fallback_routing"],
+             files_read=["Knowledge/Events/live_sources.py", "Knowledge/Events/live_intelligence.py"],
+-            missing=[] if events else ["selected_live_events"],
++            missing=[] if events or fallback_items else ["selected_live_events", "relevant_fallback_evidence"],
+         ),
+     )
+@@ -1311,4 +1395,6 @@ def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> D
+     answer["source_links"] = _event_source_links(events)
+     answer["developer"]["live_evidence"] = live
+     answer["developer"]["evidence_ledger"] = live.get("evidence_ledger", [])
++    if runtime_context is not None:
++        answer["developer"]["investigation_runtime"] = runtime_context.to_dict()
+     return answer
+diff --git a/Tests/validate_live_evidence_fallback_routing.py b/Tests/validate_live_evidence_fallback_routing.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/Tests/validate_live_evidence_fallback_routing.py
+@@ -0,0 +1,81 @@
++"""Regression validator for v0.6.4.1.1 live evidence fallback routing."""
++from __future__ import annotations
++
++from Core.version import ATHENA_VERSION, RELEASE_NAME
++from Scout.conversation.context import ScoutContext
++from Scout.conversation import router
++
++
++def check(name, condition, detail=""):
++    print(f"[{'PASS' if condition else 'FAIL'}] {name}: {detail}")
++    return bool(condition)
++
++
++def _no_matching_leafs_live(*args, **kwargs):
++    return {
++        "version": "test",
++        "question": "Recent Maple Leafs news",
++        "mode": "public",
++        "league": "nhl",
++        "network_enabled": True,
++        "feed_count": 2,
++        "configured_feeds": ["rss_nhl_news", "rss_espn_nhl_news"],
++        "event_count": 1,
++        "selected_count": 0,
++        "events_used": 0,
++        "events": [],
++        "ignored_count": 1,
++        "ignored_events": [
++            {"event_id": "wrong-team", "title": "Canadiens roster update", "reasons": ["entity_mismatch"]},
++        ],
++        "requested_team_terms": ["leafs", "maple", "toronto"],
++        "requested_entity_keys": ["nhl.team.toronto_maple_leafs"],
++        "requested_event_types": [],
++        "status": "configured_no_matching_events",
++        "source_mode": "network",
++        "limitations": ["Live feed acquisition ran, but no configured RSS item matched the requested team/entity."],
++        "evidence_ledger": [],
++    }
++
++
++def main():
++    ok = []
++    original = router.select_live_evidence
++    try:
++        router.select_live_evidence = _no_matching_leafs_live
++        answer = router.route_question("Recent Maple Leafs news", ScoutContext(), mode="public")
++    finally:
++        router.select_live_evidence = original
++
++    natural = str(answer.get("natural_language_response") or "")
++    developer = answer.get("developer") if isinstance(answer.get("developer"), dict) else {}
++    runtime = developer.get("investigation_runtime") if isinstance(developer, dict) else {}
++    selection = runtime.get("evidence_selection") if isinstance(runtime, dict) else {}
++    items = selection.get("items") if isinstance(selection, dict) else []
++
++    ok += [check("version", ATHENA_VERSION == "0.6.4.1.1", ATHENA_VERSION)]
++    ok += [check("release_name", RELEASE_NAME == "Live Evidence Fallback Routing Hotfix", RELEASE_NAME)]
++    ok += [check("route", answer.get("intent") == "live_event_intelligence", str(answer.get("intent")))]
++    ok += [check("news_strategy", runtime.get("strategy") == "news_update", str(runtime.get("strategy")))]
++    ok += [check("concise_strategy", runtime.get("depth") == "concise", str(runtime.get("depth")))]
++    ok += [check("fallback_tier", selection.get("tier") == "recent_fallback", str(selection.get("tier")))]
++    ok += [check(
++        "same_entity_only",
++        bool(items) and all("nhl.team.toronto_maple_leafs" in (item.get("entity_keys") or []) for item in items),
++        str(items),
++    )]
++    ok += [check("no_unrelated_substitution", "Canadiens" not in natural and "Montreal" not in natural, natural)]
++    ok += [check("old_cold_stop_removed", "I do not have a confirmed Maple Leafs event item" not in natural, natural)]
++    ok += [check(
++        "freshness_disclosed",
++        "reliable observation date" in natural.lower() or "most recent evidence observed" in natural.lower(),
++        natural,
++    )]
++    ok += [check("useful_fallback", "Toronto Maple Leafs context" in natural, natural)]
++    ok += [check("discovery_path", "Discovery:" in natural, natural)]
++    print(f"Overall status: {'PASS' if all(ok) else 'FAIL'}")
++    return 0 if all(ok) else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/Tools/doctor_live_evidence_fallback_routing.py b/Tools/doctor_live_evidence_fallback_routing.py
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/Tools/doctor_live_evidence_fallback_routing.py
+@@ -0,0 +1,62 @@
++"""Focused doctor for v0.6.4.1.1 live evidence fallback routing."""
++from __future__ import annotations
++
++from Scout.conversation.context import ScoutContext
++from Scout.conversation import router
++
++
++def main():
++    print("Live Evidence Fallback Routing Doctor")
++    print("=" * 64)
++    checks = []
++
++    def c(name, condition, detail=""):
++        checks.append(bool(condition))
++        print(f"[{'PASS' if condition else 'FAIL'}] {name}: {detail}")
++
++    original = router.select_live_evidence
++
++    def no_match(*args, **kwargs):
++        return {
++            "league": "nhl",
++            "network_enabled": True,
++            "feed_count": 2,
++            "event_count": 1,
++            "selected_count": 0,
++            "events": [],
++            "ignored_count": 1,
++            "ignored_events": [{"event_id": "wrong", "title": "Canadiens update", "reasons": ["entity_mismatch"]}],
++            "requested_team_terms": ["leafs", "maple", "toronto"],
++            "requested_entity_keys": ["nhl.team.toronto_maple_leafs"],
++            "requested_event_types": [],
++            "status": "configured_no_matching_events",
++            "source_mode": "network",
++            "limitations": [],
++            "evidence_ledger": [],
++        }
++
++    try:
++        router.select_live_evidence = no_match
++        answer = router.route_question("Recent Maple Leafs news", ScoutContext(), mode="public")
++    finally:
++        router.select_live_evidence = original
++
++    natural = str(answer.get("natural_language_response") or "")
++    developer = answer.get("developer") if isinstance(answer.get("developer"), dict) else {}
++    runtime = developer.get("investigation_runtime") if isinstance(developer, dict) else {}
++    selection = runtime.get("evidence_selection") if isinstance(runtime, dict) else {}
++
++    c("live_route", answer.get("intent") == "live_event_intelligence", str(answer.get("intent")))
++    c("runtime_connected", runtime.get("strategy") == "news_update", str(runtime))
++    c("fallback_selected", selection.get("tier") == "recent_fallback", str(selection))
++    c("entity_safe", "Canadiens" not in natural and "Montreal" not in natural, natural)
++    c("freshness_explicit", "reliable observation date" in natural.lower(), natural)
++    c("discovery_present", "Discovery:" in natural, natural)
++    c("legacy_cold_stop_absent", "I do not have a confirmed Maple Leafs event item" not in natural, natural)
++    print("-" * 64)
++    print(f"Overall status: {'PASS' if all(checks) else 'FAIL'}")
++    return 0 if all(checks) else 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/README_v0.6.4.1.1_apply_notes.txt b/README_v0.6.4.1.1_apply_notes.txt
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/README_v0.6.4.1.1_apply_notes.txt
+@@ -0,0 +1,32 @@
++AthenaEngine v0.6.4.1.1 — Live Evidence Fallback Routing Hotfix
++================================================================
++
++Scope
++-----
++This hotfix repairs the Scout live/current-news integration seam. The live-event
++route previously returned its legacy no-match response before the v0.6.4.1.0
++Adaptive Investigation Runtime could select same-entity fallback evidence.
++
++Behavior
++--------
++- Matching live evidence remains preferred.
++- When no matching live item exists, Scout delegates fallback selection to the
++  existing Investigation evidence fallback contract.
++- Fallback evidence must match the canonical requested entity.
++- Unrelated live/test/sample evidence is never substituted.
++- Fallback freshness is explicit; undated seed context is explicitly not
++  presented as current news.
++- News/update output remains concise and exposes a discovery path.
++- Rich player/team/comparison composition paths are unchanged.
++
++Focused checks
++--------------
++python -B Tests/validate_adaptive_investigation_runtime.py
++python -B Tests/validate_live_evidence_fallback_routing.py
++python -B Tools/doctor_adaptive_investigation_runtime.py
++python -B Tools/doctor_live_evidence_fallback_routing.py
++
++Primary acceptance prompt
++-------------------------
++Recent Maple Leafs news
++

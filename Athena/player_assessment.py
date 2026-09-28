@@ -6,6 +6,8 @@ The same rules apply to every player, regardless of identity or seed profile.
 from __future__ import annotations
 from typing import Any
 
+from Knowledge.Intelligence.Public.player_evidence import authoritative_statistical_view
+
 LABELS = ("Franchise Superstar", "Star", "Core Player", "Role Player", "Depth Player")
 
 
@@ -18,16 +20,13 @@ def _rate(position: str, points: float, games: float) -> str:
 
 
 def assess_player(evidence: dict[str, Any]) -> dict[str, Any]:
-    statistical = evidence.get("statistical_evidence", {}) if isinstance(evidence.get("statistical_evidence"), dict) else {}
-    source_rows = statistical.get("season_series", evidence.get("season_history", []))
-    rows = [row for row in source_rows if isinstance(row, dict)
-            and isinstance(row.get("gp"), (int, float)) and row["gp"] > 0
-            and isinstance(row.get("points"), (int, float))]
+    authoritative = authoritative_statistical_view(evidence, window_size=3)
+    rows = authoritative["season_series"]
+    recent = authoritative["recent_window"]
     try:
-        target_start = int(str(evidence.get("target_season") or rows[0]["season"])[:4]) if rows else 0
+        target_start = int(str(authoritative.get("target_season") or (rows[0]["season"] if rows else ""))[:4]) if rows else 0
     except ValueError:
         target_start = 0
-    recent = [row for row in rows if target_start - 2 <= int(str(row["season"])[:4]) <= target_start][:3]
     games = sum(row["gp"] for row in recent)
     points = sum(row["points"] for row in recent)
     position = str(evidence.get("position") or "")
@@ -45,9 +44,10 @@ def assess_player(evidence: dict[str, Any]) -> dict[str, Any]:
         delta = rates[0] - baseline
         trend = "Rising" if delta >= 0.15 else "Declining" if delta <= -0.15 else "Broadly stable"
 
-    career_games = evidence.get("career_games")
-    career_points = evidence.get("career_points")
-    career_goals = evidence.get("career_goals")
+    career = authoritative["career"]
+    career_games = career.get("games")
+    career_points = career.get("points")
+    career_goals = career.get("goals")
     legacy = ""
     if isinstance(career_games, (int, float)) and career_games >= 150 and isinstance(career_points, (int, float)):
         career_rate = career_points / career_games
@@ -94,7 +94,8 @@ def assess_player(evidence: dict[str, Any]) -> dict[str, Any]:
                          if current else []) +
                         (["Latest season has a limited game sample; trend remains provisional."] if limited_latest else
                          ["A three-season trend is not yet available."] if len(recent) < 3 else [])),
-        "source": evidence.get("source", ""),
+        "source": authoritative.get("source") or evidence.get("source", ""),
+        "evidence_authority": authoritative["authority"],
     }
 
 

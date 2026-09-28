@@ -137,6 +137,8 @@ def comparison_semantics(question: str) -> Dict[str, object]:
     temporal = entity_count == 1 and _has_any(q, [
         "career baseline", "recent baseline", "historical baseline", "current production",
         "recent career", "compared with his", "compared with her", "compare with his", "compare with her",
+        "over the last", "over the past", "last 2 seasons", "last 3 seasons", "last two seasons", "last three seasons",
+        "past 2 seasons", "past 3 seasons", "past two seasons", "past three seasons", "changed over", "change over",
     ])
     relationship = entity_count >= 2 and _has_any(q, [
         "against one another", "against each other", "head to head", "head-to-head",

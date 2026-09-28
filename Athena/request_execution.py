@@ -21,7 +21,7 @@ def _continued_question(question: str, mode: str, continuation: Any) -> tuple[st
     if mode != "public" or not isinstance(continuation, dict):
         return question, "none"
     origin = continuation.get("origin_intent")
-    if origin not in {"live_event_intelligence", "public_player_profile"}:
+    if origin not in {"live_event_intelligence", "public_player_profile", "public_entity_disambiguation"}:
         return question, "ignored"
     from Knowledge.Intelligence.Entities.entity_registry import find_by_id, searchable_names
     import re
@@ -29,6 +29,13 @@ def _continued_question(question: str, mode: str, continuation: Any) -> tuple[st
     expected_type = "team" if origin == "live_event_intelligence" else "player"
     if entity is None or entity.entity_type != expected_type:
         return question, "ignored"
+    if origin == "public_entity_disambiguation":
+        pending = str(continuation.get("pending_question") or "").strip()
+        if not pending:
+            return question, "ignored"
+        position = {"D": "defenseman", "C": "center", "G": "goaltender", "LW": "left winger", "RW": "right winger"}.get(entity.position, entity.position)
+        nationality = {"Sweden": "Swedish", "Finland": "Finnish", "Canada": "Canadian", "United States": "American"}.get(entity.nationality, entity.nationality)
+        return f"{pending.rstrip(' ?')} concerning {nationality} {position} {entity.canonical_name}?", "resolved_pending_inquiry"
     if origin == "public_player_profile":
         from Knowledge.Intelligence.Entities.entity_registry import entities_by_type
         from Knowledge.Intelligence.Entities.entity_extractor import resolve_qualified_player
@@ -76,6 +83,9 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     from Athena.execution_registry import SPECIALISTS, execute_specialist
 
     route, selected_by = select_executable_route(effective_question, mode)
+    if continuation_status == "resolved_pending_inquiry":
+        route = "public_player_investigation"
+        selected_by = "resolved_entity_pending_inquiry"
     if continuation_status == "public_player_subject":
         from Athena.public_identity import resolve_public_player
         match = resolve_public_player(effective_question)
@@ -96,6 +106,18 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     if context is None:
         from Scout.conversation.context import load_context
         context = load_context()
+    # Athena owns question-scoped evidence acquisition. Attach the bundle before
+    # specialist execution so every consumer sees the same canonical evidence
+    # instead of independently reacquiring or falling back to seed material.
+    from Athena.evidence_bundle import build_request_evidence
+    request_evidence = build_request_evidence(effective_question, mode=effective_mode, route=route)
+    try:
+        setattr(context, "request_evidence", request_evidence)
+    except (AttributeError, TypeError):
+        # Minimal immutable test/adaptor contexts may not accept runtime fields.
+        # Real ScoutContext instances do; specialists remain compatible with
+        # contexts that predate the request-evidence handoff.
+        pass
     if route:
         answer = execute_specialist(route, context, effective_question, mode=effective_mode)
         if answer is None:
@@ -137,7 +159,7 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
         "selected_by": selected_by,
         "handler_module": SPECIALISTS[route].module if route else "Scout.conversation.router",
         "handler_executable": bool(route),
-        "evidence_readiness": "not_prevalidated",
+        "evidence_readiness": str(request_evidence.get("status") or "not_required"),
         "selected_intent": answer.get("intent", ""),
         "continuation_status": continuation_status,
     }

@@ -984,6 +984,7 @@ class AthenaStudio:
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
             ("Validate Athena Request Boundary", self._script_command("Tests/validate_athena_request_boundary.py")),
             ("Validate Athena Capability Pathways", self._script_command("Tests/validate_athena_capability_pathways.py")),
+            ("Validate Application Path Trace", self._script_command("Tests/validate_application_path_trace.py")),
             ("Validate Professional Player Pathways", self._script_command("Tests/validate_professional_player_pathways.py")),
             ("Validate Player Assessment Pathways", self._script_command("Tests/validate_player_assessment_pathways.py")),
             ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),

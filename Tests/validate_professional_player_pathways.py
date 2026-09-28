@@ -48,7 +48,7 @@ assessed=assess_player(car)
 checks.append(check('current_and_legacy_independent',assessed['current_tier']=='Star' and
                     assessed['career_legacy']=='Career Superstar' and
                     deterministic_player_badges({'professional_assessment':assessed}, {})[:2]==['★★★★☆ Star','Career Superstar']))
-stale={**car,'target_season':'2028-29'}
+stale={**car,'statistical_evidence':{**car['statistical_evidence'],'target_season':'2028-29','freshness':{**car['statistical_evidence'].get('freshness',{}),'status':'stale','stale_for_current_rating':True}}}
 checks.append(check('stale_window_cannot_claim_current_tier',not assess_player(stale)['current_tier'] and
                     assess_player(stale)['career_legacy']=='Career Superstar'))
 with patch('Knowledge.Intelligence.Public.player_lifecycle._local_player_rows',return_value=[

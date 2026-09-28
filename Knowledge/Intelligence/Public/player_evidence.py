@@ -156,6 +156,41 @@ def build_statistical_evidence(*, season_history: list[dict[str, Any]], career: 
         },
     }
 
+def authoritative_statistical_view(evidence: dict[str, Any], *, window_size: int = 3) -> dict[str, Any]:
+    """Return the single downstream authority for player statistical state.
+
+    Verified canonical statistical evidence owns season availability, freshness,
+    career totals and comparable recent windows. Legacy compatibility fields are
+    consulted only when the canonical contract is absent.
+    """
+    statistical = evidence.get("statistical_evidence") if isinstance(evidence.get("statistical_evidence"), dict) else {}
+    canonical = statistical.get("contract") == "canonical_player_statistical_evidence"
+    series_source = statistical.get("season_series", []) if canonical else evidence.get("season_history", [])
+    series = [dict(row) for row in series_source if _valid_season_observation(row)]
+    target = str(statistical.get("target_season") if canonical else evidence.get("target_season") or "")
+    try:
+        target_start = int(target[:4])
+    except ValueError:
+        target_start = 0
+    if target_start:
+        recent = [row for row in series if target_start - (window_size - 1) <= int(str(row.get("season") or "")[:4]) <= target_start][:window_size]
+    else:
+        recent = series[:window_size]
+    career = statistical.get("career", {}) if canonical and isinstance(statistical.get("career"), dict) else {
+        "games": evidence.get("career_games"), "points": evidence.get("career_points"), "goals": evidence.get("career_goals")
+    }
+    freshness = statistical.get("freshness", {}) if canonical and isinstance(statistical.get("freshness"), dict) else {}
+    return {
+        "authority": "canonical_statistical_evidence" if canonical else "legacy_compatibility",
+        "season_series": series,
+        "recent_window": recent,
+        "career": dict(career),
+        "freshness": dict(freshness),
+        "target_season": target,
+        "source": statistical.get("source") if canonical else evidence.get("source", ""),
+    }
+
+
 def player_evidence(name: str, *, team: str = "", position: str = "", birth_date: str = "") -> dict[str, Any]:
     identities, by_id = _records()
     matches = [row for row in identities if isinstance(row, dict) and

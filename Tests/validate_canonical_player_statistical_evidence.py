@@ -28,5 +28,5 @@ check('stale_history_retained',stale['season_count']==1 and stale['freshness']['
 evidence={'statistical_evidence':stat,'season_history':[], 'target_season':'2026-27','position':'C','age':29,
           'career_games':800,'career_points':1100,'career_goals':350,'awards':[],'source':'nhl_player_landing'}
 check('assessment_consumes_canonical_contract',assess_player(evidence)['seasons_used']==2 and len(evidence['statistical_evidence']['season_series'])==3)
-check('version',ATHENA_VERSION=='0.6.5.10.7')
+check('version',ATHENA_VERSION=='0.6.5.10.8')
 raise SystemExit(0 if all(checks) else 1)

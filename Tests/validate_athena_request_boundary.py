@@ -93,13 +93,17 @@ def main() -> int:
     from types import SimpleNamespace
     swedish = execute_request(AthenaRequest("Sebastian Aho Swedish defenseman", mode="public", context=SimpleNamespace(files_loaded=[])))
     check("public_profile_identity_bound", swedish.get("intent") == "public_player_profile" and swedish.get("continuation", {}).get("subject_entity_id") == player_continuation["subject_entity_id"] and "80 points" not in swedish.get("public_comment", "") and "Top 50 Players" not in " ".join(swedish.get("observed_facts", [])))
+    ambiguous = execute_request(AthenaRequest("What are the biggest evidence-backed uncertainties in Sebastian Aho's outlook?", mode="public", context=SimpleNamespace(files_loaded=[])))
+    swe_card = next((card for card in ambiguous.get("cards", []) if card.get("continuation", {}).get("subject_entity_id") == player_continuation["subject_entity_id"]), None)
+    resumed = execute_request(AthenaRequest(swe_card.get("prompt"), mode="public", context=SimpleNamespace(files_loaded=[]), continuation=swe_card.get("continuation"))) if swe_card else {}
+    check("disambiguation_card_preserves_pending_inquiry", bool(swe_card) and swe_card.get("continuation", {}).get("pending_question", "").startswith("What are the biggest") and resumed.get("intent") == "public_player_investigation" and resumed.get("developer", {}).get("athena_request", {}).get("selected_by") == "resolved_entity_pending_inquiry" and resumed.get("developer", {}).get("identity_resolution", {}).get("entity", {}).get("entity_id") == player_continuation["subject_entity_id"])
     continued_player = execute_request(AthenaRequest("What are the biggest evidence-backed uncertainties in Sebastian Aho's outlook?", mode="public", context=SimpleNamespace(files_loaded=[]), continuation=player_continuation))
     check("player_followup_reaches_question_reasoning", continued_player.get("intent") == "public_player_investigation" and continued_player.get("developer", {}).get("athena_request", {}).get("selected_by") == "continued_public_identity" and continued_player.get("developer", {}).get("identity_resolution", {}).get("entity", {}).get("entity_id") == player_continuation["subject_entity_id"] and "uncertainty" in continued_player.get("title", "") and continued_player.get("public_comment") != swedish.get("public_comment"))
     development = execute_request(AthenaRequest("What does Sebastian Aho's developmental track suggest about his NHL transition?", mode="public", context=SimpleNamespace(files_loaded=[]), continuation=player_continuation))
     check("development_followup_uses_question", development.get("intent") == "public_player_investigation" and "development" in development.get("title", "") and "current NHL role" in development.get("public_comment", ""))
     roster = execute_request(AthenaRequest("How does Sebastian Aho fit into the current roster?", mode="public", context=SimpleNamespace(files_loaded=[]), continuation=player_continuation))
     check("roster_followup_uses_question", roster.get("intent") == "public_player_investigation" and "organizational fit" in roster.get("title", ""))
-    check("client_continuation_seam", 'continuation: answer.continuation' in app and 'continuation=body.get("continuation")' in ask_endpoint)
+    check("client_continuation_seam", 'continuation: answer.continuation' in app and 'card.continuation || null' in app and 'continuation=body.get("continuation")' in ask_endpoint)
     for module_name in {spec.module for spec in SPECIALISTS.values()}:
         path = ROOT / (module_name.replace(".", "/") + ".py")
         declared = {node.name for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))) if isinstance(node, ast.FunctionDef)}

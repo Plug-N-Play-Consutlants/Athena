@@ -872,7 +872,7 @@ async function askCardPrompt(turnId, idx) {
   const card = turn && turn.cards[idx];
   const prompt = card && card.prompt;
   if (!prompt) return;
-  await askText(prompt);
+  await askText(prompt, card.continuation || null);
 }
 
 async function ask() {

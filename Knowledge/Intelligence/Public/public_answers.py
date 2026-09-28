@@ -15,7 +15,7 @@ from Knowledge.Intelligence.Public.public_player_profiles import PublicPlayerPro
 from Knowledge.Intelligence.Public.public_team_profiles import PublicTeamProfile, profile_for_team_entity
 from Scout.conversation.responses import developer_info, response
 from Experience.renderer import attach_experience_contract
-from Knowledge.Intelligence.Public.player_evidence import player_evidence, player_tier
+from Knowledge.Intelligence.Public.player_evidence import player_evidence, player_tier, authoritative_statistical_view
 from Athena.player_assessment import assess_player, assessment_copy
 from Knowledge.Intelligence.Entities.entity_registry import find_by_id
 
@@ -452,6 +452,13 @@ def disambiguation_answer(ctx, question: str, entities: List) -> Dict[str, objec
             "value": _entity_label(entity),
             "prompt": _entity_prompt(entity),
             "action": "ask_prompt",
+            # Entity selection resolves the subject of the pending inquiry; it
+            # must not silently replace that inquiry with a profile request.
+            "continuation": {
+                "origin_intent": "public_entity_disambiguation",
+                "subject_entity_id": entity.entity_id,
+                "pending_question": question,
+            },
         })
 
     natural = (
@@ -903,31 +910,68 @@ def player_comparison_answer(ctx, profiles: List[PublicPlayerProfile], question:
 
     recent_lines = []
     recent_rows = {}
+    recent_series = {}
     for profile in (a, b):
         official = official_by_name.get(profile.display_name.casefold(), {})
-        statistical = official.get("statistical_evidence", {}) if isinstance(official.get("statistical_evidence"), dict) else {}
-        rows = [row for row in statistical.get("season_series", official.get("season_history", [])) if isinstance(row, dict) and isinstance(row.get("gp"), (int, float)) and row.get("gp", 0) > 0 and isinstance(row.get("points"), (int, float))]
+        authoritative = authoritative_statistical_view(official, window_size=3) if official else {}
+        rows = authoritative.get("recent_window", []) if isinstance(authoritative, dict) else []
         if rows:
+            recent_series[profile.display_name] = rows
             row = rows[0]
             recent_rows[profile.display_name] = row
             rate = row["points"] / row["gp"]
             recent_lines.append(f"Official NHL record — {profile.display_name}: {row.get('season')} — {row['points']} points in {row['gp']} games ({rate:.2f} points/game).")
+            if len(rows) > 1:
+                window = rows[:3]
+                games = sum(r["gp"] for r in window)
+                points = sum(r["points"] for r in window)
+                recent_lines.append(f"Verified recent window — {profile.display_name}: {points} points in {games} games across {len(window)} NHL seasons ({points/games:.2f} points/game).")
 
     if assessment is not None:
+        assessment_facts = _comparison_observed_facts(assessment)
+        if recent_lines:
+            assessment_facts = [fact for fact in assessment_facts if not (
+                str(fact).startswith("Relative Weaknesses:") and "official current-season stats" in str(fact).casefold()
+            )]
         observed = [
             f"Career identity — {a.display_name}: {a.career_identity}",
             f"Career identity — {b.display_name}: {b.career_identity}",
             f"Style — {a.display_name}: {a.style}.",
             f"Style — {b.display_name}: {b.style}.",
-        ] + recent_lines + _comparison_observed_facts(assessment)
+        ] + recent_lines + assessment_facts
         conclusion = assessment.athena_conclusion
         natural = _comparison_natural_language(assessment)
         if len(recent_rows) == 2:
             ar, br = recent_rows[a.display_name], recent_rows[b.display_name]
-            natural = (f"Recent verified NHL performance: {a.display_name} recorded {ar['points']} points in {ar['gp']} games in {ar.get('season')}; "
-                       f"{b.display_name} recorded {br['points']} points in {br['gp']} games in {br.get('season')}.\n\n" + natural)
+            def _window_text(name):
+                rows = recent_series.get(name, [])
+                games = sum(r["gp"] for r in rows)
+                points = sum(r["points"] for r in rows)
+                seasons = ", ".join(str(r.get("season") or "") for r in rows)
+                return f"{points} points in {games} games across {len(rows)} verified season(s) ({seasons})"
+            a_rows = recent_series[a.display_name]
+            b_rows = recent_series[b.display_name]
+            a_games = sum(r["gp"] for r in a_rows); a_points = sum(r["points"] for r in a_rows)
+            b_games = sum(r["gp"] for r in b_rows); b_points = sum(r["points"] for r in b_rows)
+            a_rate = a_points / a_games; b_rate = b_points / b_games
+            a_latest = ar["points"] / ar["gp"]; b_latest = br["points"] / br["gp"]
+            if abs(a_rate - b_rate) < 0.01:
+                statistical_read = f"Their verified three-season scoring rates are effectively even ({a_rate:.2f} vs {b_rate:.2f} points/game)."
+            else:
+                leader, leader_rate, other_rate = (a.display_name, a_rate, b_rate) if a_rate > b_rate else (b.display_name, b_rate, a_rate)
+                statistical_read = f"{leader} holds the higher verified three-season scoring rate ({leader_rate:.2f} vs {other_rate:.2f} points/game)."
+            natural = (
+                f"Verified NHL statistical comparison: {a.display_name} has {_window_text(a.display_name)}; "
+                f"{b.display_name} has {_window_text(b.display_name)}. {statistical_read} "
+                f"In the latest verified season, {a.display_name} produced {a_latest:.2f} points/game and "
+                f"{b.display_name} produced {b_latest:.2f}.\n\n"
+                "Context beyond scoring: " + natural
+            )
+            natural = natural.replace("live injuries, current deployment, official current-season stats and age-curve feeds are not attached yet", "live injuries, current deployment and age-curve evidence are not fully attached yet")
         confidence = max(assessment.confidence, 0.86 if len(recent_rows) == 2 else assessment.confidence)
         known_limitations = _public_limitations(list(assessment.limitations))
+        if len(recent_rows) == 2:
+            known_limitations = [item for item in known_limitations if "official current-season stats" not in item.casefold() and "official stats" not in item.casefold()]
         intelligence_used = ["public_comparison_guardrail", "comparison_reasoning_engine", "athena_request_evidence_bundle", "pif_public_comparison_answer"]
         missing = ["playoff_context_pack", "age_curve_model", "live_event_inputs"]
         if len(recent_rows) < 2:

@@ -13,7 +13,8 @@ checks = {
     "representative_routes_resolve": not trace.get("route_failures"),
     "player_canonical_authority_visible": next(c for c in trace["cases"] if c["domain"] == "player_identity_and_stats")["authority"] == "canonical_player_statistical_evidence",
     "cap_gap_explicit": any(i.get("id") == "current_public_cap_ledger" and i.get("status") == "known_unregistered" for i in trace["unresolved"]),
-    "scout_ownership_debt_explicit": any(i.get("id") == "scout_specialist_implementation_ownership" and i.get("status") == "correction_required" for i in trace["unresolved"]),
+    "scout_specialist_ownership_cleared": not any(i.get("id") == "scout_specialist_implementation_ownership" for i in trace["unresolved"]),
+    "no_structural_corrections_remaining": trace.get("structural_corrections_required") == 0,
 }
 for label, good in checks.items():
     print(f"[{'PASS' if good else 'FAIL'}] {label}")

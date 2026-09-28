@@ -18,8 +18,8 @@ class Specialist:
     mode: str
 
 
-_ORCHESTRATION = "Scout.conversation.orchestration"
-_LIVE = "Scout.conversation.router"
+_ORCHESTRATION = "Athena.capability_handlers"
+_LIVE = "Athena.live_event_specialist"
 SPECIALISTS: Dict[str, Specialist] = {
     route: Specialist(route, _ORCHESTRATION, function, mode)
     for route, function, mode in (

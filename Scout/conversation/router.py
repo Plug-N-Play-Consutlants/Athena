@@ -1672,50 +1672,9 @@ def _focused_live_narrative(question: str, events: list[dict], focus: str) -> st
     return _compose_live_event_narrative(question, {"events":events}, events)
 
 def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> Dict[str, Any]:
-    """Answer recent-event prompts with live/cached RSS evidence when configured."""
-    if select_live_evidence is None:
-        return response(intent="live_event_intelligence", title="Live intelligence unavailable", engine_conclusion="Scout could not load the live intelligence consumption layer.", observed_facts=[], known_limitations=["Validate Knowledge.Events.live_intelligence before testing recent-event prompts."], confidence=0.15, developer=developer_info("live_event_intelligence", ctx.files_loaded, missing=["Knowledge.Events.live_intelligence"]))
-    scout_live_default = os.environ.get("ATHENA_SCOUT_LIVE_NETWORK", "1").strip().lower() not in {"0", "false", "no", "off"}
-    live = select_live_evidence(question=question, mode=selected_mode or "public", allow_network=scout_live_default, limit=12)
-    all_events = live.get("events", []) if isinstance(live.get("events"), list) else []
-    focused_events, focus_mode = _focused_live_events(question, all_events)
-    events = focused_events[:6]
-    more_events = focused_events[6:]
-    observed = []
-    for event in events[:6]:
-        if not isinstance(event, dict): continue
-        date = event.get("published_at") or "date unavailable"
-        observed.append(f"{event.get('event_type', 'news')}: {_clean_event_text(event.get('title'))} — {_clean_event_text(event.get('summary'))} ({date})")
-    if not observed: observed = [f"RSS feeds configured: {live.get('feed_count', 0)}.", "No live/cached RSS events matched this prompt."]
-    if events:
-        if focus_mode.startswith("evidence_synthesis:"):
-            natural = _evidence_synthesis_narrative(question, events, focus_mode)
-            conclusion = "Athena synthesized the acquired event evidence against the investigative follow-up."
-        else:
-            natural = _focused_live_narrative(question, events, focus_mode) if focus_mode != "broad_discovery" else _compose_live_event_narrative(question, live, events)
-            conclusion = "Scout selected focused source-backed event evidence for this investigation." if focus_mode != "broad_discovery" else "Scout selected source-backed live/cached event evidence for this recent-event question."
-    else:
-        requested_types = live.get("requested_event_types") or []; requested_teams = live.get("requested_team_terms") or []
-        if live.get("status") == "configured_no_matching_events" and (requested_types or requested_teams):
-            team_terms = set(str(x).lower() for x in requested_teams); target = "Maple Leafs" if ({"maple", "leafs"} <= team_terms or "toronto" in team_terms) else "requested team/entity"; event_type = ", ".join(str(x) for x in requested_types) or "event"
-            natural = f"I do not have a confirmed {target} {event_type} item from the configured live sources. I will not substitute an unrelated team or validation sample. If live RSS/network access is enabled and still returns no match, Athena needs a structured transaction/cap feed for exact trade assets and salary-cap impact."
-        else: natural = "RSS feeds are configured, but no usable live event evidence was selected for this prompt. I will not fill the gap with unrelated sample events."
-        conclusion = natural
-    cards = [{"label":"Feeds","value":live.get("feed_count",0)},{"label":"Events","value":live.get("event_count",0)},{"label":"Used","value":live.get("selected_count",0)},{"label":"Network","value":"on" if live.get("network_enabled") else "off"}]
-    answer = response(intent="live_event_intelligence", title="Recent NHL events", engine_conclusion=conclusion, natural_language_response=natural, observed_facts=observed, known_limitations=list(live.get("limitations") or []), confidence=0.78 if events else 0.42, cards=cards, developer=developer_info("live_event_intelligence", ctx.files_loaded, knowledge_used=["Knowledge.Events.live_sources","Knowledge.Events.live_intelligence"], intelligence_used=["live_evidence_selection","scout_runtime_acceptance_hotfix","investigative_response_composition"], files_read=["Knowledge/Events/live_sources.py","Knowledge/Events/live_intelligence.py"], missing=[] if events else ["selected_live_events"]))
-    answer["source_links"] = _event_source_links(events)
-    answer["more_source_links"] = _event_source_links(more_events)
-    if focus_mode.startswith("evidence_synthesis:"):
-        answer["suggested_prompts"] = _synthesis_followup_prompts(focus_mode)
-    elif focus_mode == "referenced_story":
-        answer["suggested_prompts"] = _investigation_followup_prompts(question, focused_events)
-    else:
-        answer["suggested_prompts"] = _event_followup_prompts(all_events)
-    answer["developer"]["live_evidence"] = live; answer["developer"]["evidence_ledger"] = live.get("evidence_ledger", []); answer["developer"]["investigation_focus"] = focus_mode
-    if focus_mode == "referenced_story":
-        answer["developer"]["investigative_scenario_contract"] = _investigative_scenario_context(question, focused_events)
-        answer["developer"]["intelligence_used"] = list(dict.fromkeys(list(answer["developer"].get("intelligence_used") or []) + ["investigative_scenario_intelligence", "temporal_evidence_reasoning"]))
-    return answer
+    """Compatibility facade; Athena owns live-event specialist execution."""
+    from Athena.live_event_specialist import _live_events_answer as execute_live_events
+    return execute_live_events(ctx, question, selected_mode)
 
 def _multi_sport_route_card(ctx: ScoutContext, question: str, selected_mode: str) -> Dict[str, Any] | None:
     if route_multi_sport_query is None:

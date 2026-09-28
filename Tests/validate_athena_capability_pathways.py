@@ -78,7 +78,8 @@ def main() -> int:
     check("continued_event_reaches_matching_evidence", context_status == "public_team_subject" and report["title"] in titles and hypothetical["title"] not in titles, str(titles))
 
     legacy_modules = sorted({spec.module for spec in SPECIALISTS.values() if spec.module.startswith("Scout.")})
-    print(f"Registered specialists: {len(SPECIALISTS)}; Scout handler modules pending migration: {', '.join(legacy_modules)}")
+    check("registered_specialists_owned_by_athena", not legacy_modules, ", ".join(legacy_modules) or "none")
+    print(f"Registered specialists: {len(SPECIALISTS)}; Scout-owned executable handler modules: {', '.join(legacy_modules) or 'none'}")
     print(f"Overall status: {'PASS' if all(results) else 'FAIL'}")
     return 0 if all(results) else 1
 

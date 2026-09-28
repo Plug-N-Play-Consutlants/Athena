@@ -73,11 +73,12 @@ def main():
             checks.append(check("sync_reserved", ok, "athena.sync() is reserved for a later drop."))
 
         try:
-            Athena.ask("Who are the most active managers?")
-            checks.append(check("ask_reserved", False, "athena.ask() should be reserved in Drop 1."))
+            from unittest.mock import patch
+            with patch("Athena.specialist_compatibility.execute_existing_specialist", return_value={"intent": "test", "developer": {}}):
+                answer = Athena.ask("Who are the most active managers?")
+            checks.append(check("ask_boundary", answer.get("developer", {}).get("athena_request", {}).get("boundary") == "Athena.ask", "Athena request boundary executes."))
         except Exception as exc:
-            ok = exc.__class__.__name__ == "AthenaNotImplementedError"
-            checks.append(check("ask_reserved", ok, "athena.ask() is reserved for a later drop."))
+            checks.append(check("ask_boundary", False, str(exc)))
 
     passed = sum(1 for item in checks if item["status"] == "pass")
     failed = sum(1 for item in checks if item["status"] == "fail")

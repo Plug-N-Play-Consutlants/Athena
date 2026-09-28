@@ -42,7 +42,7 @@ INPUT_JSON = RAW_DIR / "transactions.json"
 OUTPUT_JSON = OUTPUT_DIR / "transaction_master.json"
 OUTPUT_CSV = OUTPUT_DIR / "transaction_master.csv"
 PROVIDER = "fantrax"
-SCHEMA_VERSION = "0.3.0"
+SCHEMA_VERSION = "0.6.5.0.0"
 
 CSV_FIELDS = [
     "transaction_id",
@@ -82,18 +82,41 @@ def _safe_float(value: Any) -> float:
 
 
 def _records(payload: Any) -> List[Dict[str, Any]]:
-    """Return raw Fantrax transaction rows from known payload shapes."""
+    """Return raw Fantrax transaction rows from known payload shapes.
+
+    Transaction evidence bundles preserve Fantrax views independently because
+    Trade and Claim/Drop rows are not shape-equivalent. The originating view is
+    copied onto each row as provider metadata for deterministic normalization.
+    """
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
 
     if not isinstance(payload, dict):
         return []
 
+    views = payload.get("views")
+    if isinstance(views, dict):
+        combined: List[Dict[str, Any]] = []
+        for view_name, view_payload in views.items():
+            for row in _records(view_payload):
+                copied = dict(row)
+                copied["_fantrax_view"] = _safe_str(view_name).upper()
+                combined.append(copied)
+        return combined
+
     table = payload.get("table")
     if isinstance(table, dict):
         rows = table.get("rows")
         if isinstance(rows, list):
-            return [item for item in rows if isinstance(item, dict)]
+            view = _safe_str((payload.get("filterSettings") or {}).get("view") if isinstance(payload.get("filterSettings"), dict) else "").upper()
+            result = []
+            for item in rows:
+                if isinstance(item, dict):
+                    copied = dict(item)
+                    if view and not copied.get("_fantrax_view"):
+                        copied["_fantrax_view"] = view
+                    result.append(copied)
+            return result
 
     for key in ("transactions", "transactionHistory", "transaction_history", "records", "items", "rows", "data"):
         value = payload.get(key)
@@ -120,6 +143,23 @@ def _cell(row: Dict[str, Any], key: str) -> Optional[Dict[str, Any]]:
 def _cell_content(row: Dict[str, Any], key: str) -> str:
     cell = _cell(row, key)
     return _safe_str(cell.get("content")) if isinstance(cell, dict) else ""
+
+
+def _party_cell(row: Dict[str, Any], key: str) -> Dict[str, str]:
+    cell = _cell(row, key)
+    if not isinstance(cell, dict):
+        return {"team_id": "", "team_name": ""}
+    return {
+        "team_id": _safe_str(cell.get("teamId")),
+        "team_name": _safe_str(cell.get("content")),
+    }
+
+
+def _is_trade_row(row: Dict[str, Any]) -> bool:
+    if _safe_str(row.get("_fantrax_view")).upper() == "TRADE":
+        return True
+    return bool((_party_cell(row, "from").get("team_id") or _party_cell(row, "from").get("team_name")) and
+                (_party_cell(row, "to").get("team_id") or _party_cell(row, "to").get("team_name")))
 
 
 def _team_from_row(row: Dict[str, Any]) -> Dict[str, str]:
@@ -197,7 +237,7 @@ def _movement_from_code(row: Dict[str, Any]) -> str:
         return "added"
     if code == "DROP":
         return "dropped"
-    if code == "TRADE":
+    if code == "TRADE" or _is_trade_row(row):
         return "moved"
     return "involved"
 
@@ -318,10 +358,10 @@ def _group_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return groups
 
 
-def _transaction_type(codes: Counter, claim_types: Counter) -> str:
+def _transaction_type(codes: Counter, claim_types: Counter, rows: Iterable[Dict[str, Any]]) -> str:
     has_claim = codes.get("CLAIM", 0) > 0
     has_drop = codes.get("DROP", 0) > 0
-    has_trade = codes.get("TRADE", 0) > 0
+    has_trade = codes.get("TRADE", 0) > 0 or any(_is_trade_row(row) for row in rows)
 
     if has_trade:
         return "trade"
@@ -353,6 +393,8 @@ def _summary(transaction_type: str, assets: List[Dict[str, Any]], team_name: str
         return f"{prefix} added {', '.join(added)}"
     if dropped:
         return f"{prefix} dropped {', '.join(dropped)}"
+    if transaction_type == "trade":
+        return "Trade completed"
     return f"{prefix} completed {transaction_type}"
 
 
@@ -367,30 +409,56 @@ def _normalize_group(group: Dict[str, Any], index: int) -> Dict[str, Any]:
     week = _safe_str(context.get("week"))
 
     assets: List[Dict[str, Any]] = []
+    parties: Dict[str, Dict[str, str]] = {}
     for row in rows:
+        from_party = _party_cell(row, "from")
+        to_party = _party_cell(row, "to")
+        for party in (from_party, to_party):
+            key = party.get("team_id") or party.get("team_name")
+            if key:
+                parties[key] = party
+
         asset = _asset_from_scorer(row)
         if asset:
             asset["movement_context"] = {
                 "team_id": team_id,
                 "team_name": team_name,
+                "from_team_id": from_party.get("team_id", ""),
+                "from_team_name": from_party.get("team_name", ""),
+                "to_team_id": to_party.get("team_id", ""),
+                "to_team_name": to_party.get("team_name", ""),
                 "transaction_code": _safe_str(row.get("transactionCode")),
                 "claim_type": _safe_str(row.get("claimType")),
+                "provider_view": _safe_str(row.get("_fantrax_view")),
             }
             assets.append(asset)
 
     codes = Counter(_safe_str(row.get("transactionCode")).upper() for row in rows if _safe_str(row.get("transactionCode")))
     claim_types = Counter(_safe_str(row.get("claimType")).upper() for row in rows if _safe_str(row.get("claimType")))
-    transaction_type = _transaction_type(codes, claim_types)
+    transaction_type = _transaction_type(codes, claim_types, rows)
     fees = context.get("fees") if isinstance(context.get("fees"), list) else []
     fee_total = round(sum(_safe_float(fee.get("amount")) for fee in fees if isinstance(fee, dict)), 2)
 
-    participant = {
-        "participant_type": "fantasy_team",
-        "participant_id": team_id,
-        "participant_name": team_name,
-        "role": "actor",
-        "provider_reference": {"provider": PROVIDER, "team_id": team_id},
-    }
+    participants = []
+    if transaction_type == "trade" and parties:
+        participants = [
+            {
+                "participant_type": "fantasy_team",
+                "participant_id": party.get("team_id", ""),
+                "participant_name": party.get("team_name", ""),
+                "role": "trade_counterparty",
+                "provider_reference": {"provider": PROVIDER, "team_id": party.get("team_id", "")},
+            }
+            for party in parties.values()
+        ]
+    elif team_id or team_name:
+        participants = [{
+            "participant_type": "fantasy_team",
+            "participant_id": team_id,
+            "participant_name": team_name,
+            "role": "actor",
+            "provider_reference": {"provider": PROVIDER, "team_id": team_id},
+        }]
 
     return {
         "transaction_id": f"fantrax:{tx_set_id}",
@@ -400,7 +468,7 @@ def _normalize_group(group: Dict[str, Any], index: int) -> Dict[str, Any]:
         "transaction_type": transaction_type,
         "status": _status_from_rows(rows),
         "summary": _summary(transaction_type, assets, team_name),
-        "participants": [participant] if team_id or team_name else [],
+        "participants": participants,
         "assets": assets,
         "asset_movements": [
             {
@@ -408,8 +476,8 @@ def _normalize_group(group: Dict[str, Any], index: int) -> Dict[str, Any]:
                 "asset_id": asset.get("asset_id"),
                 "asset_name": asset.get("asset_name"),
                 "movement": asset.get("movement"),
-                "to_participant_id": team_id if asset.get("movement") == "added" else "",
-                "from_participant_id": team_id if asset.get("movement") == "dropped" else "",
+                "to_participant_id": (asset.get("movement_context") or {}).get("to_team_id", "") if asset.get("movement") == "moved" else (team_id if asset.get("movement") == "added" else ""),
+                "from_participant_id": (asset.get("movement_context") or {}).get("from_team_id", "") if asset.get("movement") == "moved" else (team_id if asset.get("movement") == "dropped" else ""),
             }
             for asset in assets
         ],
@@ -422,6 +490,7 @@ def _normalize_group(group: Dict[str, Any], index: int) -> Dict[str, Any]:
             "row_count": len(rows),
             "transaction_codes": dict(codes),
             "claim_types": dict(claim_types),
+            "provider_views": dict(Counter(_safe_str(row.get("_fantrax_view")) for row in rows if _safe_str(row.get("_fantrax_view")))),
         },
         "provider_metadata": {
             "rows": rows,

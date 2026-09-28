@@ -23,7 +23,10 @@ def main() -> int:
     candidates = discover_cleanup_candidates(ROOT)
     failures += 0 if emit("candidate_scan_returns_list", isinstance(candidates, list), str(len(candidates))) else 1
     failures += 0 if emit("no_source_renames_in_scope", True, "safe cleanup does not rename source modules") else 1
-    failures += 0 if emit("runtime_and_empty_only", all(c.kind in {"runtime_dir", "runtime_file", "empty_dir"} for c in candidates), "candidate kinds bounded") else 1
+    failures += 0 if emit("runtime_and_empty_only", all(c.kind in {"runtime_dir", "runtime_file", "empty_dir", "legacy_patch", "nested_overlay", "legacy_core", "runtime_quarantine", "workspace_state", "root_change_manifest", "root_history", "legacy_apply_notes"} for c in candidates), "candidate kinds bounded") else 1
+    failures += 0 if emit("review_never_auto_applied", all(c.classification == "review" for c in candidates if c.kind in {"legacy_patch", "nested_overlay", "legacy_core", "runtime_quarantine", "workspace_state", "root_history", "legacy_apply_notes"}), "review classification") else 1
+    failures += 0 if emit("change_manifests_safe_to_archive", all(c.classification == "safe" for c in candidates if c.kind == "root_change_manifest"), "canonical Archive/Documentation/ChangeManifests") else 1
+    failures += 0 if emit("preserve_evidence_logs", not any(c.path.startswith(("Logs/", "Raw/", "Output/")) and c.path.endswith(".log") for c in candidates), "evidence retention") else 1
     report = run_cleanup(ROOT, apply=False)
     payload = report.to_dict()
     failures += 0 if emit("preview_report_serializable", bool(json.dumps(payload)), report.version) else 1

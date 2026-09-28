@@ -189,17 +189,27 @@ def parse_rss_items(raw_payload: Any) -> List[Dict[str, Any]]:
 
 
 def classify_rss_event_type(title: str, summary: str = "") -> str:
-    text = f"{title} {summary}".lower()
+    """Classify only when the event type is explicit enough to support the label.
+
+    Broad substring checks (notably ``out`` and ``sign``) created false injury and
+    signing labels. Prefer the headline and require event-specific language; when
+    evidence is ambiguous, retain the generic ``news`` type.
+    """
+    headline = f" {str(title or '').lower()} "
+    body = f" {str(summary or '').lower()} "
+    combined = headline + body
     rules = [
-        ("injury", ("injury", "injured", "out", "day-to-day", "illness")),
-        ("trade", ("trade", "traded", "acquire", "acquired")),
-        ("free_agent_signing", ("sign", "signed", "signing", "free agent")),
-        ("contract_extension", ("extension", "contract", "re-sign", "resign")),
-        ("suspension", ("suspend", "suspended", "suspension")),
-        ("schedule_change", ("postponed", "rescheduled", "schedule", "cancelled", "canceled")),
+        ("injury", (r"\binjur(?:y|ed|ies)\b", r"\bday-to-day\b", r"\bupper-body injury\b", r"\blower-body injury\b", r"\bplaced on (?:ir|injured reserve)\b")),
+        ("trade", (r"\btraded?\b", r"\bacquir(?:e|ed|es)\b.+\b(?:from|for)\b")),
+        ("free_agent_signing", (r"\bsigns?\b.+\b(?:deal|contract)\b", r"\bsigned\b.+\b(?:deal|contract)\b", r"\bfree agent\b.+\bsign")),
+        ("contract_extension", (r"\bextension\b", r"\bextends?\b.+\bcontract\b", r"\bre-signs?\b")),
+        ("suspension", (r"\bsuspend(?:ed|s|ing)?\b", r"\bsuspension\b")),
+        ("schedule_change", (r"\bpostponed\b", r"\brescheduled\b", r"\bcancell?ed\b")),
     ]
-    for event_type, tokens in rules:
-        if any(token in text for token in tokens):
+    # Headline evidence is strongest. Summary evidence is allowed only for the
+    # same explicit patterns; generic words never promote an event type.
+    for event_type, patterns in rules:
+        if any(re.search(pattern, headline) or re.search(pattern, combined) for pattern in patterns):
             return event_type
     return "news"
 
@@ -245,6 +255,8 @@ class LiveRssConnector(RssFeedConnector):
                 "sport": feed.sport,
                 "league": feed.league,
                 "source_id": feed.source_id,
+                "feed_id": feed.feed_id,
+                "source_display_name": feed.display_name,
                 "subject": item.get("subject") or title,
                 "title": title,
                 "summary": summary,
@@ -350,3 +362,58 @@ __all__ = [
     "live_event_source_summary",
     "sample_rss_payload",
 ]
+
+
+def discover_current_news(
+    query: str,
+    *,
+    sport: str = "nhl",
+    league: str = "nhl",
+    allow_network: bool = False,
+    raw_payload: Any = None,
+    limit: int = 20,
+) -> List[Dict[str, Any]]:
+    """Discover current news beyond the bounded configured RSS headline pool.
+
+    Discovery is intentionally distinct from authority. Results identify current
+    stories and retain their source URL/time; downstream relevance and evidence
+    logic decides what is usable. Tests may supply ``raw_payload`` so validation
+    never depends on the network.
+    """
+    from urllib.parse import quote_plus
+
+    cleaned = " ".join(str(query or "").split())
+    if not cleaned:
+        return []
+    payload = raw_payload
+    endpoint = ""
+    if payload is None:
+        if not allow_network:
+            return []
+        endpoint = f"https://news.google.com/rss/search?q={quote_plus(cleaned)}&hl=en-CA&gl=CA&ceid=CA:en"
+        request = urllib.request.Request(endpoint, headers={"User-Agent": "AthenaEngine/0.6.4.1.3 Current Information Discovery"})
+        with urllib.request.urlopen(request, timeout=8) as response:  # noqa: S310 - fixed trusted discovery endpoint
+            payload = response.read(1_500_000)
+    items = parse_rss_items(payload)[: max(1, int(limit or 20))]
+    results: List[Dict[str, Any]] = []
+    for item in items:
+        results.append({
+            "event_id": f"discovery_{abs(hash(str(item.get('id') or item.get('url') or item.get('title'))))}",
+            "event_type": classify_rss_event_type(str(item.get("title") or ""), str(item.get("summary") or "")),
+            "sport": str(sport or "multi").lower(),
+            "league": str(league or "multi").lower(),
+            "source_id": "news_search_discovery",
+            "feed_id": "current_news_discovery",
+            "source_display_name": "Current News Discovery",
+            "title": str(item.get("title") or "Untitled news item"),
+            "summary": str(item.get("summary") or item.get("title") or ""),
+            "url": str(item.get("url") or ""),
+            "published_at": str(item.get("published_at") or ""),
+            "freshness_score": 0.86 if item.get("published_at") else 0.56,
+            "source_rank": 0.68,
+            "source_mode": "network" if raw_payload is None else "fixture",
+            "discovery_query": cleaned,
+            "discovery_role": "discovery",
+            "discovery_endpoint": endpoint,
+        })
+    return results

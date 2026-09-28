@@ -26,7 +26,10 @@ from typing import Any, Dict, List
 
 from Core.json_utils import read_json, write_json
 from Core.logger import log, log_header, log_section
+from Core.text_utils import normalize_external_text
 from Core.project_paths import RAW_DIR, OUTPUT_DIR, ensure_project_dirs
+from Athena.workspace import get_workspace_value
+from Providers.Fantrax.identity import resolve_league_name
 
 
 GENERATOR_NAME = "Providers.Fantrax.build.league_settings"
@@ -39,9 +42,7 @@ OUTPUT_CSV = OUTPUT_DIR / "league_settings.csv"
 
 
 def safe_str(value: Any, fallback: str = "") -> str:
-    if value is None:
-        return fallback
-    return str(value)
+    return normalize_external_text(value, fallback)
 
 
 def safe_int(value: Any, fallback: int = 0) -> int:
@@ -145,8 +146,9 @@ def build_league_settings() -> Dict[str, Any]:
     active_slots = sum(slot["active_slots"] for slot in lineup_slots)
 
     return {
-        "league_id": safe_str(league.get("leagueHistoryId")),
-        "league_name": safe_str(league.get("leagueName")),
+        "league_id": safe_str(get_workspace_value("league_id")),
+        "league_history_id": safe_str(league.get("leagueHistoryId")),
+        "league_name": resolve_league_name(league, fallback=safe_str(get_workspace_value("league_name"))),
         "season": safe_int(league.get("seasonYear")),
         "sport": "NHL",
         "provider": PROVIDER,
@@ -187,6 +189,7 @@ def write_csv(settings: Dict[str, Any]) -> None:
     fieldnames = ["setting", "value"]
     rows = [
         {"setting": "league_id", "value": settings.get("league_id", "")},
+        {"setting": "league_history_id", "value": settings.get("league_history_id", "")},
         {"setting": "league_name", "value": settings.get("league_name", "")},
         {"setting": "season", "value": settings.get("season", "")},
         {"setting": "sport", "value": settings.get("sport", "")},

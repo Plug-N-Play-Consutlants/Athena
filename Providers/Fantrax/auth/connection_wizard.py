@@ -60,10 +60,13 @@ def active_league_id(fallback: str = "") -> str:
     workspace = load_workspace().get("workspace", {})
     workspace_value = str(workspace.get("league_id") or "").strip()
     fallback_value = str(fallback or "").strip()
-    if workspace_value and not is_placeholder_league_id(workspace_value):
-        return workspace_value
+    # An explicit live value supplied by the connection form is a user action and
+    # must win over persisted state. Without an explicit value, workspace remains
+    # the sole authoritative active-league context.
     if fallback_value and not is_placeholder_league_id(fallback_value):
         return fallback_value
+    if workspace_value and not is_placeholder_league_id(workspace_value):
+        return workspace_value
     return ""
 
 

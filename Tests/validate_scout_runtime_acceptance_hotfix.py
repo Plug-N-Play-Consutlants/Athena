@@ -74,7 +74,8 @@ def main() -> int:
 
     recent = route_question("What recent NHL events are available?", mode="public")
     record(results, "recent_events_route", recent.get("intent") == "live_event_intelligence", str(recent))
-    record(results, "recent_events_content", bool(recent.get("natural_language_response")) and ("recent NHL event" in recent.get("natural_language_response", "").lower() or "found" in recent.get("natural_language_response", "").lower()), str(recent))
+    recent_sources = recent.get("source_links") or []
+    record(results, "recent_events_content", bool(recent.get("natural_language_response")) and bool(recent_sources) and all(item.get("title") and item.get("url") for item in recent_sources if isinstance(item, dict)), str(recent))
     record(results, "recent_events_developer", bool((recent.get("developer") or {}).get("live_evidence")), str(recent.get("developer")))
 
     contenders = route_question("Who are the best Stanley Cup contenders right now, and why?", mode="public")
@@ -91,7 +92,9 @@ def main() -> int:
     leafs_trade = route_question("Maple leafs last trade", mode="public")
     leafs_trade_text = str(leafs_trade.get("natural_language_response", "")) + " " + str(leafs_trade.get("observed_facts", []))
     record(results, "leafs_trade_no_unrelated_canadiens", "Canadiens acquire defenseman" not in leafs_trade_text, str(leafs_trade))
-    record(results, "leafs_trade_clear_no_match", "do not have a confirmed" in str(leafs_trade.get("natural_language_response", "")).lower() or "do not have a matching" in str(leafs_trade.get("natural_language_response", "")).lower() or leafs_trade.get("confidence", 1) < 0.6, str(leafs_trade))
+    record(results, "leafs_trade_clear_no_match", "do not have a confirmed" in str(leafs_trade.get("natural_language_response", "")).lower() or "do not have a matching" in str(leafs_trade.get("natural_language_response", "")).lower(), str(leafs_trade))
+    trade_selection = (((leafs_trade.get("developer") or {}).get("investigation_runtime") or {}).get("evidence_selection") or {})
+    record(results, "leafs_trade_no_context_substitution", trade_selection.get("tier") not in {"recent_fallback", "context_fallback"}, str(trade_selection))
 
     from Scout import app as scout_app
     scout_app.SESSION_TRANSCRIPT.clear()

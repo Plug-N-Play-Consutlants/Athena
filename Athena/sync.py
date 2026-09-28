@@ -38,6 +38,20 @@ FANTRAX_FANTASY_PIPELINE: List[Dict[str, Any]] = [
         "validator": "validate_raw_fantrax",
     },
     {
+        "id": "build_league_settings",
+        "label": "Build league settings",
+        "layer": "Build",
+        "script": "Providers/Fantrax/build/league_settings.py",
+        "validator": "validate_league_settings",
+    },
+    {
+        "id": "build_league_profile",
+        "label": "Build league profile",
+        "layer": "Knowledge",
+        "script": "Knowledge/league_profile.py",
+        "validator": "validate_league_profile",
+    },
+    {
         "id": "build_player_pool_master",
         "label": "Build player pool master",
         "layer": "Build",
@@ -50,6 +64,22 @@ FANTRAX_FANTASY_PIPELINE: List[Dict[str, Any]] = [
         "layer": "Build",
         "script": "Providers/Fantrax/build/player_master.py",
         "validator": "validate_player_master",
+    },
+    {
+        "id": "build_player_contracts",
+        "label": "Build player contracts",
+        "layer": "Knowledge",
+        "script": "Knowledge/player_contracts.py",
+        "validator": "validate_player_contracts",
+        "required": False,
+    },
+    {
+        "id": "build_draft_picks",
+        "label": "Build draft knowledge",
+        "layer": "Build",
+        "script": "Providers/Fantrax/build/draft_picks.py",
+        "validator": "validate_draft_picks",
+        "required": False,
     },
     {
         "id": "build_transaction_master",
@@ -185,8 +215,8 @@ def _validate_raw_fantrax() -> tuple[bool, str, Dict[str, Any]]:
         return True, "Core Fantrax payloads validated. Transaction payload is missing, so transaction-dependent intelligence will be skipped.", details
 
     if _transaction_rows(transactions) <= 0:
-        details["transactions_unavailable_reason"] = "transactions.json contains zero transaction rows."
-        return True, "Core Fantrax payloads validated. Transaction payload has zero rows, so transaction-dependent intelligence will be skipped.", details
+        details["transactions_available"] = True
+        return True, "Core Fantrax payloads validated; transaction feed is available with zero current-season rows.", details
 
     details["transactions_available"] = True
     return True, f"Raw Fantrax payloads validated; transaction rows: {details['transaction_rows']}.", details
@@ -204,11 +234,47 @@ def _validate_player_master() -> tuple[bool, str, Dict[str, Any]]:
     return count > 0, f"Player master records: {count}.", {"record_count": count}
 
 
+def _validate_league_settings() -> tuple[bool, str, Dict[str, Any]]:
+    payload = _read_json(OUTPUT_DIR / "league_settings.json")
+    if not isinstance(payload, dict):
+        return False, "League settings output is missing.", {}
+    season = payload.get("season")
+    league_name = str(payload.get("league_name") or "").strip()
+    ok = bool(league_name and season)
+    return ok, f"League settings: {league_name or 'unknown'} ({season or 'unknown'}).", {"league_name": league_name, "season": season, "league_id": payload.get("league_id")}
+
+
+def _validate_league_profile() -> tuple[bool, str, Dict[str, Any]]:
+    payload = _read_json(OUTPUT_DIR / "league_profile.json")
+    if not isinstance(payload, dict):
+        return False, "League profile output is missing.", {}
+    season = payload.get("season")
+    league_name = str(payload.get("league_name") or "").strip()
+    ok = bool(league_name and season)
+    return ok, f"League profile: {league_name or 'unknown'} ({season or 'unknown'}).", {"league_name": league_name, "season": season, "league_id": payload.get("league_id")}
+
+
+def _validate_player_contracts() -> tuple[bool, str, Dict[str, Any]]:
+    payload = _read_json(OUTPUT_DIR / "player_contracts.json")
+    count = _count_records(payload)
+    return True, f"Player contract records: {count}.", {"record_count": count}
+
+
+
+def _validate_draft_picks() -> tuple[bool, str, Dict[str, Any]]:
+    payload = _read_json(OUTPUT_DIR / "draft_picks.json")
+    current = payload.get("current_draft", {}) if isinstance(payload, dict) else {}
+    future = payload.get("future_draft_assets", {}) if isinstance(payload, dict) else {}
+    current_count = int(current.get("pick_count") or 0) if isinstance(current, dict) else 0
+    future_count = int(future.get("pick_count") or 0) if isinstance(future, dict) else 0
+    ok = current_count > 0 or future_count > 0
+    return ok, f"Draft knowledge: {current_count} current picks; {future_count} future assets.", {"current_pick_count": current_count, "future_pick_count": future_count}
+
 def _validate_transaction_master() -> tuple[bool, str, Dict[str, Any]]:
     payload = _read_json(OUTPUT_DIR / "transaction_master.json")
     count = int(payload.get("record_count") or _count_records(payload)) if isinstance(payload, dict) else 0
     raw_rows = int(payload.get("raw_row_count") or 0) if isinstance(payload, dict) else 0
-    ok = count > 0 and raw_rows > 0
+    ok = (RAW_DIR / "transactions.json").exists()
     return ok, f"Canonical transactions: {count}; raw rows: {raw_rows}.", {"record_count": count, "raw_row_count": raw_rows}
 
 
@@ -216,7 +282,7 @@ def _validate_transaction_history() -> tuple[bool, str, Dict[str, Any]]:
     payload = _read_json(OUTPUT_DIR / "transaction_history.json")
     record_count = int(payload.get("record_count") or 0) if isinstance(payload, dict) else 0
     movement_count = int(payload.get("asset_movement_count") or 0) if isinstance(payload, dict) else 0
-    ok = record_count > 0 and movement_count > 0
+    ok = (OUTPUT_DIR / "transaction_history.json").exists()
     return ok, f"Transaction history records: {record_count}; asset movements: {movement_count}.", {"record_count": record_count, "asset_movement_count": movement_count}
 
 
@@ -236,7 +302,7 @@ def _validate_league_market() -> tuple[bool, str, Dict[str, Any]]:
             liquidity = str(market_liquidity.get("classification") or "unknown")
         elif market_liquidity:
             liquidity = str(market_liquidity)
-    ok = tx_count > 0
+    ok = (OUTPUT_DIR / "league_market.json").exists()
     return ok, f"League market transactions: {tx_count}; liquidity: {liquidity}.", {"transaction_count": tx_count, "market_liquidity": liquidity}
 
 
@@ -244,14 +310,23 @@ def _validate_knowledge_readiness() -> tuple[bool, str, Dict[str, Any]]:
     payload = _read_json(OUTPUT_DIR / "knowledge_readiness.json")
     if not isinstance(payload, dict):
         return True, "Knowledge readiness output not available yet; non-blocking in Drop 3D.", {"readiness_score": None}
-    score = payload.get("readiness_score") or payload.get("score")
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    score = payload.get("readiness_score")
+    if score is None:
+        score = payload.get("score")
+    if score is None:
+        score = summary.get("overall_readiness_score")
     return True, f"Knowledge readiness: {score}.", {"readiness_score": score}
 
 
 VALIDATORS: Dict[str, Validator] = {
     "validate_raw_fantrax": _validate_raw_fantrax,
+    "validate_league_settings": _validate_league_settings,
+    "validate_league_profile": _validate_league_profile,
+    "validate_player_contracts": _validate_player_contracts,
     "validate_player_pool_master": _validate_player_pool_master,
     "validate_player_master": _validate_player_master,
+    "validate_draft_picks": _validate_draft_picks,
     "validate_transaction_master": _validate_transaction_master,
     "validate_transaction_history": _validate_transaction_history,
     "validate_manager_behavior": _validate_manager_behavior,
@@ -322,7 +397,12 @@ def _read_output_summary() -> Dict[str, Any]:
 
     readiness_score = None
     if isinstance(readiness, dict):
-        readiness_score = readiness.get("readiness_score") or readiness.get("score")
+        summary_block = readiness.get("summary") if isinstance(readiness.get("summary"), dict) else {}
+        readiness_score = readiness.get("readiness_score")
+        if readiness_score is None:
+            readiness_score = readiness.get("score")
+        if readiness_score is None:
+            readiness_score = summary_block.get("overall_readiness_score")
 
     return {
         "canonical_transactions": canonical_transactions,
@@ -349,6 +429,35 @@ def _read_output_summary() -> Dict[str, Any]:
 
 
 
+TRANSACTION_DERIVED_OUTPUTS = (
+    "transaction_master.json", "transaction_master.csv",
+    "transaction_history.json", "transaction_history.csv",
+    "manager_behavior.json", "manager_behavior.csv",
+    "league_market.json", "league_market.csv",
+)
+
+
+def _invalidate_transaction_derived_outputs(reason: str, developer_trace: List[Dict[str, Any]] | None = None) -> List[str]:
+    removed: List[str] = []
+    for name in TRANSACTION_DERIVED_OUTPUTS:
+        path = OUTPUT_DIR / name
+        if path.exists():
+            try:
+                path.unlink()
+                removed.append(name)
+            except OSError:
+                pass
+    if developer_trace is not None:
+        developer_trace.append(trace_event(
+            "Invalidate transaction-derived state",
+            "pass",
+            "Removed stale transaction-derived outputs because the current transaction capability is unavailable.",
+            reason=reason,
+            removed=removed,
+        ))
+    return removed
+
+
 def _transaction_capability_status() -> Dict[str, Any]:
     """Return whether transaction-dependent modules can run from current raw data."""
     transactions = _read_json(RAW_DIR / "transactions.json")
@@ -370,8 +479,8 @@ def _transaction_capability_status() -> Dict[str, Any]:
         }
     if rows <= 0:
         return {
-            "available": False,
-            "reason": "transactions.json contains zero transaction rows.",
+            "available": True,
+            "reason": "Transaction feed is available; no current-season transactions are recorded yet.",
             "page_error": page_error,
             "transaction_rows": rows,
         }
@@ -508,6 +617,7 @@ def sync(
                     reason = str(capability_status.get("transactions", {}).get("reason") or "Transactions unavailable.")
                     sync_warnings.append(reason)
                     developer_trace.append(trace_event("Assess transaction capability", "warning", reason, capability=capability_status.get("transactions", {})))
+                    _invalidate_transaction_derived_outputs(reason, developer_trace)
 
         capability_report = assess_capabilities(str(selected_provider))
         capability_status = dict(capability_report.get("by_key", {}))

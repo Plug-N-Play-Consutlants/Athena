@@ -94,21 +94,24 @@ def build_player_contracts() -> Dict[str, Any]:
     fetched_at = pool_payload.get("fetched_at") if isinstance(pool_payload, dict) else None
     active_season = pool_payload.get("active_season") if isinstance(pool_payload, dict) else None
 
+    profiles_by_id = {profile_id(profile): profile for profile in profiles if profile_id(profile)}
     records: List[Dict[str, Any]] = []
     matched = 0
     verified = 0
 
-    for profile in profiles:
-        pid = profile_id(profile)
-        source = pool_by_id.get(pid)
-
-        if source:
+    # Current contract knowledge is scoped to the active Fantrax player pool.
+    # Historical profiles remain available elsewhere but must not inflate the
+    # active-season contract population.
+    for source in pool_records:
+        pid = str(source.get("fantrax_player_id") or "").strip()
+        profile = profiles_by_id.get(pid, {})
+        if profile:
             matched += 1
 
-        expiry_year = source.get("contract_expiry_year") if source else None
-        years_remaining = source.get("contract_years_remaining") if source else None
-        contract_band = source.get("contract_band") if source else "unknown"
-        contract_is_verified = bool(source.get("contract_is_verified")) if source else False
+        expiry_year = source.get("contract_expiry_year")
+        years_remaining = source.get("contract_years_remaining")
+        contract_band = source.get("contract_band") or "unknown"
+        contract_is_verified = bool(source.get("contract_is_verified"))
 
         if contract_is_verified:
             verified += 1
@@ -116,27 +119,25 @@ def build_player_contracts() -> Dict[str, Any]:
         evidence = 1.0 if contract_is_verified else 0.0
         confidence = 1.0 if contract_is_verified and source_live else (0.85 if contract_is_verified else 0.0)
 
-        records.append(
-            {
-                "fantrax_player_id": pid,
-                "player_name": profile_name(profile),
-                "fantasy_team": source.get("fantasy_team") if source else "",
-                "position": source.get("position") if source else "",
-                "contract_expiry_year": expiry_year,
-                "expiry_year": expiry_year,
-                "years_remaining": years_remaining,
-                "contract_years_remaining": years_remaining,
-                "contract_band": contract_band,
-                "contract_status": contract_band,
-                "contract_is_verified": contract_is_verified,
-                "source_type": source_type,
-                "source_live": source_live,
-                "fetched_at": fetched_at,
-                "evidence_completeness": evidence,
-                "confidence": confidence,
-                "missing_fields": [] if contract_is_verified else ["contract_expiry_year"],
-            }
-        )
+        records.append({
+            "fantrax_player_id": pid,
+            "player_name": profile_name(profile) or str(source.get("player_name") or source.get("name") or "").strip(),
+            "fantasy_team": source.get("fantasy_team") or "",
+            "position": source.get("position") or "",
+            "contract_expiry_year": expiry_year,
+            "expiry_year": expiry_year,
+            "years_remaining": years_remaining,
+            "contract_years_remaining": years_remaining,
+            "contract_band": contract_band,
+            "contract_status": contract_band,
+            "contract_is_verified": contract_is_verified,
+            "source_type": source_type,
+            "source_live": source_live,
+            "fetched_at": fetched_at,
+            "evidence_completeness": evidence,
+            "confidence": confidence,
+            "missing_fields": [] if contract_is_verified else ["contract_expiry_year"],
+        })
 
     contract_distribution = Counter(row.get("contract_band") or "unknown" for row in records)
     runway_distribution = Counter(

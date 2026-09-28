@@ -1,10 +1,4 @@
-"""Scout Intent & Response Orchestration foundation.
-
-This layer sits in front of Scout's legacy deterministic router. Its job is not
-to replace Knowledge, Reasoning, Intelligence, or Response Composition. It only
-recognizes high-value acceptance prompts that were previously misrouted and
-forces them onto the right bounded intelligence path.
-"""
+"""Scout response handlers and compatibility facade for Athena planning."""
 from __future__ import annotations
 
 import re
@@ -14,139 +8,79 @@ from typing import Any, Dict, List, Optional
 from Scout.conversation.context import ScoutContext
 from Scout.conversation.responses import developer_info, response
 
-ORCHESTRATION_VERSION = "0.5.6.3.1"
+ORCHESTRATION_VERSION = "0.6.5.7.0"
 
 
-@dataclass(frozen=True)
-class ScoutIntentPlan:
-    route: str
-    confidence: float
-    reason: str
-    priority: int = 50
+from Athena.intent_planner import (
+    AthenaIntentPlan as ScoutIntentPlan,
+    _text, _has_any, _has_public_sports_context,
+    _public_player_subjects_for, _public_player_profiles_for,
+    comparison_semantics, plan_capability,
+)
 
-    def to_dict(self) -> Dict[str, object]:
-        return {
-            "route": self.route,
-            "confidence": self.confidence,
-            "reason": self.reason,
-            "priority": self.priority,
-        }
-
-
-def _text(question: str) -> str:
-    return (question or "").strip().lower()
-
-
-def _has_any(text: str, terms: List[str]) -> bool:
-    return any(term in text for term in terms)
-
-
-
-def _has_public_sports_context(text: str) -> bool:
-    public_terms = [
-        "nhl", "maple leafs", "leafs", "toronto maple", "stanley cup",
-        "gavin mckenna", "mckenna", "connor mcdavid", "nathan mackinnon", "connor bedard",
-        "blackhawks", "sharks", "oilers", "avalanche", "hurricanes", "salary-cap", "salary cap",
-        "competitive window", "roster construction", "player development", "league-wide", "league wide",
-    ]
-    fantasy_terms = [
-        "my league", "my roster", "my team", "fantrax", "keeper", "keepers", "manager", "managers",
-        "trade partner", "contract expires", "points-only", "points only", "waiver", "entry fee",
-    ]
-    return _has_any(text, public_terms) and not _has_any(text, fantasy_terms)
 
 def scout_intent_plan(question: str, mode: str = "public") -> Optional[ScoutIntentPlan]:
-    """Return a high-priority orchestration plan when legacy routing is risky."""
-    q = _text(question)
-    selected_mode = (mode or "public").strip().lower()
-    if _has_public_sports_context(q):
-        selected_mode = "public"
-    if not q:
-        return None
-
-    # Entity ambiguity must win before fantasy player lookup.
-    if "sebastian aho" in q and not _has_any(q, ["finnish", "carolina", "hurricanes", "swedish", "islanders", "penguins"]):
-        return ScoutIntentPlan("ambiguous_public_entity", 0.95, "Ambiguous public entity name requires disambiguation.", 98)
-
-    # Comparison must beat recent-event routing. Phrases such as "today" in
-    # "build around today" previously hijacked this route into live events.
-    if _has_any(q, ["compare", " vs ", " versus ", "which player", "build a franchise around"]):
-        if _has_any(q, ["mcdavid", "mackinnon", "matthews", "macKinnon".lower(), "crosby", "ovechkin", "makar"]):
-            return ScoutIntentPlan("public_player_comparison", 0.94, "Player comparison intent outranks live-event terms.", 96)
-
-    if selected_mode == "public":
-        if _has_any(q, ["gavin mckenna", "mckenna first overall", "first overall in the 2026 nhl draft"]):
-            return ScoutIntentPlan("public_organization_impact", 0.9, "Public NHL draft/organization prompt must not route to fantasy league analysis.", 95)
-        if _has_any(q, ["biggest nhl story", "biggest story", "story right now", "why it matters"]):
-            return ScoutIntentPlan("live_event_intelligence", 0.9, "Current-news prompt should route to Event Intelligence.", 94)
-        if _has_any(q, ["best positioned to improve", "improve over the next", "next three seasons"]):
-            if _has_any(q, ["teams", "nhl", "league"]):
-                return ScoutIntentPlan("public_team_projection", 0.86, "Bounded future-team projection should not hard-refuse.", 88)
-        if _has_any(q, ["will determine", "contenders over the next", "over the next three seasons"]):
-            if _has_any(q, ["maple leafs", "leafs", "toronto"]):
-                return ScoutIntentPlan("public_team_window", 0.88, "Team-window prompt needs organizational implication framing.", 86)
-        if q.startswith("why do you believe") or q.startswith("why will") or "will become an elite" in q:
-            if _has_any(q, ["bedard", "mcdavid", "matthews", "mackinnon", "celebrini"]):
-                return ScoutIntentPlan("public_player_explainability", 0.86, "Why-question requires evidence/reasoning, not stat summary.", 84)
-
-    if selected_mode == "fantasy":
-        if _has_any(q, ["analyze my roster", "my roster"]) and _has_any(q, ["strength", "weakness", "organizational"]):
-            return ScoutIntentPlan("fantasy_roster_diagnostic", 0.9, "Roster prompt should analyze team construction, not only league settings.", 92)
-        if _has_any(q, ["trade direction", "trade directions", "realistic trade", "benefits both managers", "target in a trade", "type of player should i target", "player should i target"]):
-            return ScoutIntentPlan("fantasy_trade_directions", 0.88, "Trade-direction prompt requires two-sided recommendation framing.", 90)
-        if _has_any(q, ["8th overall", "eighth overall", "draft for upside", "organizational need"]):
-            return ScoutIntentPlan("fantasy_draft_strategy", 0.86, "Draft-strategy prompt should route to bounded draft advice.", 88)
-        if _has_any(q, ["entering a rebuild", "entering rebuild", "managers", "rebuild"]):
-            return ScoutIntentPlan("fantasy_rebuild_detection", 0.86, "Manager rebuild prompt should use roster/contract/transaction evidence.", 86)
-        if _has_any(q, ["trade for a player", "contract expires", "expires in 2027", "2027"]):
-            if "contract" in q:
-                return ScoutIntentPlan("fantasy_contract_rule", 0.9, "Contract-rule prompt should explain league rule implications.", 90)
-
-    return None
+    """Compatibility facade for Scout callers; Athena owns the plan."""
+    return plan_capability(question, mode)
 
 
-def _public_player_profiles_for(question: str) -> List[Any]:
-    try:
-        from Knowledge.Intelligence.Entities.entity_extractor import resolve_entity
-    except Exception:
-        try:
-            from Knowledge.Intelligence.Entities.entity_registry import find_by_id  # type: ignore
-        except Exception:
-            return []
-    try:
+def _answer_player_temporal_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    profiles = _public_player_profiles_for(question)
+    if len(profiles) != 1:
+        from Athena.public_identity import resolve_public_player
         from Knowledge.Intelligence.Public.public_player_profiles import profile_for_entity
-    except Exception:
-        return []
-
-    q = _text(question)
-    names = []
-    known = [
-        ("connor mcdavid", "mcdavid"),
-        ("nathan mackinnon", "mackinnon"),
-        ("auston matthews", "matthews"),
-        ("sidney crosby", "crosby"),
-        ("alex ovechkin", "ovechkin"),
-        ("cale makar", "makar"),
-    ]
-    for canonical, alias in known:
-        if canonical in q or alias in q:
-            names.append(canonical)
-    profiles = []
-    seen = set()
-    for name in names:
-        try:
-            match = resolve_entity(name, preferred_type="player")
-            profile = profile_for_entity(match.entity) if getattr(match, "entity", None) is not None else None
-        except Exception:
-            profile = None
-        if profile is not None and getattr(profile, "entity_id", None) not in seen:
-            seen.add(profile.entity_id)
-            profiles.append(profile)
-    return profiles
+        match = resolve_public_player(question)
+        resolved = profile_for_entity(match.entity) if match is not None and match.entity is not None else None
+        if resolved is not None:
+            profiles = [resolved]
+    if len(profiles) != 1:
+        return _answer_player_comparison(ctx, question)
+    from Knowledge.Intelligence.Entities.entity_registry import find_by_id
+    from Knowledge.Intelligence.Public.player_evidence import player_evidence
+    profile = profiles[0]
+    entity = find_by_id(profile.entity_id)
+    evidence = player_evidence(profile.display_name, team=profile.team, position=profile.position,
+                               birth_date=entity.birth_date if entity else "")
+    statistical = evidence.get("statistical_evidence", {}) if isinstance(evidence.get("statistical_evidence"), dict) else {}
+    seasons = [row for row in statistical.get("season_series", evidence.get("season_history", [])) if isinstance(row, dict)
+               and isinstance(row.get("gp"), (int, float)) and row["gp"] > 0
+               and isinstance(row.get("points"), (int, float))]
+    if len(seasons) >= 2:
+        latest = seasons[0]
+        baseline = seasons[1:3]
+        games = sum(row["gp"] for row in baseline)
+        points = sum(row["points"] for row in baseline)
+        latest_rate = latest["points"] / latest["gp"]
+        baseline_rate = points / games
+        narrative = (f"{profile.display_name} recorded {latest['points']} points in {latest['gp']} NHL games "
+                     f"in {latest['season']} ({latest_rate:.2f} points per game). Across the preceding "
+                     f"{len(baseline)} available season(s), the baseline was {points} points in {games} games "
+                     f"({baseline_rate:.2f} per game). That is a scoring-rate comparison; deployment, health "
+                     "and playing time need separate evidence before explaining the difference.")
+        facts = [f"{row['season']}: {row['points']} points in {row['gp']} NHL games." for row in seasons[:3]]
+        confidence = 0.78
+    else:
+        narrative = (f"I can identify {profile.display_name}, but do not have two verified NHL seasons "
+                     "for a recent production comparison. I cannot infer a trend from the profile alone.")
+        facts = [f"Verified NHL season records available: {len(seasons)}."]
+        confidence = 0.42
+    answer = response(intent="public_player_temporal_comparison", title=f"{profile.display_name}: recent production",
+                      engine_conclusion=narrative, natural_language_response=narrative,
+                      observed_facts=facts, known_limitations=["Scoring rate alone does not establish why performance changed."],
+                      confidence=confidence, developer=developer_info("public_player_temporal_comparison", getattr(ctx, "files_loaded", []),
+                      knowledge_used=["nhl_player_landing"], intelligence_used=["season_baseline_comparison"],
+                      missing=[] if len(seasons) >= 2 else ["two_verified_nhl_seasons"]))
+    answer["developer"]["comparison_semantics"] = comparison_semantics(question)
+    answer["developer"]["subject_entity_id"] = profile.entity_id
+    return answer
 
 
 def _answer_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any]:
-    profiles = _public_player_profiles_for(question)
+    subjects = _public_player_subjects_for(question)
+    profiles = [item.get("profile") for item in subjects if item.get("kind") == "profile" and item.get("profile") is not None]
+    if not subjects:
+        profiles = _public_player_profiles_for(question)
+        subjects = [{"kind":"profile","name":getattr(p,"display_name","known player"),"profile":p} for p in profiles]
     try:
         from Knowledge.Intelligence.Public.public_answers import player_comparison_answer
     except Exception:
@@ -155,7 +89,46 @@ def _answer_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any
         answer = player_comparison_answer(ctx, profiles, question)
         answer.setdefault("developer", {}).setdefault("orchestration", scout_intent_plan(question, "public").to_dict())
         return answer
-    names = [getattr(p, "display_name", "known player") for p in profiles]
+    if len(subjects) >= 2:
+        left, right = subjects[0], subjects[1]
+        def subject_fact(item: Dict[str, Any]) -> str:
+            if item.get("kind") == "profile":
+                profile = item.get("profile")
+                summary = str(getattr(profile, "career_identity", "") or getattr(profile, "summary", "") or "mature public profile available")
+                return f"{item.get('name')}: {summary}"
+            lifecycle = item.get("lifecycle") or {}
+            state = str(lifecycle.get("lifecycle_state") or "current player").replace("_", " ")
+            detail = ", ".join(x for x in [str(lifecycle.get("position") or "").strip(), str(lifecycle.get("team") or "").strip()] if x and x not in {"(N/A)", "N/A"})
+            return f"{item.get('name')}: {state}" + (f" ({detail})" if detail else "")
+        def subject_context(item: Dict[str, Any]) -> Dict[str, str]:
+            if item.get("kind") == "profile":
+                profile=item.get("profile")
+                return {"position":str(getattr(profile,"position","") or ""), "team":str(getattr(profile,"team","") or ""), "draft":str(getattr(profile,"draft","") or ""), "stage":"established NHL player"}
+            lc=item.get("lifecycle") or {}
+            return {"position":str(lc.get("position") or ""), "team":str(lc.get("team") or ""), "draft":str(lc.get("draft") or ""), "stage":str(lc.get("lifecycle_state") or "prospect").replace("_"," ")}
+        lcxt, rcxt = subject_context(left), subject_context(right)
+        intersections=[]
+        if "1st overall" in lcxt["draft"].lower() and "1st overall" in rcxt["draft"].lower():
+            intersections.append("Both are supported as 1st-overall draft selections, creating a direct draft-status comparison across career stages.")
+        if lcxt["team"] and rcxt["team"] and lcxt["team"] == rcxt["team"]:
+            intersections.append(f"Both are tied by current evidence to the same organization ({lcxt['team']}), which makes organizational role and development context directly relevant.")
+        if ("toronto maple leafs" in lcxt["draft"].lower() and rcxt["team"] == "TOR") or ("toronto maple leafs" in rcxt["draft"].lower() and lcxt["team"] == "TOR"):
+            intersections.append("The evidence also establishes a Toronto first-overall lineage: the established player was drafted 1st overall by Toronto and the younger subject is currently resolved in Toronto's organization.")
+        stage_text=f"{left.get('name')} is represented as {lcxt['stage']}; {right.get('name')} is represented as {rcxt['stage']}."
+        role_bits=[]
+        if lcxt["position"] or rcxt["position"]:
+            role_bits.append(f"Position context: {left.get('name')} {lcxt['position'] or 'unknown'}; {right.get('name')} {rcxt['position'] or 'unknown'}.")
+        assumptions=[f"I’m treating {item.get('assumed_from')} as {item.get('name')} here; if you meant someone else, I can switch the comparison." for item in (left,right) if item.get('assumed_from')]
+        comparison_read = (
+            f"{left.get('name')} and {right.get('name')} are at very different career stages, so the useful comparison is established NHL impact versus entry/development trajectory rather than matching mature career totals. "
+            + stage_text + " " + " ".join(intersections + role_bits)
+        ).strip()
+        natural = " ".join(assumptions + [comparison_read])
+        facts=[subject_fact(left), subject_fact(right)] + intersections + role_bits
+        answer = response(intent="public_player_comparison", title=f"{left.get('name')} vs {right.get('name')}", engine_conclusion=natural, natural_language_response=natural, observed_facts=facts, known_limitations=["Comparison evidence depth differs between the resolved players; missing career statistics or scouting evidence are not inferred.", "Head-to-head, shared-team and cultural relationship evidence remain unavailable unless canonical evidence establishes them."], confidence=0.72, developer=developer_info("public_player_comparison", ctx.files_loaded, intelligence_used=["scout_intent_orchestration","player_lifecycle","comparison_semantics","career_intersection_composition"], missing=["symmetric_public_player_profiles","full_relationship_intelligence"]))
+        answer.setdefault("developer", {})["comparison_semantics"] = comparison_semantics(question)
+        return answer
+    names = [str(item.get("name") or "known player") for item in subjects]
     return response(
         intent="public_player_comparison_gap",
         title="Comparison needs two known public players",
@@ -352,6 +325,70 @@ def _answer_draft_strategy(ctx: ScoutContext, question: str) -> Dict[str, Any]:
     )
 
 
+def _answer_pre_draft_context(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    from Knowledge.Intelligence.Fantasy.pre_draft_context import build_pre_draft_context
+    intel = build_pre_draft_context()
+    keeper = intel.get("keeper_state") or {}; capital = intel.get("draft_capital") or {}; available = intel.get("available_pool") or {}; hist = intel.get("historical_context") or {}
+    findings = [str(x.get("statement")) for x in (hist.get("findings") or []) if x.get("statement")]
+    natural = (f"The current evidence describes a {intel.get('season')} roster snapshot with {keeper.get('rostered_players')} rostered players across {keeper.get('teams_observed')} teams. "
+        f"The league allows {keeper.get('expected_keeper_slots')} keeper slots, but this snapshot does not establish the final keeper selections. "
+        f"The draft board contains {capital.get('configured_slots')} configured slots across {capital.get('configured_rounds')} rounds, with current ownership ranging from {capital.get('min_owned_slots')} to {capital.get('max_owned_slots')} slots per team. "
+        "Those slots are draft capital/capacity, not a prediction that every slot will be exercised. "
+        + ("Historical context: " + " ".join(findings) if findings else ""))
+    facts=[f"Rostered pre-draft players: {keeper.get('rostered_players')}.",f"Configured current-draft slots: {capital.get('configured_slots')} across {capital.get('configured_rounds')} rounds.",f"Current slot ownership range: {capital.get('min_owned_slots')}–{capital.get('max_owned_slots')} per team.",f"Imported Fantrax snapshot contains {available.get('snapshot_fa_rows')} rows marked FA; current live availability is {'observed' if available.get('live_availability_observed') else 'not established by the synchronized player-pool evidence'}."]+findings
+    answer = response(intent="fantasy_pre_draft_context",title=f"{intel.get('season')} pre-draft context",engine_conclusion="Athena combined the current roster snapshot, draft-capital ownership, available-pool evidence, and historical draft intelligence without treating rostered players as confirmed keepers or configured slots as selections.",natural_language_response=natural,observed_facts=facts,known_limitations=list(intel.get('limitations') or []),confidence=0.78,cards=[{"label":"Rostered players","value":keeper.get('rostered_players')},{"label":"Keeper slots","value":keeper.get('expected_keeper_slots')},{"label":"Draft-board slots","value":capital.get('configured_slots')},{"label":"Owned-slot range","value":f"{capital.get('min_owned_slots')}–{capital.get('max_owned_slots')}"}],developer=developer_info("fantasy_pre_draft_context",ctx.files_loaded,knowledge_used=["league_profile","player_pool_master","draft_picks","historical_draft_observations"],intelligence_used=["scout_intent_orchestration","pre_draft_context","historical_draft_intelligence","contextual_followup_generation"],files_read=list(dict.fromkeys(intel.get('files_read') or [])),missing=["keeper_selection_identity","live_free_agent_availability","historical_manager_identity","historical_franchise_continuity"]))
+    answer["suggested_prompts"] = ["Where does the draft historically change character by round?", "How uneven is current draft capital across the league?", "What does the current keeper state imply about the available player pool?"] + (["Which historical draft patterns are most relevant to tomorrow's draft?"] if findings else [])
+    return answer
+
+
+
+def _answer_pre_draft_branch(ctx: ScoutContext, question: str, route: str) -> Dict[str, Any]:
+    from Knowledge.Intelligence.Fantasy.pre_draft_context import build_pre_draft_context
+    intel = build_pre_draft_context()
+    keeper = intel.get("keeper_state") or {}
+    capital = intel.get("draft_capital") or {}
+    available = intel.get("available_pool") or {}
+    hist = intel.get("historical_context") or {}
+    findings = [str(x.get("statement")) for x in (hist.get("findings") or []) if isinstance(x, dict) and x.get("statement")]
+    common_limits = list(intel.get("limitations") or [])
+    if route == "fantasy_keeper_pool_context":
+        pressure = (available.get("retention_pressure") or {}) if keeper.get("keeper_selection_established") else {}
+        pressure_parts = []
+        for pos, row in pressure.items() if isinstance(pressure, dict) else []:
+            if not isinstance(row, dict):
+                continue
+            share = round(float(row.get("retained_share") or 0) * 100, 1)
+            live_count = row.get("live_available")
+            pressure_parts.append(f"{pos}: {row.get('retained')} retained ({share}% of keeper eligibility), {live_count} live-available observed")
+        if available.get("live_availability_observed"):
+            availability_sentence = f"Canonical synchronized player-pool evidence currently identifies {available.get('live_available_records')} available/waiver records; the final keeper pool still requires keeper-selection evidence."
+        else:
+            availability_sentence = "The synchronized player-pool evidence does not currently establish a live available-player population or final keeper selections, so Athena cannot rank current draft-pool scarcity yet."
+        natural = (
+            f"The current roster snapshot contains {keeper.get('rostered_players')} players across {keeper.get('teams_observed')} teams. "
+            f"The league allows {keeper.get('expected_keeper_slots')} keeper slots, but the snapshot does not identify who will be kept or which rostered players will enter the draft pool. "
+            + availability_sentence + " "
+            f"The imported Fantrax snapshot contains {available.get('snapshot_fa_rows')} rows marked FA, but those rows are contextual snapshot evidence only and are not promoted into a current best-available list."
+        )
+        facts = [f"Rostered players in current snapshot: {keeper.get('rostered_players')}.", f"Expected keeper slots: {keeper.get('expected_keeper_slots')}."]
+        facts.extend(pressure_parts)
+        facts.append(f"Imported Fantrax snapshot FA rows: {available.get('snapshot_fa_rows')} (non-authoritative for live availability).")
+        title = "Roster snapshot and available player pool"
+    elif route == "fantasy_draft_capital_context":
+        owners = capital.get("configured_slots_by_current_owner") or {}
+        ordered = sorted(owners.items(), key=lambda kv: (-int(kv[1]), str(kv[0]))) if isinstance(owners, dict) else []
+        natural = (f"Current draft capital is uneven but bounded: teams hold between {capital.get('min_owned_slots')} and {capital.get('max_owned_slots')} configured slots across {capital.get('configured_rounds')} rounds. "
+                   "That distribution describes present pick ownership/capacity, not how many selections each team will ultimately exercise. Teams above the league baseline have more draft optionality; teams below it have less room to add through the current board unless they trade for capital or create roster space.")
+        facts = [f"Configured draft slots: {capital.get('configured_slots')}.", f"Ownership range: {capital.get('min_owned_slots')}–{capital.get('max_owned_slots')} slots per team."] + [f"{name}: {count} configured slots." for name,count in ordered]
+        title = "Current draft-capital distribution"
+    else:
+        natural = "Athena's canonical historical draft evidence shows that the draft changes materially by round rather than behaving like one uniform player market. " + (" ".join(findings) if findings else "Round-depth findings are not sufficiently resolved in the current historical evidence.")
+        facts = findings or [f"Historical seasons available: {hist.get('season_count') or 0}."]
+        title = "Historical draft patterns by round"
+    answer = response(intent=route,title=title,engine_conclusion=natural,natural_language_response=natural,observed_facts=facts,known_limitations=common_limits,confidence=0.88,developer=developer_info(route,ctx.files_loaded,knowledge_used=["league_profile","player_pool_master","draft_picks","historical_draft_observations"],intelligence_used=["pre_draft_context","historical_draft_intelligence","contextual_followup_execution"],files_read=list(dict.fromkeys(intel.get("files_read") or [])),missing=["live_free_agent_availability","historical_manager_identity","historical_franchise_continuity"]))
+    answer["normal_detail"] = True
+    return answer
+
 def _answer_rebuild_detection(ctx: ScoutContext, question: str) -> Dict[str, Any]:
     records = []
     payload = ctx.manager_behavior or {}
@@ -425,37 +462,84 @@ def _answer_public_organization_impact(ctx: ScoutContext, question: str) -> Dict
         developer=developer_info("public_organization_impact", ctx.files_loaded, knowledge_used=["public_team_profile_seed"], intelligence_used=["scout_intent_orchestration", "organizational_impact_framing"], missing=["official_draft_feed", "live_cap_feed", "prospect_development_model"]),
     )
 
+
+def _answer_longitudinal_draft(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    try:
+        from Knowledge.LeagueHistory.evidence_registry import discover_historical_evidence
+        evidence = discover_historical_evidence("draft_results")
+    except Exception as exc:
+        evidence = {"status": "missing", "seasons": [], "error": type(exc).__name__}
+    seasons = list(evidence.get("seasons") or [])
+    if not seasons:
+        return response(
+            intent="fantasy_longitudinal_draft",
+            title="Historical draft evidence unavailable",
+            engine_conclusion="Scout recognized the longitudinal draft question, but no canonical historical draft evidence is currently available to analyze.",
+            natural_language_response="I recognized this as a multi-season league draft question, but I do not have canonical historical draft records available in this runtime, so I will not reconstruct or guess the history.",
+            observed_facts=[], known_limitations=["Canonical historical draft evidence is missing from this runtime."], confidence=0.35,
+            developer=developer_info("fantasy_longitudinal_draft", ctx.files_loaded, knowledge_used=["historical_evidence_registry"], intelligence_used=["scout_intent_orchestration"], files_read=[], missing=["historical_draft_results"]),
+        )
+    first, last = seasons[0], seasons[-1]
+    selection_values = [int(item.get("selections") or 0) for item in seasons]
+    slot_values = [int(item.get("configured_slots") or 0) for item in seasons]
+    high = max(seasons, key=lambda item: int(item.get("selections") or 0))
+    low = min(seasons, key=lambda item: int(item.get("selections") or 0))
+    distinct_slots = sorted(set(slot_values))
+    facts = [f"{item['season']}: {item['selections']} actual selections from {item['configured_slots']} configured slots." for item in seasons]
+    identity_seasons = [item for item in seasons if item.get("identity_available")]
+    resolved_team_names = sum(int(item.get("resolved_team_names") or 0) for item in seasons)
+    resolved_player_names = sum(int(item.get("resolved_player_names") or 0) for item in seasons)
+    resolved_positions = sum(int(item.get("resolved_positions") or 0) for item in seasons)
+    total_selections = sum(selection_values)
+    identity_text = (
+        f" Same-season identity enrichment is available for {len(identity_seasons)} seasons: team names resolve for {resolved_team_names} selection observations, "
+        f"positions for {resolved_positions}/{total_selections}, and player names for {resolved_player_names}/{total_selections}. "
+        "Manager/person identity and cross-season franchise continuity remain unresolved because the acquired evidence does not establish them."
+        if identity_seasons else
+        " Historical player, position, franchise, and manager identity still needs same-season resolution before I can responsibly attribute these changes to particular managers or drafting preferences."
+    )
+    try:
+        from Knowledge.Intelligence.Fantasy.historical_draft import build_historical_draft_intelligence
+        draft_intelligence = build_historical_draft_intelligence()
+    except Exception:
+        draft_intelligence = {"status": "missing", "findings": [], "files_read": []}
+    findings = list(draft_intelligence.get("findings") or [])
+    supported_statements = [str(item.get("statement")) for item in findings if item.get("statement")]
+    intelligence_text = (" Historical draft intelligence also finds: " + " ".join(supported_statements)) if supported_statements else ""
+    natural = (
+        f"Athena has canonical draft-result evidence for {len(seasons)} seasons, from {first['season']} through {last['season']}. "
+        f"The draft has not produced a constant number of actual selections: the observed range is {low['selections']} in {low['season']} to {high['selections']} in {high['season']}. "
+        f"Configured draft size also varied across the record ({', '.join(map(str, distinct_slots))} slots), so Athena should not project today's draft structure backward onto every season."
+        + identity_text + intelligence_text
+    )
+    files = [str(item.get("artifact")) for item in seasons if item.get("artifact")]
+    files += [str(item.get("identity_artifact")) for item in seasons if item.get("identity_artifact")]
+    files += [str(item.get("enriched_artifact")) for item in seasons if item.get("enriched_artifact")]
+    files += [str(item) for item in draft_intelligence.get("files_read", []) if item]
+    files = list(dict.fromkeys(files))
+    intelligence_available = draft_intelligence.get("status") == "available"
+    conclusion = f"Across {len(seasons)} observed seasons, actual draft usage varied materially even when configured draft capacity was similar."
+    if supported_statements:
+        conclusion += " Position-resolved evidence supports additional league-level round-depth analysis without requiring manager attribution."
+    return response(
+        intent="fantasy_longitudinal_draft", title=f"League draft history: {first['season']}–{last['season']}",
+        engine_conclusion=conclusion,
+        natural_language_response=natural, observed_facts=facts + supported_statements,
+        known_limitations=["Provider draft state is preserved as provider metadata and is not independently treated as proof of historical completion.", "Manager tendencies require resolved same-season manager identity, and cross-season team tendencies require established franchise continuity.", "Position findings use resolved same-season eligibility evidence; multi-position eligibility is preserved rather than forced into a single position."],
+        confidence=0.90 if intelligence_available else 0.88, cards=[{"label":"Seasons","value":len(seasons)}, {"label":"Selection range","value":f"{min(selection_values)}–{max(selection_values)}"}, {"label":"Configured slot sizes","value":", ".join(map(str, distinct_slots))}],
+        developer=developer_info("fantasy_longitudinal_draft", ctx.files_loaded, knowledge_used=["historical_evidence_registry", "historical_draft_results"] + (["historical_identity_resolution", "historical_draft_observations"] if identity_seasons else []), intelligence_used=["scout_intent_orchestration", "longitudinal_structural_comparison"] + (["historical_draft_intelligence"] if intelligence_available else []), files_read=files, missing=(["historical_manager_identity", "historical_franchise_continuity"] if identity_seasons else ["historical_team_identity", "historical_manager_identity", "historical_player_identity", "historical_position_context"])),
+    )
+
 def scout_orchestrated_answer(ctx: ScoutContext, question: str, mode: str = "public") -> Optional[Dict[str, Any]]:
+    """Compatibility entry point; Athena owns the executable handler map."""
     plan = scout_intent_plan(question, mode)
     if plan is None:
         return None
-    route = plan.route
-    if route == "live_event_intelligence":
-        # The router owns the live-event implementation to avoid circular imports.
+    if plan.route == "live_event_intelligence":
+        # Existing router calls its live handler before this entry point.
         return None
-    if route == "public_player_comparison":
-        return _answer_player_comparison(ctx, question)
-    if route == "ambiguous_public_entity":
-        return _answer_ambiguous_entity(ctx, question)
-    if route == "public_team_window":
-        return _answer_team_window(ctx, question)
-    if route == "public_team_projection":
-        return _answer_team_projection(ctx, question)
-    if route == "public_player_explainability":
-        return _answer_player_explainability(ctx, question)
-    if route == "public_organization_impact":
-        return _answer_public_organization_impact(ctx, question)
-    if route == "fantasy_roster_diagnostic":
-        return _answer_fantasy_roster(ctx, question)
-    if route == "fantasy_trade_directions":
-        return _answer_trade_directions(ctx, question)
-    if route == "fantasy_draft_strategy":
-        return _answer_draft_strategy(ctx, question)
-    if route == "fantasy_rebuild_detection":
-        return _answer_rebuild_detection(ctx, question)
-    if route == "fantasy_contract_rule":
-        return _answer_contract_rule(ctx, question)
-    return None
+    from Athena.execution_registry import execute_specialist
+    return execute_specialist(plan.route, ctx, question, mode=mode)
 
 
 def orchestration_diagnostics() -> Dict[str, Any]:
@@ -469,6 +553,11 @@ def orchestration_diagnostics() -> Dict[str, Any]:
             "public_player_explainability",
             "ambiguous_public_entity",
             "public_organization_impact",
+            "fantasy_longitudinal_draft",
+            "fantasy_pre_draft_context",
+            "fantasy_keeper_pool_context",
+            "fantasy_draft_capital_context",
+            "fantasy_historical_draft_context",
             "fantasy_roster_diagnostic",
             "fantasy_trade_directions",
             "fantasy_draft_strategy",

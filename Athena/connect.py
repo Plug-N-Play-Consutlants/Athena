@@ -10,6 +10,8 @@ provider clients directly.
 from __future__ import annotations
 
 import json
+import re
+from urllib.parse import parse_qs, urlparse
 from typing import Any, Dict
 
 from Core.config import reload_configuration
@@ -38,8 +40,26 @@ def _normalize_provider(provider: str) -> str:
     return selected
 
 
+
+def _normalize_fantrax_league_id(value: str | None) -> str:
+    """Accept a raw Fantrax league ID or URL without retaining query fragments."""
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if raw.lower().startswith(("http://", "https://")):
+        parsed = urlparse(raw)
+        query_id = (parse_qs(parsed.query).get("leagueId") or parse_qs(parsed.query).get("leagueid") or [""])[0]
+        if query_id:
+            raw = query_id
+        else:
+            match = re.search(r"/league/([^/?#&]+)", parsed.path, flags=re.I)
+            raw = match.group(1) if match else raw
+    raw = re.split(r"[?&#]", raw, maxsplit=1)[0].strip()
+    return raw
+
 def infer_fantrax_context(league_payload: Any) -> Dict[str, Any]:
     """Infer sport/season/league metadata from Fantrax league information."""
+    from Providers.Fantrax.identity import resolve_league_name
     inferred: Dict[str, Any] = {
         "provider": "Fantrax",
         "sport": "unknown",
@@ -52,7 +72,7 @@ def infer_fantrax_context(league_payload: Any) -> Dict[str, Any]:
     if not isinstance(league_payload, dict):
         return inferred
 
-    league_name = league_payload.get("leagueName") or league_payload.get("name") or "unknown"
+    league_name = resolve_league_name(league_payload)
     inferred["name"] = league_name
     inferred["league_name"] = league_name
     inferred["season"] = str(league_payload.get("seasonYear") or league_payload.get("season") or "unknown")
@@ -116,7 +136,7 @@ def connect_provider(
     selected = _normalize_provider(provider)
     provider_instance = get_provider(selected)
 
-    cleaned_league_id = str(league_id or "").strip()
+    cleaned_league_id = _normalize_fantrax_league_id(league_id) if selected == "fantrax" else str(league_id or "").strip()
     if selected == "fantrax" and not cleaned_league_id:
         raise AthenaConfigurationError("Fantrax league_id is required.")
 
@@ -144,6 +164,14 @@ def connect_provider(
         secret_status = save_fantrax_auth(league_secret=supplied_league_secret, cookie=supplied_cookie)
 
     reload_configuration()
+
+    # Provider instances are registry singletons. A Studio process can therefore
+    # retain a transport client created for a previous league. Explicitly refresh
+    # provider transport state after persisting/reloading a new workspace so the
+    # validation request is guaranteed to use the league ID just supplied.
+    refresh_client = getattr(provider_instance, "refresh_client", None)
+    if callable(refresh_client):
+        refresh_client()
 
     connection_result: Dict[str, Any]
     if validate:

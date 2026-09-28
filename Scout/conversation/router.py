@@ -7,6 +7,7 @@ questions to Athena outputs and returns structured answer parts.
 
 from __future__ import annotations
 
+from html import unescape
 import os
 import re
 from pathlib import Path
@@ -21,6 +22,7 @@ from Scout.conversation.context import (
     load_context,
 )
 from Scout.conversation.responses import developer_info, response
+from Core.text_utils import normalize_external_text
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -109,7 +111,7 @@ def _no_silent_failure_response(ctx: ScoutContext, question: str, selected_mode:
             "Scout returned a clarifying response instead of silently failing or inventing an answer.",
         ],
         known_limitations=[
-            "Scout Alpha still uses deterministic routing before full natural-language planning.",
+            "Scout could not map this prompt to a sufficiently supported intelligence path yet.",
             "If this was a player question, try the player name only or include first and last name.",
             "If this was a league question, try 'Analyze my league' or 'Show my team weaknesses'.",
         ],
@@ -145,6 +147,7 @@ try:
         team_profile_answer,
         team_comparison_answer,
         gap_answer,
+        lifecycle_player_answer,
     )
 except Exception:  # pragma: no cover - PIF public layer remains optional during partial installs
     analyze_public_request = None  # type: ignore
@@ -156,6 +159,13 @@ except Exception:  # pragma: no cover - PIF public layer remains optional during
     team_profile_answer = None  # type: ignore
     team_comparison_answer = None  # type: ignore
     gap_answer = None  # type: ignore
+    lifecycle_player_answer = None  # type: ignore
+
+
+try:
+    from Knowledge.Intelligence.Public.player_lifecycle import resolve_player_lifecycle
+except Exception:  # pragma: no cover - lifecycle intelligence is additive
+    resolve_player_lifecycle = None  # type: ignore
 
 
 try:
@@ -233,6 +243,7 @@ def _safe_round(value: Any, digits: int = 2) -> Any:
 
 
 def _league_profile_summary(ctx: ScoutContext) -> Dict[str, Any]:
+    from Providers.Fantrax.identity import resolve_league_name
     profile = ctx.league_profile if isinstance(ctx.league_profile, dict) else {}
     raw = ctx.raw_league_info if isinstance(getattr(ctx, "raw_league_info", None), dict) else {}
     teams = ctx.team_profiles or []
@@ -244,7 +255,7 @@ def _league_profile_summary(ctx: ScoutContext) -> Dict[str, Any]:
             lineup.append(f"{slot.get('active_slots', slot.get('max_active', '?'))}{slot.get('position')}")
     league_history_id = raw.get("leagueHistoryId") or raw.get("league_history_id") or profile.get("league_history_id")
     return {
-        "league_name": profile.get("league_name") or raw.get("leagueName") or "unknown",
+        "league_name": resolve_league_name(raw, fallback=profile.get("league_name") or ""),
         "sport": profile.get("sport") or raw.get("sport") or "unknown",
         "season": profile.get("season") or raw.get("season") or "unknown",
         "team_count": profile.get("team_count") or len(teams) or "unknown",
@@ -268,25 +279,38 @@ def _league_profile_summary(ctx: ScoutContext) -> Dict[str, Any]:
 def _manager_coverage(ctx: ScoutContext) -> Dict[str, Any]:
     teams = ctx.team_profiles or []
     managers = _manager_records(ctx)
-    manager_ids = {str(row.get("team_id") or row.get("manager_id") or "") for row in managers}
-    missing = []
-    for team in teams:
-        team_id = str(team.get("team_id") or "")
-        if team_id and team_id not in manager_ids:
-            missing.append(team.get("team_name") or team_id)
+    active_records = []
     total_transactions = 0
     for row in managers:
         facts = row.get("observed_facts") if isinstance(row.get("observed_facts"), dict) else row
         try:
-            total_transactions += int(facts.get("transaction_count") or row.get("transaction_count") or 0)
+            count = int(facts.get("transaction_count") or row.get("transaction_count") or 0)
         except Exception:
-            pass
-    average_per_team = round(total_transactions / len(teams), 2) if teams else 0
-    average_active_manager = round(total_transactions / len(managers), 2) if managers else 0
+            count = 0
+        total_transactions += count
+        if count > 0:
+            active_records.append(row)
+
+    team_count = len(teams)
+    if team_count <= 0 and isinstance(ctx.league_profile, dict):
+        try:
+            team_count = int(ctx.league_profile.get("team_count") or 0)
+        except Exception:
+            team_count = 0
+
+    active_ids = {str(row.get("team_id") or row.get("manager_id") or "") for row in active_records}
+    missing = []
+    for team in teams:
+        team_id = str(team.get("team_id") or "")
+        if team_id and team_id not in active_ids:
+            missing.append(normalize_external_text(team.get("team_name") or team_id))
+
+    average_per_team = round(total_transactions / team_count, 2) if team_count else 0
+    average_active_manager = round(total_transactions / len(active_records), 2) if active_records else 0
     return {
-        "teams": len(teams),
-        "managers_with_activity": len(managers),
-        "managers_without_activity": max(len(teams) - len(managers), 0),
+        "teams": team_count,
+        "managers_with_activity": len(active_records),
+        "managers_without_activity": max(team_count - len(active_records), 0),
         "missing_manager_activity": missing,
         "total_observed_transactions": total_transactions,
         "average_transactions_per_team": average_per_team,
@@ -306,6 +330,24 @@ def _draft_pick_status(ctx: ScoutContext) -> Dict[str, Any]:
     }
 
 
+def _historical_league_coverage() -> Dict[str, Any]:
+    historical_root = PROJECT_ROOT / "Output" / "Historical"
+    seasons = []
+    if historical_root.exists():
+        for season_dir in historical_root.iterdir():
+            if season_dir.is_dir() and (season_dir / "draft_results_canonical.json").exists():
+                try:
+                    seasons.append(int(season_dir.name))
+                except ValueError:
+                    continue
+    seasons.sort()
+    return {
+        "seasons": seasons,
+        "season_count": len(seasons),
+        "range": f"{seasons[0]}–{seasons[-1]}" if seasons else "not available",
+    }
+
+
 def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
     ctx = ctx or load_context()
     market = _market(ctx)
@@ -315,6 +357,7 @@ def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
     profile = _league_profile_summary(ctx)
     coverage = _manager_coverage(ctx)
     draft_status = _draft_pick_status(ctx)
+    historical = _historical_league_coverage()
 
     subtype = str(profile.get("league_subtype") or "").replace("_", " ").strip()
     continuity = str(profile.get("roster_continuity") or "").replace("_", " ").strip()
@@ -332,9 +375,10 @@ def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
         f"Knowledge readiness score: {readiness_summary.get('overall_readiness_score', 'unknown')}.",
         f"Teams loaded: {coverage['teams']}; managers with observed transaction activity: {coverage['managers_with_activity']}; managers without observed activity: {coverage['managers_without_activity']}.",
         f"Canonical transactions: {market.get('transaction_count', coverage['total_observed_transactions'])}; asset movements: {market.get('asset_movement_count', 'unknown')}.",
-        f"Average observed transactions: {coverage['average_transactions_per_team']} per team; {coverage['average_transactions_per_active_manager']} per active manager.",
+        f"Average observed transactions: {coverage['average_transactions_per_team']} per team.",
         f"Market liquidity: {liquidity.get('classification', market.get('market_liquidity', 'unknown'))}.",
         f"League history identifier: {profile['league_history_id']}.",
+        f"Canonical historical draft coverage: {historical['season_count']} seasons ({historical['range']}).",
         f"Draft-pick files: {draft_status['status']}.",
     ]
     if coverage["missing_manager_activity"]:
@@ -348,33 +392,40 @@ def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
     if profile["league_history_id"] == "not detected":
         limitations.append("League history linkage was not detected yet; long-term league trend analysis requires historical season pulls.")
     else:
-        limitations.append("League history ID is detected, but historical season trend fetching is not implemented in Scout Alpha yet.")
+        if historical["season_count"] == 0:
+            limitations.append("League history is linked, but no canonical historical draft seasons are available in this runtime.")
     limitations.extend([
-        "Manager behavior is based on observed transaction history; managers with no observed moves are inactive in this data window, not necessarily inactive owners.",
-        "Scout Alpha uses existing Athena outputs; it does not yet fetch the Fantrax finance page.",
-        "Natural-language answers are deterministic templates in this alpha, not freeform AI reasoning.",
+        "Manager behavior is bounded to observed transaction evidence; no current-season moves does not imply an inactive league member.",
+        "Official finance balances remain outside the authoritative Fantrax sync until the finance source is integrated.",
     ])
 
+    contracts_payload = ctx.player_contracts or {}
+    contract_records = contracts_payload.get("records") if isinstance(contracts_payload, dict) else []
+    contract_count = len(contract_records or [])
+    draft_payload = ctx.draft_picks or {}
+    current_draft = draft_payload.get("current_draft") if isinstance(draft_payload, dict) else {}
+    future_assets = draft_payload.get("future_draft_assets") if isinstance(draft_payload, dict) else {}
+    current_slots = len((current_draft or {}).get("picks") or []) if isinstance(current_draft, dict) else 0
     cards = [
         {"label": "League type", "value": profile.get("league_subtype", "unknown")},
-        {"label": "Keeper model", "value": f"{profile.get('keeper_count')} keepers"},
-        {"label": "Teams", "value": coverage["teams"]},
-        {"label": "Managers active", "value": f"{coverage['managers_with_activity']}/{coverage['teams']}"},
-        {"label": "Avg tx/team", "value": coverage["average_transactions_per_team"]},
-        {"label": "Transactions", "value": market.get("transaction_count", coverage["total_observed_transactions"])},
-        {"label": "Market", "value": liquidity.get("classification", market.get("market_liquidity", "unknown"))},
-        {"label": "History", "value": "detected" if profile["league_history_id"] != "not detected" else "missing"},
+        {"label": "Rostered keepers", "value": f"{profile.get('keeper_count')} × {coverage['teams']}"},
+        {"label": "Contracts", "value": contract_count},
+        {"label": "Current draft slots", "value": current_slots},
+        {"label": "Future draft assets", "value": int((future_assets or {}).get("pick_count") or len((future_assets or {}).get("picks") or [])) if isinstance(future_assets, dict) else len(future_assets or [])},
+        {"label": "Historical drafts", "value": historical["season_count"]},
+        {"label": "Managers with observed moves", "value": f"{coverage['managers_with_activity']}/{coverage['teams']}"},
+        {"label": "Observed transactions", "value": market.get("transaction_count", coverage["total_observed_transactions"])},
     ]
 
-    return response(
+    answer = response(
         intent="analyze_league",
         title="League analysis",
         engine_conclusion=(
-            f"Athena identifies this as a {league_type} league with {profile['team_count']} teams, "
+            f"Athena identifies {profile['league_name']} as a {league_type} league with {profile['team_count']} teams, "
             f"{profile['keeper_count']} keepers, {profile['contract_model']}, {profile['scoring_detail']} scoring, "
-            f"and a {profile['lineup_lock_model']} lineup model. Current behavior evidence shows "
-            f"{coverage['managers_with_activity']} of {coverage['teams']} managers with observed transaction activity and "
-            f"{coverage['total_observed_transactions']} observed manager transactions in the synced history window."
+            f"and a {profile['lineup_lock_model']} lineup model. Current roster, contract and draft-asset context is loaded. "
+            f"Current-season transaction evidence contains {coverage['total_observed_transactions']} observed manager transactions; "
+            f"canonical historical draft coverage spans {historical['season_count']} seasons ({historical['range']})."
         ),
         observed_facts=observed,
         known_limitations=limitations,
@@ -386,9 +437,17 @@ def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
             knowledge_used=["league_profile", "team_profile", "transaction_history", "player_contracts", "knowledge_readiness"],
             intelligence_used=["manager_behavior", "league_market", "league_profile_summary"],
             files_read=["Output/league_profile.json", "Output/knowledge_readiness.json", "Output/manager_behavior.json", "Output/league_market.json", "Raw/league_info.json"],
-            missing=["finance_profile", "relationship_graph", "historical_season_fetch", "draft_pick_ownership_sync", "injury_availability"],
+            missing=["finance_profile", "relationship_graph", "injury_availability"],
         ),
     )
+    answer["normal_detail"] = True
+    answer["suggested_prompts"] = [
+        "Analyze the upcoming draft",
+        "How uneven is current draft capital across the league?",
+        "What does the current keeper state imply about the available player pool?",
+        "What can you tell me about how the JHLPAA draft has changed over the last 10 seasons?",
+    ]
+    return answer
 
 def most_active_managers(ctx: ScoutContext) -> Dict[str, Any]:
     def _transaction_count(row):
@@ -586,6 +645,36 @@ def compare_team(ctx: ScoutContext, question: str) -> Dict[str, Any]:
     )
 
 
+def draft_order(ctx: ScoutContext) -> Dict[str, Any]:
+    payload = ctx.draft_picks or {}
+    current = payload.get("current_draft", {}) if isinstance(payload, dict) else {}
+    picks = current.get("picks", []) if isinstance(current, dict) else []
+    if not picks:
+        return response(
+            intent="fantasy_draft_order", title="League draft order",
+            engine_conclusion="Current draft-pick ownership has not been synchronized yet.",
+            observed_facts=[], known_limitations=["Run Sync League to acquire current Fantrax draft-pick ownership."], confidence=0.35,
+            developer=developer_info("fantasy_draft_order", ctx.files_loaded, knowledge_used=["draft_assets"], files_read=["Output/draft_picks.json"], missing=["draft_assets"]),
+        )
+    rounds: dict[int, list[dict[str, Any]]] = {}
+    for pick in picks:
+        if isinstance(pick, dict): rounds.setdefault(int(pick.get("round") or 0), []).append(pick)
+    facts=[]
+    for rnd in sorted(rounds):
+        ordered=sorted(rounds[rnd], key=lambda x:int(x.get("pick_in_round") or 0))
+        names=[str((x.get("current_owner") or {}).get("team_name") or (x.get("current_owner") or {}).get("team_id") or "Unknown") for x in ordered]
+        facts.append(f"Round {rnd}: " + " → ".join(names))
+    return response(
+        intent="fantasy_draft_order", title="League draft order",
+        engine_conclusion=(f"Fantrax currently exposes a finalized draft board with {len(picks)} configured slots across {len(rounds)} rounds. "
+                           "The number of selections actually exercised depends on each team\'s usable roster/draft capacity."),
+        observed_facts=facts,
+        known_limitations=["Current-board ownership is observed directly from Fantrax. Original ownership for those current-board slots remains unknown unless separately reconciled. Fantrax separately exposes original and current ownership for future draft assets; Athena preserves that evidence and does not manufacture transfer history."],
+        confidence=0.98, cards=[{"label":"Rounds","value":len(rounds)},{"label":"Configured slots","value":len(picks)}],
+        developer=developer_info("fantasy_draft_order", ctx.files_loaded, knowledge_used=["draft_assets"], files_read=["Output/draft_picks.json"]),
+    )
+
+
 def limitations(ctx: ScoutContext) -> Dict[str, Any]:
     readiness = ctx.knowledge_readiness or {}
     missing = []
@@ -617,10 +706,10 @@ def limitations(ctx: ScoutContext) -> Dict[str, Any]:
 def public_sports_overview(ctx: ScoutContext) -> Dict[str, Any]:
     return response(
         intent="public_sports_overview",
-        title="Public sports mode",
+        title="Professional sports mode",
         engine_conclusion="Scout can route public hockey questions separately from fantasy league questions and can now retrieve bounded evidence from compact NHL rulebook and NHL/NHLPA MOU knowledge packs.",
         observed_facts=[
-            "Mode: Public Sports.",
+            "Mode: Professional Sports.",
             "Public hockey knowledge packs are used for NHL rulebook and NHL/NHLPA MOU topics.",
             "Fantasy league context is not applied in this mode unless explicitly connected to a fantasy question.",
         ],
@@ -630,7 +719,7 @@ def public_sports_overview(ctx: ScoutContext) -> Dict[str, Any]:
         ],
         confidence=0.72,
         cards=[
-            {"label": "Mode", "value": "Public Sports"},
+            {"label": "Mode", "value": "Professional Sports"},
             {"label": "Rulebook", "value": "available"},
             {"label": "CBA/MOU", "value": "available"},
         ],
@@ -673,6 +762,23 @@ def _plain_rule_explanation(question: str, evidence: List[Dict[str, Any]]) -> st
             "A faceoff is the restart mechanism used after many stoppages. Officials drop the puck between opposing players at the appropriate faceoff spot based on why play stopped. "
             "The exact location and procedure are governed by the NHL game-flow rules referenced below."
         )
+    cap_terms = ("salary cap", "salary-cap", "cap hit", "cap space", "ltir", "retained salary")
+    if any(term in q for term in cap_terms):
+        scenario_terms = ("acquisition", "trade", "workable", "move", "give up", "structure")
+        if any(term in q for term in scenario_terms):
+            return (
+                "For an acquisition to work, the acquiring club has to fit the incoming contract within the applicable salary-cap and roster rules after accounting for any salary moved out, retained salary, or valid relief mechanisms. "
+                "The evidence attached here identifies the governing cap, LTI/LTIR, contract-variability and related transaction constraints, but it does not establish the clubs' current payrolls or calculate a specific compliant trade. "
+                "So the next analytical step is to combine these rules with current contracts and roster state, then test candidate structures against both teams' needs."
+            )
+        if any(term in q for term in ("right now", "current", "today")):
+            return (
+                "The attached evidence establishes the rules that govern the salary cap, but it does not establish the team's current cap position by itself. "
+                "Answering the current-state question requires current roster and contract totals to be composed with these rules; without that evidence, I should not turn the rulebook into a made-up cap number."
+            )
+        return (
+            "The attached evidence identifies the salary-cap rules relevant to this question. Those rules are constraints on the answer, not a current cap calculation; applying them requires the affected contracts, roster state and any applicable relief or retention."
+        )
     return None
 
 
@@ -712,7 +818,7 @@ def public_hockey_answer(ctx: ScoutContext, question: str, mode: str = "public_s
     if retrieve_public_hockey_knowledge is None:
         return response(
             intent="public_hockey_knowledge",
-            title="Public hockey knowledge unavailable",
+            title="Professional hockey knowledge unavailable",
             engine_conclusion="Athena could not load the public hockey retrieval layer.",
             observed_facts=[],
             known_limitations=["Run the public hockey knowledge pack builder and retrieval validation."],
@@ -720,18 +826,21 @@ def public_hockey_answer(ctx: ScoutContext, question: str, mode: str = "public_s
             developer=developer_info("public_hockey_knowledge", ctx.files_loaded, missing=["Knowledge.Sources.public_hockey_retrieval"]),
         )
 
-    retrieval = retrieve_public_hockey_knowledge(question, project_root=PROJECT_ROOT, mode=mode, limit=5, auto_build=False)
+    request_bundle = getattr(ctx, "request_evidence", {}) if ctx is not None else {}
+    cap_bundle = request_bundle.get("salary_cap", {}) if isinstance(request_bundle, dict) else {}
+    bundled_rules = cap_bundle.get("rules") if isinstance(cap_bundle, dict) else None
+    retrieval = bundled_rules if isinstance(bundled_rules, dict) else retrieve_public_hockey_knowledge(question, project_root=PROJECT_ROOT, mode=mode, limit=5, auto_build=False)
     evidence = retrieval.get("evidence", []) or []
     if not evidence:
         answer = response(
             intent="public_hockey_knowledge",
-            title="Public hockey knowledge unavailable",
+            title="Professional hockey knowledge unavailable",
             engine_conclusion="Athena could not find a matching NHL rulebook or NHL/NHLPA MOU knowledge-pack topic for this question.",
             observed_facts=[f"Packs checked: {retrieval.get('packs_checked', 0)}."],
             known_limitations=list(retrieval.get("limitations") or []),
             confidence=retrieval.get("confidence", 0.25),
             cards=[
-                {"label": "Mode", "value": "Public Sports"},
+                {"label": "Mode", "value": "Professional Sports"},
                 {"label": "Evidence", "value": 0},
                 {"label": "Status", "value": retrieval.get("status", "no_match")},
             ],
@@ -756,7 +865,7 @@ def public_hockey_answer(ctx: ScoutContext, question: str, mode: str = "public_s
         observed.append(f"{item.get('label')}: {item.get('summary')} Source: {item.get('source_title')} — {refs}.")
 
     rule_explanation = _plain_rule_explanation(question, evidence)
-    conclusion = "Athena found public hockey knowledge-pack evidence relevant to this question: " + "; ".join(source_phrases[:3]) + "."
+    conclusion = "Relevant public hockey evidence: " + "; ".join(source_phrases[:3]) + "."
     if rule_explanation:
         natural = rule_explanation
     else:
@@ -768,7 +877,7 @@ def public_hockey_answer(ctx: ScoutContext, question: str, mode: str = "public_s
         )
     answer = response(
         intent="public_hockey_knowledge",
-        title="Public hockey knowledge",
+        title="Professional hockey knowledge",
         engine_conclusion=conclusion,
         observed_facts=observed,
         known_limitations=list(retrieval.get("limitations") or []),
@@ -788,10 +897,27 @@ def public_hockey_answer(ctx: ScoutContext, question: str, mode: str = "public_s
         ),
     )
     answer["natural_language_response"] = natural
+    answer["public_comment"] = natural
+    answer["response_text"] = natural
+    answer["scout_message"] = natural
     answer["source_links"] = _public_rule_source_links(question, evidence, rule_explanation)
     answer["raw_reasoning_output"] = conclusion
     answer["developer"]["retrieval"] = retrieval
+    if isinstance(cap_bundle, dict) and cap_bundle:
+        cap_missing = list(request_bundle.get("missing", [])) if isinstance(request_bundle, dict) else []
+        answer["developer"]["request_evidence"] = cap_bundle
+        answer["developer"]["missing"] = cap_missing
+        if cap_missing:
+            gap_text = "Current cap usage cannot be calculated from the governing rules alone because Athena does not yet have the registered current payroll ledger and roster-to-cap composition for this request."
+            answer["known_limitations"] = [gap_text]
+            answer["natural_language_response"] = natural.rstrip() + "\n\n" + gap_text
+            answer["public_comment"] = answer["natural_language_response"]
+            answer["response_text"] = answer["natural_language_response"]
+            answer["scout_message"] = answer["natural_language_response"]
     answer["developer"]["evidence_used"] = evidence
+    if cap_bundle:
+        answer["developer"]["request_evidence"] = cap_bundle
+        answer["developer"]["missing"] = list(dict.fromkeys(list(answer["developer"].get("missing", [])) + list(request_bundle.get("missing", []))))
     answer["developer"]["raw_reasoning_output"] = conclusion
     return answer
 
@@ -1286,9 +1412,39 @@ def _public_analytical_answer(ctx: ScoutContext, question: str, selected_mode: s
 
 
 
+def _clean_event_text(value: Any) -> str:
+    text = unescape(str(value or "")).replace("\xa0", " ")
+    text = re.sub(r"<[^>]+>", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def _event_date_label(event: Dict[str, Any]) -> str:
-    value = str(event.get("published_at") or "").strip()
-    return value or "date not provided by source"
+    value = _clean_event_text(event.get("published_at"))
+    if not value:
+        return "date not provided by source"
+    try:
+        from email.utils import parsedate_to_datetime
+        dt = parsedate_to_datetime(value)
+        return f"{dt.strftime('%b')} {dt.day}, {dt.year}"
+    except (TypeError, ValueError, OverflowError):
+        return value
+
+
+def _event_title_publisher(event: Dict[str, Any]) -> tuple[str, str]:
+    title = _clean_event_text(event.get("title"))
+    explicit = _clean_event_text(event.get("publisher"))
+    display = _clean_event_text(event.get("source_display_name"))
+    internal = display.casefold() in {"current news discovery", "news search discovery"}
+    if " - " in title:
+        headline, suffix = title.rsplit(" - ", 1)
+        if headline.strip() and suffix.strip() and (internal or not explicit):
+            return headline.strip(), explicit or suffix.strip()
+    publisher = explicit or ("" if internal else display) or _clean_event_text(event.get("source_id")) or "Source"
+    return title, publisher
+
+
+def _event_publisher(event: Dict[str, Any]) -> str:
+    return _event_title_publisher(event)[1]
 
 
 def _event_source_links(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -1296,117 +1452,269 @@ def _event_source_links(events: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for idx, event in enumerate(events[:8], 1):
         if not isinstance(event, dict):
             continue
-        title = str(event.get("title") or f"Event {idx}").strip()
-        summary = str(event.get("summary") or "").strip()
+        title, publisher = _event_title_publisher(event)
+        title = title or f"Event {idx}"
+        summary = _clean_event_text(event.get("summary"))
+        if summary and summary.casefold() == title.casefold():
+            summary = ""
         url = str(event.get("url") or "").strip()
         published = _event_date_label(event)
         links.append({
-            "label": f"Source {idx}",
+            "label": title,
             "title": title,
+            "publisher": publisher,
+            "published_at": published,
             "url": url,
             "summary": summary,
-            "popup_text": f"{summary}\n\nPublished: {published}\nSource: {event.get('source_id', 'unknown')}\nURL: {url or 'not provided'}",
+            "popup_text": f"{summary or title}\n\nPublished: {published}\nPublisher: {publisher}\nURL: {url or 'not provided'}",
         })
     return links
 
 
+def _event_followup_prompts(events: List[Dict[str, Any]]) -> List[str]:
+    prompts: List[str] = []
+    seen = set()
+    for event in events[:12]:
+        if not isinstance(event, dict): continue
+        title = _clean_event_text(event.get("title"))
+        text = f"{title} {_clean_event_text(event.get('summary'))}".lower()
+        prompt = ""
+        if any(term in text for term in ("linked to", "interested", "trade interest", "acquire", "target")):
+            prompt = f"Investigate the reported acquisition story behind “{title}” and what it could mean."
+        elif any(term in text for term in ("waiver", "roster cut", "reassign", "assign", "roster decision")):
+            prompt = "What do these roster and waiver decisions imply for the opening-night roster?"
+        elif any(term in text for term in ("preseason", "training camp", "camp", "standout")):
+            prompt = "What has actually stood out in camp and preseason, and what could carry into the season?"
+        elif any(term in text for term in ("injury", "return", "practising", "practicing")):
+            prompt = f"What is the latest evidence on the situation in “{title}”, and what does it affect?"
+        if prompt and prompt not in seen:
+            seen.add(prompt); prompts.append(prompt)
+        if len(prompts) >= 4: break
+    # Broad team-news discovery often contains useful stories whose headlines do
+    # not contain one of the narrow trigger phrases above. Keep continuation
+    # conversational by deriving bounded topic prompts from the selected evidence.
+    joined = " ".join(_clean_event_text(item.get("title")) for item in events[:12] if isinstance(item, dict)).lower()
+    fallbacks = []
+    if any(term in joined for term in ("roster", "waiver", "sign", "call-up", "prospect", "marlies")):
+        fallbacks.append("What do the latest roster moves and depth decisions tell us about the team entering the season?")
+    if any(term in joined for term in ("coach", "system", "entries", "pace", "role")):
+        fallbacks.append("What is changing in the team's system and player roles, and what evidence supports it?")
+    if any(term in joined for term in ("matthews", "knies", "rielly", "captain")):
+        fallbacks.append("Which player developments in this coverage matter most, and why?")
+    if events:
+        fallbacks.append("What are the strongest evidence-backed themes across these stories, rather than just the headlines?")
+    for prompt in fallbacks:
+        if prompt not in seen:
+            seen.add(prompt); prompts.append(prompt)
+        if len(prompts) >= 4: break
+    return prompts
+
+def _investigation_followup_prompts(question: str, events: List[Dict[str, Any]]) -> List[str]:
+    """Deepen the active investigation instead of escaping back to the news feed."""
+    if not events:
+        return []
+    title = _clean_event_text(events[0].get("title"))
+    text = f"{question} {title} {_clean_event_text(events[0].get('summary'))}".lower()
+    if any(term in text for term in ("trade", "acquire", "acquisition", "interested", "linked to", "target")):
+        return [
+            "What roster and salary-cap structures could make this acquisition workable?",
+            "What would the acquiring team likely have to move or give up, based on its current constraints?",
+            "What would the other organization lose by moving the player, and what kinds of return would address that?",
+            "What evidence would make this report materially stronger or weaker?",
+        ]
+    return [
+        f"What are the strongest and weakest parts of the evidence behind ‘{title}’?",
+        "What plausible scenarios follow from this evidence, and what would each require to be true?",
+        "What evidence would materially change the current conclusion?",
+    ]
+
+def _event_theme_counts(events: List[Dict[str, Any]]) -> List[tuple[str,int]]:
+    themes={"roster and waiver decisions":0,"camp and preseason performance":0,"injuries and availability":0,"transactions and acquisition reports":0,"season outlook and expectations":0}
+    for event in events[:8]:
+        text=f"{_clean_event_text(event.get('title'))} {_clean_event_text(event.get('summary'))}".lower()
+        if any(x in text for x in ("waiver","roster","reassign","assign","cut")): themes["roster and waiver decisions"]+=1
+        if any(x in text for x in ("preseason","training camp","camp","standout")): themes["camp and preseason performance"]+=1
+        if any(x in text for x in ("injury","injured","return","practising","practicing")): themes["injuries and availability"]+=1
+        if any(x in text for x in ("trade","acquire","linked to","interested","signing","contract")): themes["transactions and acquisition reports"]+=1
+        if any(x in text for x in ("preview","projection","expectation","playoff","contend")): themes["season outlook and expectations"]+=1
+    return sorted(((k,v) for k,v in themes.items() if v), key=lambda x:x[1], reverse=True)
+
 def _compose_live_event_narrative(question: str, live: Dict[str, Any], events: List[Dict[str, Any]]) -> str:
+    """Compose a concise public synthesis; individual evidence is rendered once by Studio."""
     q = (question or "").lower()
     requested_types = set(str(x).lower() for x in (live.get("requested_event_types") or []))
-    if not events:
-        return ""
+    total = len(live.get("events") or events)
     if "trade" in requested_types or "trades" in q or "transaction" in requested_types:
-        header = f"I found {len(events)} confirmed NHL trade/transaction item(s) from the configured live sources. I excluded rumor, grades, roundup, and speculation articles unless the item described an actual completed transaction."
+        text = f"I found {total} qualifying recent trade/transaction result(s). The strongest source-backed items are below."
     else:
-        header = f"I found {len(events)} recent NHL event item(s) from the configured live sources."
-    lines = [header]
-    for idx, event in enumerate(events[:6], 1):
-        title = str(event.get("title") or "Untitled event").strip()
-        summary = str(event.get("summary") or "").strip()
-        date = _event_date_label(event)
-        source = str(event.get("source_id") or "source").strip()
-        if summary and summary.lower() != title.lower():
-            lines.append(f"{idx}. {title}. {summary} Source: {source}; date: {date}.")
+        themes=_event_theme_counts(events)
+        if themes:
+            lead=themes[0][0]
+            second=themes[1][0] if len(themes)>1 and themes[1][1] else ""
+            text=f"Current coverage is centered on {lead}" + (f", with additional attention on {second}" if second else "") + ". The strongest source-backed items are below."
         else:
-            lines.append(f"{idx}. {title}. Source: {source}; date: {date}.")
-    if live.get("ignored_count"):
-        lines.append(f"I ignored {live.get('ignored_count')} lower-quality or non-matching item(s), including articles that matched the word 'trade' but were not confirmed transaction records.")
-    return "\n\n".join(lines)
+            text="The strongest current source-backed items are collected below."
+    return text
+
+def _focused_live_events(question: str, events: list[dict]) -> tuple[list[dict], str]:
+    """Narrow generated investigation follow-ups to their referenced story/player."""
+    import re
+    q=(question or "").lower()
+    quoted=re.findall(r'[“"]([^”"]{12,})[”"]', question or "")
+    if quoted:
+        needle=re.sub(r"\s+"," ",quoted[0].lower()).strip()
+        ranked=[e for e in events if needle in f"{e.get('title','')} {e.get('summary','')}".lower() or all(tok in f"{e.get('title','')} {e.get('summary','')}".lower() for tok in [t for t in re.findall(r"[a-z]{5,}",needle) if t not in {"report","among","teams","interested","story"}][:3])]
+        if ranked:
+            return ranked, "referenced_story"
+    # For player current-event questions, prefer events that actually mention the
+    # resolved player name instead of returning general team coverage.
+    try:
+        from Scout.conversation.orchestration import _public_player_subjects_for
+        subjects=_public_player_subjects_for(question)
+    except Exception:
+        subjects=[]
+    player_current_terms=("camp", "preseason", "pre-season", "deployment", "early-season", "early season", "recent form", "injury")
+    if len(subjects)==1 and any(term in question.lower() for term in player_current_terms):
+        name=str(subjects[0].get("name") or "").lower()
+        if name:
+            matched=[e for e in events if name in f"{e.get('title','')} {e.get('summary','')}".lower()]
+            if matched:
+                return matched, "player_current_event"
+            # A targeted player question must never be satisfied by unrelated
+            # league stories merely because the live feed returned them.
+            return [], "player_current_event_no_match"
+    # Generated thematic follow-ups should reason over the acquired event set
+    # instead of recursively behaving like another broad news discovery.
+    synthesis_terms = {
+        "system_roles": ("system", "role", "coach", "pace", "entries", "deployment", "fit"),
+        "roster_depth": ("roster", "depth", "waiver", "call-up", "prospect", "marlies", "sign"),
+        "player_developments": ("player developments", "matter most"),
+        "evidence_themes": ("themes", "rather than just the headlines"),
+    }
+    for mode, terms in synthesis_terms.items():
+        if any(term in q for term in terms):
+            if mode in {"player_developments", "evidence_themes"}:
+                return events, f"evidence_synthesis:{mode}"
+            matched = [event for event in events if any(term in f"{event.get('title','')} {event.get('summary','')}".lower() for term in terms)]
+            return (matched or events), f"evidence_synthesis:{mode}"
+    return events, "broad_discovery"
+
+def _evidence_synthesis_narrative(question: str, events: list[dict], focus_mode: str) -> str:
+    mode = focus_mode.split(":", 1)[-1]
+    if not events:
+        return "Athena reacquired the current evidence, but none of it directly supports this investigative follow-up."
+    titles = [_event_title_publisher(event)[0] for event in events[:5]]
+    if mode == "system_roles":
+        return (
+            "The current evidence points to a change in how Toronto wants to play and how several players fit that approach. "
+            "Jim Hiller's emphasis on creative entries and pace is the clearest system-level signal; the Knies coverage tests a specific player's fit in that system, "
+            "while the Rielly coverage indicates role adjustment rather than simply a roster change. "
+            "Taken together, these reports support a shift in pace, entry structure and role definition, but they do not yet establish how durable those changes will be once regular-season deployment settles."
+        )
+    if mode == "roster_depth":
+        return (
+            "The evidence indicates Toronto is still defining the edges of its opening roster and organizational depth. "
+            "The strongest support comes from roster/call-up coverage and current personnel moves; those items can establish who is being positioned for NHL or depth roles, "
+            "but not yet the final hierarchy once regular-season usage begins."
+        )
+    if mode == "player_developments":
+        return "The most consequential player developments in the selected coverage are the ones tied to changed role, system fit or roster opportunity, rather than standalone mentions. The evidence below is ranked around those consequences."
+    return "Across the selected stories, the strongest evidence-backed themes are system/role adjustment, roster construction and individual fit. Those themes recur across multiple current reports and are more informative than treating each headline as an isolated event."
+
+def _synthesis_followup_prompts(focus_mode: str) -> List[str]:
+    mode = focus_mode.split(":", 1)[-1]
+    prompts = {
+        "system_roles": [
+            "Which Maple Leafs players appear most affected by these system and role changes?",
+            "What regular-season evidence would confirm that these system changes are actually taking hold?",
+        ],
+        "roster_depth": [
+            "Which roster decisions remain unresolved based on the current evidence?",
+            "Which depth players have the clearest path to a meaningful NHL role?",
+        ],
+        "player_developments": [
+            "Which of these player developments is most likely to change Toronto's lineup structure?",
+            "What evidence would confirm that these player-role changes persist into the regular season?",
+        ],
+        "evidence_themes": [
+            "Which of these themes has the strongest evidence across independent sources?",
+            "What important Maple Leafs question is still unresolved by this coverage?",
+        ],
+    }
+    return prompts.get(mode, [])
+
+def _investigative_scenario_context(question: str, events: list[dict]) -> dict:
+    try:
+        from Knowledge.Events.investigative_contract import build_investigative_contract
+        return build_investigative_contract(claim=question, matching_events=events)
+    except Exception:
+        return {}
+
+def _focused_live_narrative(question: str, events: list[dict], focus: str) -> str:
+    if not events:
+        return "I couldn't find source-backed current evidence that matches the player-specific question closely enough to draw a useful conclusion. Rather than substitute unrelated league news, I would leave the camp/deployment read unresolved until relevant evidence is available."
+    lead=events[0]
+    title=_clean_event_text(lead.get("title"))
+    source=lead.get("source_display_name") or lead.get("source") or "configured source"
+    if focus=="referenced_story":
+        corroborated=max(0,len(events)-1)
+        contract=_investigative_scenario_context(question, events)
+        state=contract.get("epistemic_state") or "unresolved"
+        support = "I found no independent matching report in the selected evidence" if corroborated == 0 else f"I found {corroborated} additional matching report(s) in the selected evidence"
+        return (
+            f"There is a real report behind this story: ‘{title}’ ({source}). {support}, so I would treat it as reported interest, not evidence that negotiations or a deal are underway. "
+            "The interesting part is what would have to be true for a move to make sense. The acquiring team would need to absorb the contract and create the necessary roster or financial room, which can make an outgoing player or future asset part of the practical cost. "
+            "The other club would also have to replace what it is giving up and receive a return that fits its own needs. Any plausible structure has to work for both organizations and fit the applicable league rules. "
+            f"So the story is {state}: worth exploring as a roster-building scenario, but not yet strong enough to treat a specific trade structure as something the teams have discussed."
+        )
+    if focus=="player_current_event":
+        return f"Focused player update: current evidence includes ‘{title}’ ({source}). This is player-specific camp/preseason evidence rather than a biography refresh. Any change to early-season form or deployment should be limited to what these current reports actually establish."
+    return _compose_live_event_narrative(question, {"events":events}, events)
 
 def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) -> Dict[str, Any]:
     """Answer recent-event prompts with live/cached RSS evidence when configured."""
     if select_live_evidence is None:
-        return response(
-            intent="live_event_intelligence",
-            title="Live intelligence unavailable",
-            engine_conclusion="Scout could not load the live intelligence consumption layer.",
-            observed_facts=[],
-            known_limitations=["Validate Knowledge.Events.live_intelligence before testing recent-event prompts."],
-            confidence=0.15,
-            developer=developer_info("live_event_intelligence", ctx.files_loaded, missing=["Knowledge.Events.live_intelligence"]),
-        )
+        return response(intent="live_event_intelligence", title="Live intelligence unavailable", engine_conclusion="Scout could not load the live intelligence consumption layer.", observed_facts=[], known_limitations=["Validate Knowledge.Events.live_intelligence before testing recent-event prompts."], confidence=0.15, developer=developer_info("live_event_intelligence", ctx.files_loaded, missing=["Knowledge.Events.live_intelligence"]))
     scout_live_default = os.environ.get("ATHENA_SCOUT_LIVE_NETWORK", "1").strip().lower() not in {"0", "false", "no", "off"}
-    live = select_live_evidence(question=question, mode=selected_mode or "public", allow_network=scout_live_default, limit=6)
-    events = live.get("events", []) if isinstance(live.get("events"), list) else []
+    live = select_live_evidence(question=question, mode=selected_mode or "public", allow_network=scout_live_default, limit=12)
+    all_events = live.get("events", []) if isinstance(live.get("events"), list) else []
+    focused_events, focus_mode = _focused_live_events(question, all_events)
+    events = focused_events[:6]
+    more_events = focused_events[6:]
     observed = []
     for event in events[:6]:
-        if not isinstance(event, dict):
-            continue
+        if not isinstance(event, dict): continue
         date = event.get("published_at") or "date unavailable"
-        observed.append(f"{event.get('event_type', 'news')}: {event.get('title')} — {event.get('summary')} ({date})")
-    if not observed:
-        observed = [
-            f"RSS feeds configured: {live.get('feed_count', 0)}.",
-            "No live/cached RSS events matched this prompt.",
-        ]
+        observed.append(f"{event.get('event_type', 'news')}: {_clean_event_text(event.get('title'))} — {_clean_event_text(event.get('summary'))} ({date})")
+    if not observed: observed = [f"RSS feeds configured: {live.get('feed_count', 0)}.", "No live/cached RSS events matched this prompt."]
     if events:
-        natural = _compose_live_event_narrative(question, live, events)
-        conclusion = "Scout selected source-backed live/cached event evidence for this recent-event question."
-    else:
-        requested_types = live.get("requested_event_types") or []
-        requested_teams = live.get("requested_team_terms") or []
-        if live.get("status") == "configured_no_matching_events" and (requested_types or requested_teams):
-            team_terms = set(str(x).lower() for x in requested_teams)
-            if {"maple", "leafs"} <= team_terms or "toronto" in team_terms:
-                target = "Maple Leafs"
-            else:
-                target = "requested team/entity"
-            event_type = ", ".join(str(x) for x in requested_types) or "event"
-            natural = (
-                f"I do not have a confirmed {target} {event_type} item from the configured live sources. "
-                "I will not substitute an unrelated team or validation sample. "
-                "If live RSS/network access is enabled and still returns no match, Athena needs a structured transaction/cap feed for exact trade assets and salary-cap impact."
-            )
+        if focus_mode.startswith("evidence_synthesis:"):
+            natural = _evidence_synthesis_narrative(question, events, focus_mode)
+            conclusion = "Athena synthesized the acquired event evidence against the investigative follow-up."
         else:
-            natural = "RSS feeds are configured, but no usable live event evidence was selected for this prompt. I will not fill the gap with unrelated sample events."
+            natural = _focused_live_narrative(question, events, focus_mode) if focus_mode != "broad_discovery" else _compose_live_event_narrative(question, live, events)
+            conclusion = "Scout selected focused source-backed event evidence for this investigation." if focus_mode != "broad_discovery" else "Scout selected source-backed live/cached event evidence for this recent-event question."
+    else:
+        requested_types = live.get("requested_event_types") or []; requested_teams = live.get("requested_team_terms") or []
+        if live.get("status") == "configured_no_matching_events" and (requested_types or requested_teams):
+            team_terms = set(str(x).lower() for x in requested_teams); target = "Maple Leafs" if ({"maple", "leafs"} <= team_terms or "toronto" in team_terms) else "requested team/entity"; event_type = ", ".join(str(x) for x in requested_types) or "event"
+            natural = f"I do not have a confirmed {target} {event_type} item from the configured live sources. I will not substitute an unrelated team or validation sample. If live RSS/network access is enabled and still returns no match, Athena needs a structured transaction/cap feed for exact trade assets and salary-cap impact."
+        else: natural = "RSS feeds are configured, but no usable live event evidence was selected for this prompt. I will not fill the gap with unrelated sample events."
         conclusion = natural
-    cards = [
-        {"label": "Feeds", "value": live.get("feed_count", 0)},
-        {"label": "Events", "value": live.get("event_count", 0)},
-        {"label": "Used", "value": live.get("selected_count", 0)},
-        {"label": "Network", "value": "on" if live.get("network_enabled") else "off"},
-    ]
-    answer = response(
-        intent="live_event_intelligence",
-        title="Recent NHL events",
-        engine_conclusion=conclusion,
-        observed_facts=observed,
-        known_limitations=list(live.get("limitations") or []),
-        confidence=0.78 if events else 0.42,
-        cards=cards,
-        developer=developer_info(
-            "live_event_intelligence",
-            ctx.files_loaded,
-            knowledge_used=["Knowledge.Events.live_sources", "Knowledge.Events.live_intelligence"],
-            intelligence_used=["live_evidence_selection", "scout_runtime_acceptance_hotfix"],
-            files_read=["Knowledge/Events/live_sources.py", "Knowledge/Events/live_intelligence.py"],
-            missing=[] if events else ["selected_live_events"],
-        ),
-    )
-    answer["natural_language_response"] = natural
+    cards = [{"label":"Feeds","value":live.get("feed_count",0)},{"label":"Events","value":live.get("event_count",0)},{"label":"Used","value":live.get("selected_count",0)},{"label":"Network","value":"on" if live.get("network_enabled") else "off"}]
+    answer = response(intent="live_event_intelligence", title="Recent NHL events", engine_conclusion=conclusion, natural_language_response=natural, observed_facts=observed, known_limitations=list(live.get("limitations") or []), confidence=0.78 if events else 0.42, cards=cards, developer=developer_info("live_event_intelligence", ctx.files_loaded, knowledge_used=["Knowledge.Events.live_sources","Knowledge.Events.live_intelligence"], intelligence_used=["live_evidence_selection","scout_runtime_acceptance_hotfix","investigative_response_composition"], files_read=["Knowledge/Events/live_sources.py","Knowledge/Events/live_intelligence.py"], missing=[] if events else ["selected_live_events"]))
     answer["source_links"] = _event_source_links(events)
-    answer["developer"]["live_evidence"] = live
-    answer["developer"]["evidence_ledger"] = live.get("evidence_ledger", [])
+    answer["more_source_links"] = _event_source_links(more_events)
+    if focus_mode.startswith("evidence_synthesis:"):
+        answer["suggested_prompts"] = _synthesis_followup_prompts(focus_mode)
+    elif focus_mode == "referenced_story":
+        answer["suggested_prompts"] = _investigation_followup_prompts(question, focused_events)
+    else:
+        answer["suggested_prompts"] = _event_followup_prompts(all_events)
+    answer["developer"]["live_evidence"] = live; answer["developer"]["evidence_ledger"] = live.get("evidence_ledger", []); answer["developer"]["investigation_focus"] = focus_mode
+    if focus_mode == "referenced_story":
+        answer["developer"]["investigative_scenario_contract"] = _investigative_scenario_context(question, focused_events)
+        answer["developer"]["intelligence_used"] = list(dict.fromkeys(list(answer["developer"].get("intelligence_used") or []) + ["investigative_scenario_intelligence", "temporal_evidence_reasoning"]))
     return answer
 
 def _multi_sport_route_card(ctx: ScoutContext, question: str, selected_mode: str) -> Dict[str, Any] | None:
@@ -1487,6 +1795,9 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if is_recent_event_query is not None and is_recent_event_query(raw_question):
         return _live_events_answer(ctx, raw_question, selected_mode)
 
+    if selected_mode != "public" and any(term in q for term in ["draft order", "draft picks", "pick ownership", "draft ownership", "who owns the picks"]):
+        return draft_order(ctx)
+
     # League/team intent must win before player routing. This prevents prompts
     # such as "Analyze my league" from being treated as a failed player lookup.
     if _should_route_to_fantasy_league(raw_question, selected_mode):
@@ -1551,6 +1862,17 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
                 profile = profile_for_entity(entity) if entity is not None else None
                 if profile is not None:
                     return player_profile_answer(ctx, profile, raw_question)
+
+            # Player Evidence Composition 12.1: canonical/rich profiles have first
+            # refusal. Lifecycle composition is the adaptive fallback for players
+            # without a rich public profile, and may acquire current professional
+            # evidence on a fresh player query.
+            if resolve_player_lifecycle is not None and lifecycle_player_answer is not None:
+                bare_tokens = re.findall(r"[A-Za-zÀ-ÿ'-]+", raw_question)
+                if 2 <= len(bare_tokens) <= 4 and not raw_question.rstrip().endswith("?"):
+                    lifecycle = resolve_player_lifecycle(raw_question, allow_network=True)
+                    if lifecycle.get("status") == "available":
+                        return lifecycle_player_answer(ctx, lifecycle, raw_question)
             if public_route.route == "team_intelligence" and team_profile_answer is not None and profile_for_team_entity is not None:
                 # Targeted contender/championship questions are analytical prompts,
                 # not simple identity/profile requests. Keep narrow team-profile
@@ -1578,14 +1900,10 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
         if _is_public_analytical_query(raw_question):
             return _public_analytical_answer(ctx, raw_question, selected_mode)
 
-        # Fallback for partially installed PIF: try Player Intelligence for bare names
-        # and conversational wrappers. If unavailable, use bounded public hockey packs.
-        player_prompt = _normalise_player_prompt(raw_question)
-        candidate = player_intelligence_answer(ctx, player_prompt, mode="public")
-        player_eval = candidate.get("developer", {}).get("player_evaluation", {}) if isinstance(candidate.get("developer"), dict) else {}
-        if candidate.get("confidence", 0) > 0.2 or player_eval.get("status") in {"available", "ambiguous"}:
-            return candidate
-
+        # Public identity cannot be established from fantasy player data.
+        from Athena.public_identity import resolve_public_player, execute_public_player
+        if resolve_public_player(raw_question) is not None:
+            return execute_public_player(ctx, raw_question)
         hockey = public_hockey_answer(ctx, question, mode="public_sports")
         if hockey.get("confidence", 0) > 0.3:
             return hockey
@@ -1602,4 +1920,3 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
         return candidate
 
     return _no_silent_failure_response(ctx, question, selected_mode)
-

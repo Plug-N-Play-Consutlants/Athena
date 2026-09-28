@@ -71,6 +71,19 @@ def _liquidity_profile(
             "limitations": ["No manager records available."],
         }
 
+    if transaction_count <= 0:
+        return {
+            "classification": "unknown",
+            "score": 0,
+            "confidence": 0.2,
+            "drivers": ["No transactions were observed in the current synced history window."],
+            "limitations": [
+                "Current transaction evidence is insufficient to classify league-market liquidity.",
+                "No trades were observed in the available transaction history, so trade liquidity is unknown rather than inactive.",
+                "Official money balances must come from the Fantrax finance page, not transaction-derived fee fields.",
+            ],
+        }
+
     per_manager = transaction_count / manager_count
     active_manager_count = int(activity_counts.get("very_active") or 0) + int(activity_counts.get("active") or 0)
     active_manager_ratio = active_manager_count / manager_count

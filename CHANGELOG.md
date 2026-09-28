@@ -1,3 +1,26 @@
+## v0.6.5.0.1 — Fantrax Connection Persistence & Sync Status Hotfix
+
+- Made the active Fantrax workspace league ID authoritative and mirrors it into the legacy provider configuration only for valid live league IDs, preventing stale league reversion.
+- Corrected Scout sync presentation so a successfully completed/validated sync remains `League sync — complete` when downstream capabilities are evidence-thin.
+- Preserved v0.6.5.0.0 transaction evidence acquisition and canonical trade semantics unchanged.
+
+## v0.6.4.10.3 — Scout Verification Contract Hotfix
+
+- Corrected release-history overlay tolerance for v0.6.4.10.1 and v0.6.4.10.2 manifests so Studio Verify Build does not falsely fail before Safe Cleanup archives them.
+- Updated Scout runtime acceptance validation to assert the current investigative synthesis + structured source-link contract rather than obsolete prose wording.
+- No Scout routing, evidence selection, intelligence, or Normal Mode presentation behavior changed.
+
+## v0.6.4.10.2 — Scout Evidence Presentation Polish Hotfix
+
+- Keep additional qualifying public-news evidence collapsed until the user selects More Results; allow Fewer Results to collapse it again.
+- Present publisher/date metadata instead of the internal Current News Discovery label in Normal Mode.
+- Simplify the public-news introduction so it reads as user-facing coverage rather than engine/result-count telemetry.
+- Preserve the existing Investigate Further presentation and fantasy behavior.
+
+
+## v0.6.4.10.1 — Scout Evidence Presentation Hotfix
+- Consolidated public evidence presentation, added qualified More Results, improved external-link styling, and separated evidence-derived follow-ups.
+
 
 ## v0.6.4.0.0 — Adaptive Investigation Strategy Foundation
 

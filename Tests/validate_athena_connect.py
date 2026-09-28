@@ -96,14 +96,13 @@ def validate():
             checks.append(result("sync_reserved", "fail", str(exc)))
 
         try:
-            from Athena.exceptions import AthenaNotImplementedError
-            try:
-                Athena.ask("Who are the most active managers?")
-                checks.append(result("ask_reserved", "fail", "athena.ask() unexpectedly executed."))
-            except AthenaNotImplementedError:
-                checks.append(result("ask_reserved", "pass", "athena.ask() remains reserved for Drop 4."))
+            from unittest.mock import patch
+            with patch("Athena.specialist_compatibility.execute_existing_specialist", return_value={"intent": "test", "developer": {}}):
+                answer = Athena.ask("Who are the most active managers?")
+            ok = answer.get("developer", {}).get("athena_request", {}).get("boundary") == "Athena.ask"
+            checks.append(result("ask_boundary", "pass" if ok else "fail", "Athena request boundary executes."))
         except Exception as exc:
-            checks.append(result("ask_reserved", "fail", str(exc)))
+            checks.append(result("ask_boundary", "fail", str(exc)))
 
     finally:
         restore(WORKSPACE_FILE, workspace_backup, workspace_existed)

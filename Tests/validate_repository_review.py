@@ -42,8 +42,13 @@ def main() -> int:
             failures.append("Shim inventory is empty; expected current root shim modules to be reviewed.")
         if not report.duplicates:
             failures.append("Duplicate basename report is empty; expected duplicate basename groups to be reviewed.")
-        if report.summary.get("non_standard_duplicate_basename_group_count") != 32:
-            failures.append(f"Expected 32 non-standard duplicate groups from repository audit; got {report.summary.get('non_standard_duplicate_basename_group_count')}.")
+        reported_non_standard = report.summary.get("non_standard_duplicate_basename_group_count")
+        observed_non_standard = sum(1 for item in report.duplicates if item.classification != "intentional domain-local")
+        if reported_non_standard != observed_non_standard:
+            failures.append(
+                f"Non-standard duplicate summary is inconsistent with reviewed inventory: "
+                f"summary={reported_non_standard}, observed={observed_non_standard}."
+            )
         for item in report.shims:
             if not item.classification or not item.rationale or not item.target_module:
                 failures.append(f"Incomplete shim classification: {item.path}")

@@ -50,6 +50,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from Core.json_utils import read_json, read_optional_json, write_json
 from Core.logger import log, log_header, log_section
 from Core.project_paths import RAW_DIR, OUTPUT_DIR
+from Core.text_utils import normalize_external_text
 
 
 RAW_PLAYER_POOL_JSON = RAW_DIR / "fantrax_player_pool.json"
@@ -255,7 +256,7 @@ def build_player_pool_master() -> Dict[str, Any]:
         )
         supplemental = supplemental_lookup.get(fantrax_player_id, {})
 
-        fantasy_team = str(
+        fantasy_team = normalize_external_text(
             row.get("fantasy_team")
             or row.get("team_name")
             or row.get("owner")
@@ -267,7 +268,7 @@ def build_player_pool_master() -> Dict[str, Any]:
 
         record = {
             "fantrax_player_id": fantrax_player_id,
-            "player_name": str(row.get("player_name") or row.get("name") or supplemental.get("Player") or "").strip(),
+            "player_name": normalize_external_text(row.get("player_name") or row.get("name") or supplemental.get("Player") or "").strip(),
             "nhl_team": str(row.get("nhl_team") or row.get("team") or supplemental.get("Team") or "").strip(),
             "fantasy_team": fantasy_team,
             "position": str(row.get("position") or supplemental.get("Position") or "").strip(),

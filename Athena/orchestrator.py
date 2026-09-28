@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 
 from Athena.connect import connect_provider
-from Athena.exceptions import AthenaConfigurationError, AthenaNotImplementedError
+from Athena.exceptions import AthenaConfigurationError
 from Athena.status import get_status
 from Athena.sync import sync as run_sync
 from Athena.workspace import load_workspace
@@ -57,8 +57,21 @@ class AthenaOrchestrator:
         return run_sync(*args, **kwargs)
 
     def ask(self, question: str, *args: Any, **kwargs: Any) -> Dict[str, Any]:
-        """Reserved public ask API. Implemented in a later v0.5.0 drop."""
-        raise AthenaNotImplementedError("athena.ask() is reserved for v0.5.0 Drop 4.")
+        """Execute a Scout-directed request through Athena's request boundary.
+
+        Specialist migration is incremental. The active router is isolated in
+        the compatibility adapter until its handlers have Athena-owned ports.
+        """
+        from Athena.request_execution import AthenaRequest, execute_request
+
+        mode = kwargs.pop("mode", "fantasy")
+        context = kwargs.pop("context", None)
+        sections = kwargs.pop("sections", ())
+        continuation = kwargs.pop("continuation", None)
+        if args or kwargs:
+            raise TypeError("ask accepts question, mode, context, sections, and continuation only")
+        request = AthenaRequest(question=question, mode=mode, context=context, sections=sections, continuation=continuation)
+        return execute_request(request)
 
 
 _default_orchestrator = AthenaOrchestrator()

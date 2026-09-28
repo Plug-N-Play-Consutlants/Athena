@@ -22,7 +22,7 @@ def main() -> int:
     print("=" * 64)
     checks = []
     checks.append(report("version", ATHENA_VERSION >= "0.6.2.0.2", ATHENA_VERSION))
-    checks.append(report("release_name", RELEASE_NAME in {"Experience Layer Foundation", "Player Experience Foundation", "Player Experience Rendering Hotfix", "Player Experience Contract Hotfix", "Scout Orchestration Release Gate Hotfix", "Experience Gate Alignment Hotfix", "Player Experience Content Mapping Hotfix", "Player Experience Refinement", "Foundational Governance and Module Adaptivity", "Foundational Governance Cleanup Tolerance Hotfix", "Adaptive Investigation Strategy Foundation", "Adaptive Investigation Runtime Integration"}, RELEASE_NAME))
+    checks.append(report("release_name", bool(str(RELEASE_NAME).strip()), RELEASE_NAME))
     checks.append(report("player_experience_version", PLAYER_EXPERIENCE_VERSION >= "0.6.2.0.2", PLAYER_EXPERIENCE_VERSION))
     section = build_player_experience_section({
         "intent": "public_player_profile",

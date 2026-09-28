@@ -24,6 +24,7 @@ class FantraxEndpoints:
     PLAYER_POOL = "general/getTeamRosters"
     SCHEDULE = "schedule/getSchedule"
     PLAYER_STATS = "players/getPlayerStats"
+    DRAFT_PICKS = "general/getDraftPicks"
 
     # Transactions are served through fxpa/req as a method call rather than fxea.
     TRANSACTIONS_METHOD = "getTransactionDetailsHistory"
@@ -34,6 +35,7 @@ class FantraxEndpoints:
         "player_pool": PLAYER_POOL,
         "schedule": SCHEDULE,
         "player_stats": PLAYER_STATS,
+        "draft_picks": DRAFT_PICKS,
     }
 
     @classmethod

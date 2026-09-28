@@ -15,6 +15,7 @@ REQUIRED_FILES = [
     "Tools/doctor_athena_studio_operations_console.py",
 ]
 REQUIRED_SYMBOLS = {
+    "sync_league",
     "verify_build",
     "_status_group",
     "_build_developer_panel",
@@ -29,6 +30,7 @@ REQUIRED_SYMBOLS = {
     "_open_folder",
 }
 REQUIRED_VISIBLE_ACTIONS = {
+    "🔄 Sync League",
     "🧪 Verify Build",
     "🧭 Acceptance Explorer",
     "🔎 Repository Audit",

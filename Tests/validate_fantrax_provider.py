@@ -267,22 +267,18 @@ def _validate_fetch(
 
 def _transactions_shape(payload: Any) -> tuple[bool, str]:
     if not isinstance(payload, dict):
-        return False, "Transaction payload is not a dictionary."
-    table = payload.get("table")
-    if not isinstance(table, dict):
-        return False, "Transaction payload does not contain table metadata."
-    rows = table.get("rows")
-    if not isinstance(rows, list):
-        return False, "Transaction table does not contain rows."
-    if not rows:
-        return False, "Transaction table rows are empty."
-    sample = rows[0]
-    if not isinstance(sample, dict):
-        return False, "First transaction row is not an object."
-    for key in ["txSetId", "transactionCode", "transactionType", "scorer"]:
-        if key not in sample:
-            return False, f"Transaction row missing expected key: {key}"
-    return True, "Transaction payload has expected row shape."
+        return False, "Transaction evidence payload is not a dictionary."
+    views = payload.get("views")
+    if not isinstance(views, dict):
+        return False, "Transaction evidence does not preserve provider views."
+    for required in ("CLAIM_DROP", "TRADE"):
+        view_payload = views.get(required)
+        if not isinstance(view_payload, dict):
+            return False, f"Transaction evidence missing {required} view."
+        table = view_payload.get("table")
+        if not isinstance(table, dict) or not isinstance(table.get("rows"), list):
+            return False, f"{required} view does not contain a transaction table."
+    return True, "Transaction evidence preserves Claim/Drop and Trade view shapes."
 
 
 def _run_player_pool_fetch() -> ValidationCheck:
@@ -376,7 +372,7 @@ def run_validation() -> dict[str, Any]:
             lambda: _validate_fetch(
                 "fetch_transactions",
                 "transactions.json",
-                lambda client: client.get_transactions(max_results_per_page=1000),
+                lambda client: client.get_transaction_evidence(max_results_per_page=1000),
                 required_shape=_transactions_shape,
             ),
         )

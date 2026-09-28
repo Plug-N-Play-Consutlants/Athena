@@ -17,7 +17,7 @@ def validate_scout_question_placeholder():
     text = app_path.read_text(encoding="utf-8")
 
     assert 'id="question"' in text
-    assert 'placeholder="Ask Scout anything about your league, roster, players, rankings, trades, or public hockey..."' in text
+    assert 'placeholder="Ask Scout about professional hockey or your fantasy league..."' in text
     assert ">Who are the most active managers?</textarea>" not in text
     assert '<textarea id="question"' in text
     assert "</textarea>" in text

@@ -11,6 +11,7 @@ STUDIO = ROOT / "Tools" / "athena_studio.py"
 VERSION = ROOT / "Core" / "version.py"
 
 REQUIRED_METHODS = {
+    "sync_league",
     "verify_build",
     "_status_group",
     "_build_developer_panel",
@@ -33,6 +34,7 @@ REQUIRED_MARKERS = [
     "default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs",
 ]
 DEFAULT_ACTIONS = [
+    "🔄 Sync League",
     "🧪 Verify Build",
     "🧭 Acceptance Explorer",
     "🔎 Repository Audit",

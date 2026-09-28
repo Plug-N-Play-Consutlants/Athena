@@ -40,7 +40,7 @@ class FantraxClient:
     - Configuration/workspace.json for active workspace context.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, league_id: str | None = None, season: int | str | None = None) -> None:
         self.provider_name = get_config_value("provider.name", "Fantrax")
         self.base_url = get_config_value("provider.base_url", "https://www.fantrax.com/fxea")
         self.user_agent = get_config_value("provider.user_agent", "Sports Intelligence Engine 2.0")
@@ -54,6 +54,13 @@ class FantraxClient:
         )
         self.sport = get_workspace_value("workspace.sport", get_config_value("provider.sport", "NHL"))
         self.season = get_workspace_value("workspace.season", "")
+
+        # Explicit context overrides support isolated historical acquisition.
+        # They are in-memory only and never mutate Configuration/workspace.json.
+        if league_id is not None:
+            self.league_id = str(league_id).strip()
+        if season is not None:
+            self.season = season
 
         if not isinstance(self.cookies, dict):
             self.cookies = {}
@@ -261,15 +268,48 @@ class FantraxClient:
         selected_endpoint = endpoint or self.get_endpoint("player_stats")
         return self.get(selected_endpoint, params=params)
 
-    def get_transactions(self, max_results_per_page: int = 1000) -> Any:
+    def get_transactions(self, max_results_per_page: int = 1000, view: str | None = None) -> Any:
+        """Return one Fantrax transaction-history view.
+
+        Fantrax exposes Claim/Drop and Trade as separate views of the same
+        private transaction-history method. Omitting ``view`` preserves the
+        provider default for compatibility; callers that need complete
+        transaction evidence should use :meth:`get_transaction_evidence`.
+        """
+        data: Dict[str, Any] = {"maxResultsPerPage": max_results_per_page}
+        if view:
+            data["view"] = str(view).strip().upper()
         return self.fxpa_request(
             {
                 "method": FantraxEndpoints.TRANSACTIONS_METHOD,
-                "data": {
-                    "maxResultsPerPage": max_results_per_page,
-                },
+                "data": data,
             }
         )
 
+    def get_transaction_evidence(self, max_results_per_page: int = 1000) -> Any:
+        """Acquire the transaction families used by canonical transaction history.
+
+        Trade rows use a materially different provider shape from Claim/Drop
+        rows, so each view is preserved independently instead of pretending the
+        provider returns one homogeneous table. Lineup changes remain outside
+        the transaction-market scope of this foundation.
+        """
+        views: Dict[str, Any] = {}
+        for view in ("CLAIM_DROP", "TRADE"):
+            views[view] = self.get_transactions(
+                max_results_per_page=max_results_per_page,
+                view=view,
+            )
+        return {
+            "schema_version": "fantrax.transaction_evidence.v1",
+            "provider": "fantrax",
+            "requested_views": ["CLAIM_DROP", "TRADE"],
+            "views": views,
+        }
+
     def get_schedule(self) -> Any:
         return self.get(self.get_endpoint("schedule"))
+
+    def get_draft_picks(self) -> Any:
+        """Return current and future draft-pick ownership from Fantrax."""
+        return self.get(self.get_endpoint("draft_picks"))

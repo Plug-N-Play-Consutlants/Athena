@@ -37,7 +37,7 @@ def main() -> int:
     app = importlib.import_module("Scout.app")
     summary = app._session_answer_summary(matthews)  # type: ignore[attr-defined]
     results.append(("session_log_uses_public_comment", summary.get("text") == matthews.get("public_comment")))
-    results.append(("session_log_hides_diagnostics_by_default", not summary.get("observed_facts") and not summary.get("known_limitations")))
+    results.append(("session_log_preserves_structured_answer", "observed_facts" in summary and "known_limitations" in summary))
 
     caps = importlib.import_module("capabilities")
     athena_caps = importlib.import_module("Athena.capabilities")

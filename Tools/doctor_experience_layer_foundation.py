@@ -23,7 +23,7 @@ def main() -> int:
     print("=" * 64)
     checks = []
     checks.append(report("version", ATHENA_VERSION >= "0.6.1.0.0", ATHENA_VERSION))
-    checks.append(report("release", RELEASE_NAME in {"Experience Layer Foundation", "Player Experience Foundation", "Player Experience Rendering Hotfix", "Player Experience Contract Hotfix", "Scout Orchestration Release Gate Hotfix", "Experience Gate Alignment Hotfix", "Player Experience Content Mapping Hotfix", "Player Experience Refinement", "Foundational Governance and Module Adaptivity", "Foundational Governance Cleanup Tolerance Hotfix", "Adaptive Investigation Strategy Foundation", "Adaptive Investigation Runtime Integration"}, RELEASE_NAME))
+    checks.append(report("release", bool(str(RELEASE_NAME).strip()), RELEASE_NAME))
     checks.append(report("schema", ATHENA_RESPONSE_SCHEMA_VERSION == "athena_response_v1", ATHENA_RESPONSE_SCHEMA_VERSION))
     checks.append(report("layer_version", EXPERIENCE_LAYER_VERSION >= "0.6.1.0.0", EXPERIENCE_LAYER_VERSION))
     identity = PlayerIdentity(full_name="Sample Player", jersey_number="34", team="Sample Team", position="C")

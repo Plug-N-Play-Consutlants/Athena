@@ -223,6 +223,7 @@ class AthenaStudio:
         body.pack(side=TOP, fill="x", expand=False, padx=12, pady=4)
 
         self._button_group(body, "Core Workflow", [
+            ("🔄 Sync League", self.sync_league, "Refresh the active league through Athena's canonical sync pipeline."),
             ("🧪 Verify Build", self.verify_build, "Run Doctor Everything followed by Validate Everything in one operation."),
             ("🔎 Repository Audit", self.show_repository_audit, "Run the Phase 3 read-only repository audit and write a report."),
             ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the Phase 4B shim and duplicate basename review reports."),
@@ -304,6 +305,9 @@ class AthenaStudio:
             ("🧭 Acceptance Explorer", self.show_acceptance_explorer, "Review acceptance diagnostics."),
             ("📁 Export Diagnostics Logs", self.export_diagnostics_logs, "Export diagnostics into a timestamped Reports folder and open it."),
             ("📂 Open Reports", self.open_reports, "Open Reports folder."),
+            ("🧭 Discover Draft Source", self.discover_draft_source, "Use the authenticated Fantrax session to inspect the draft-pick source safely."),
+            ("🕰 Historical League Sweep", self.acquire_historical_leagues, "Acquire every registered historical league into isolated season-scoped Knowledge."),
+            ("📋 Copy Console", self.copy_console, "Copy the entire Studio console buffer to the clipboard."),
             ("🧽 Clear Output", self.clear_output, "Clear the visible Studio output panel."),
         ])
 
@@ -412,6 +416,39 @@ class AthenaStudio:
         self.output.insert(END, text)
         self.output.see(END)
         self.root.update_idletasks()
+
+    def copy_console(self) -> None:
+        """Copy a fresh snapshot of the entire Studio console to the Windows clipboard."""
+        # Snapshot the widget at click time. Do not copy from history/export/cache state.
+        self.root.update_idletasks()
+        content = self.output.get("1.0", "end-1c")
+        try:
+            if os.name == "nt":
+                command = (
+                    "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false); "
+                    "$value = [Console]::In.ReadToEnd(); Set-Clipboard -Value $value"
+                )
+                subprocess.run(
+                    ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+                    input=content,
+                    text=True,
+                    encoding="utf-8",
+                    check=True,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+                clipboard = "Windows clipboard"
+            else:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(content)
+                self.root.update()
+                clipboard = "system clipboard"
+        except Exception as exc:
+            # Preserve a functional fallback if native clipboard integration is unavailable.
+            self.root.clipboard_clear()
+            self.root.clipboard_append(content)
+            self.root.update()
+            clipboard = f"Tk clipboard fallback ({type(exc).__name__})"
+        self.status.set(f"Copied fresh console snapshot ({len(content):,} chars) to {clipboard}")
 
     def clear_output(self) -> None:
         self.output.delete("1.0", END)
@@ -926,11 +963,29 @@ class AthenaStudio:
             ("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py")),
             ("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py")),
             ("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py")),
+            ("Validate Fantrax Transaction Evidence", self._script_command("Tests/validate_fantrax_transaction_evidence_foundation.py")),
+            ("Validate Fantrax League Context & Scout Integration", self._script_command("Tests/validate_fantrax_league_context_scout_integration_hotfix.py")),
+            ("Validate Scout Fantasy Composition & Contextual Routing", self._script_command("Tests/validate_scout_fantasy_composition_contextual_routing_hotfix.py")),
+            ("Validate Contextual Intelligence & Scout UX", self._script_command("Tests/validate_contextual_intelligence_scout_ux_foundation.py")),
+            ("Validate Fantasy Evidence Semantics & Draft-Pool Intelligence", self._script_command("Tests/validate_fantasy_evidence_semantics_draft_pool_intelligence_hotfix.py")),
+            ("Validate Draft Knowledge", self._script_command("Tests/validate_draft_knowledge.py")),
+            ("Validate Historical League Context", self._script_command("Tests/validate_historical_league_context.py")),
+            ("Validate Historical Draft Results Discovery", self._script_command("Tests/validate_historical_draft_results_discovery.py")),
+            ("Validate Historical Identity Resolution", self._script_command("Tests/validate_historical_identity_resolution.py")),
+            ("Validate Historical Draft Intelligence", self._script_command("Tests/validate_historical_draft_intelligence.py")),
+            ("Validate Pre-Draft Context Intelligence", self._script_command("Tests/validate_pre_draft_context_intelligence.py")),
+            ("Validate Public Team News Relevance", self._script_command("Tests/validate_public_team_news_relevance.py")),
+            ("Validate Scout Normal Response Composition", self._script_command("Tests/validate_scout_normal_response_composition.py")),
+            ("Validate Scout Investigative Response", self._script_command("Tests/validate_scout_investigative_response.py")),
             ("Validate Experience Layer Foundation", self._script_command("Tests/validate_experience_layer_foundation.py")),
             ("Validate Player Experience", self._script_command("Tests/validate_player_experience.py")),
             ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
             ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
+            ("Validate Athena Request Boundary", self._script_command("Tests/validate_athena_request_boundary.py")),
+            ("Validate Athena Capability Pathways", self._script_command("Tests/validate_athena_capability_pathways.py")),
+            ("Validate Professional Player Pathways", self._script_command("Tests/validate_professional_player_pathways.py")),
+            ("Validate Player Assessment Pathways", self._script_command("Tests/validate_player_assessment_pathways.py")),
             ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
             ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
             ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),
@@ -947,6 +1002,21 @@ class AthenaStudio:
             ("Validate Studio Operations Console", self._script_command("Tests/validate_athena_studio_operations_console.py")),
         ]
         self._run_sequence_threaded("Verify Build", commands)
+
+    def acquire_historical_leagues(self) -> None:
+        """Acquire all registered historical leagues without mutating the active workspace."""
+        command = self._script_command("Tools/acquire_historical_league.py")
+        if command is not None:
+            command = [*command, "--all"]
+        self._run_threaded("Historical League Sweep", command or [self._python(), "-c", "raise SystemExit('Missing historical acquisition tool')"])
+
+    def sync_league(self) -> None:
+        """Refresh the active league through Athena's canonical sync pipeline."""
+        command = self._script_command("Tools/sync_league.py")
+        self._run_threaded(
+            "Sync League",
+            command or [self._python(), "-c", "raise SystemExit('Missing Tools/sync_league.py')"],
+        )
 
     def validate_event_intelligence_foundation(self) -> None:
         self._run_threaded("Validate Event Intelligence", self._script_command("Tests/validate_event_intelligence_foundation.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_event_intelligence_foundation.py')"])
@@ -1006,11 +1076,19 @@ class AthenaStudio:
             ("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py")),
             ("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py")),
             ("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py")),
+            ("Validate Fantrax Transaction Evidence", self._script_command("Tests/validate_fantrax_transaction_evidence_foundation.py")),
+            ("Validate Fantrax League Context & Scout Integration", self._script_command("Tests/validate_fantrax_league_context_scout_integration_hotfix.py")),
+            ("Validate Scout Fantasy Composition & Contextual Routing", self._script_command("Tests/validate_scout_fantasy_composition_contextual_routing_hotfix.py")),
+            ("Validate Contextual Intelligence & Scout UX", self._script_command("Tests/validate_contextual_intelligence_scout_ux_foundation.py")),
+            ("Validate Fantasy Evidence Semantics & Draft-Pool Intelligence", self._script_command("Tests/validate_fantasy_evidence_semantics_draft_pool_intelligence_hotfix.py")),
+            ("Validate Draft Knowledge", self._script_command("Tests/validate_draft_knowledge.py")),
             ("Validate Experience Layer Foundation", self._script_command("Tests/validate_experience_layer_foundation.py")),
             ("Validate Player Experience", self._script_command("Tests/validate_player_experience.py")),
             ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
             ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
+            ("Validate Athena Request Boundary", self._script_command("Tests/validate_athena_request_boundary.py")),
+            ("Validate Athena Capability Pathways", self._script_command("Tests/validate_athena_capability_pathways.py")),
             ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
             ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
             ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),
@@ -1168,6 +1246,15 @@ class AthenaStudio:
             self.status.set("PIF inspection failed")
             self._record_history("Inspect PIF Prompt", 1, str(exc))
 
+
+    def discover_draft_source(self) -> None:
+        """Run authenticated Fantrax draft-pick source discovery without exposing credentials."""
+        command = self._script_command("Providers/Fantrax/fetch/discover_draft_source.py")
+        if command is None:
+            self.write("Draft source discovery script is missing.\n")
+            self.status.set("Draft source discovery unavailable")
+            return
+        self._run_threaded("Discover Fantrax Draft Source", command)
 
     def show_identity_graph_diagnostics(self) -> None:
         """Show Unified Identity & Cross-Sport Knowledge Graph diagnostics."""
@@ -1657,12 +1744,23 @@ class AthenaStudio:
             self._record_history(label, 1, str(exc))
 
     def preview_repository_cleanup(self) -> None:
-        """Preview Phase 4A safe cleanup without changing files."""
-        self._run_repository_cleanup(apply=False)
+        """Preview classified repository cleanup from the canonical doctor."""
+        command = self._script_command("Tools/repository_safe_cleanup.py")
+        if command:
+            self._run_sequence_threaded("Preview Cleanup", [("Preview Cleanup Doctor", command)])
+        else:
+            self.write("Repository cleanup tool is not installed.\n")
 
     def apply_repository_safe_cleanup(self) -> None:
-        """Apply Phase 4A safe cleanup from Studio."""
-        self._run_repository_cleanup(apply=True)
+        """Apply safe candidates after the user has reviewed the preview report."""
+        command = self._script_command("Tools/repository_safe_cleanup.py")
+        if not command:
+            self.write("Repository cleanup tool is not installed.\n")
+            return
+        if not messagebox.askyesno("Apply Safe Cleanup", "Apply only safe candidates from Cleanup Doctor? Review candidates remain untouched.", parent=self.root):
+            self.write("Safe cleanup cancelled.\n")
+            return
+        self._run_sequence_threaded("Apply Safe Cleanup", [("Apply Safe Cleanup", command + ["--apply"])])
 
     def open_repository_cleanup_report(self) -> None:
         """Open the latest Phase 4A cleanup report, or Reports if none exists."""

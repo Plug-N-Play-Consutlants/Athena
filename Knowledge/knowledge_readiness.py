@@ -173,10 +173,13 @@ def _count_records(data: Any) -> int:
 def _source_path_for_key(key: str) -> Path | None:
     if key in REQUIRED_OUTPUTS:
         return REQUIRED_OUTPUTS[key]
-    if key in OPTIONAL_RAW_INPUTS:
-        return OPTIONAL_RAW_INPUTS[key]
+    # Canonical built outputs outrank provider/raw inputs when both exist.
+    # draft_picks is the current example: Raw/draft_picks.json is provider-shaped,
+    # while Output/draft_picks.json carries Athena's current/future asset contract.
     if key in OPTIONAL_OUTPUTS:
         return OPTIONAL_OUTPUTS[key]
+    if key in OPTIONAL_RAW_INPUTS:
+        return OPTIONAL_RAW_INPUTS[key]
     return None
 
 
@@ -213,6 +216,18 @@ def _source_quality(key: str, path: Path | None) -> dict[str, Any]:
     # when the real source data is not available yet. Those should not make a
     # domain appear ready. Contracts are the first example: player_contracts.py
     # creates one placeholder row per player, but evidence_completeness remains 0.
+    if key == "draft_picks":
+        current = data.get("current_draft", {}) if isinstance(data, dict) else {}
+        future = data.get("future_draft_assets", {}) if isinstance(data, dict) else {}
+        records = int(current.get("pick_count") or 0) + int(future.get("pick_count") or 0)
+        return {
+            "available": exists and records > 0,
+            "exists": exists,
+            "record_count": records,
+            "quality_score": 1.0 if exists and records > 0 else 0.0,
+            "quality_note": "canonical current/future draft asset records",
+        }
+
     if key == "player_contracts":
         avg_evidence = _evidence_average(data)
         effective_available = exists and records > 0 and avg_evidence > 0.0

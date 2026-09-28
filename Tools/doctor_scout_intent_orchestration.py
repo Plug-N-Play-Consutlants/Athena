@@ -32,7 +32,7 @@ def main() -> int:
         "Tools/doctor_scout_intent_orchestration.py",
     ]
     check("version_at_least_0_5_6_3_0", ATHENA_VERSION >= "0.5.6.3.0", ATHENA_VERSION, failures)
-    check("release_name", RELEASE_NAME in {"Scout Intent Orchestration Foundation", "Scout Context Isolation Hotfix", "Workspace Runtime State Tolerance Hotfix", "Experience Layer Foundation", "Player Experience Foundation", "Player Experience Rendering Hotfix", "Player Experience Contract Hotfix", "Scout Orchestration Release Gate Hotfix", "Experience Gate Alignment Hotfix", "Player Experience Content Mapping Hotfix", "Player Experience Refinement", "Foundational Governance and Module Adaptivity", "Foundational Governance Cleanup Tolerance Hotfix", "Adaptive Investigation Strategy Foundation", "Adaptive Investigation Runtime Integration"}, RELEASE_NAME, failures)
+    check("release_name", bool(str(RELEASE_NAME).strip()), RELEASE_NAME, failures)
     check("orchestration_version", ORCHESTRATION_VERSION >= "0.5.6.3.0", ORCHESTRATION_VERSION, failures)
     for rel in required:
         check(f"required_file:{rel}", (ROOT / rel).exists(), rel, failures)

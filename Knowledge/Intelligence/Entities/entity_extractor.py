@@ -107,3 +107,54 @@ def resolve_entity(phrase: str, preferred_type: str = "") -> EntityMatch:
 
 def extract_entities(question: str, preferred_type: str = "") -> List[EntityMatch]:
     return [resolve_entity(part, preferred_type=preferred_type) for part in split_entity_phrases(question)]
+
+
+_NATIONALITY_TERMS = {
+    "sweden": "swedish", "finland": "finnish", "canada": "canadian",
+    "united states": "american", "germany": "german",
+}
+_POSITION_TERMS = {
+    "D": ("defenseman", "defenceman", "defender"),
+    "C": ("center", "centre"),
+    "LW": ("left wing", "left winger"),
+    "RW": ("right wing", "right winger"),
+    "G": ("goaltender", "goalie"),
+}
+
+
+def resolve_qualified_player(question: str) -> EntityMatch | None:
+    """Resolve a named public player with explicit role/nationality qualifiers.
+
+    Matching name text alone never overrides conflicting qualifiers. A short
+    nickname is accepted only when it is the entire query, to avoid incidental
+    substring matches in a longer question.
+    """
+    query = clean_entity_phrase(question)
+    normalized = normalize_name(query)
+    if not normalized:
+        return None
+    players = [entity for entity in all_entities() if entity.entity_type == "player"]
+    named = []
+    for entity in players:
+        names = [name for name in searchable_names(entity) if name]
+        matches = [name for name in names if (len(normalize_name(name).split()) >= 2 or normalize_name(name) == normalized)
+                   and re.search(r"(?<!\w)" + re.escape(normalize_name(name)) + r"(?!\w)", normalized)]
+        if matches:
+            named.append((entity, max(matches, key=len)))
+    if not named:
+        return None
+    # Only treat an entire bare name as a request when it resolves uniquely.
+    full_name = [entity for entity, alias in named if normalize_name(alias) == normalized]
+    if len(full_name) == 1:
+        return EntityMatch(query, full_name[0], 1.0, "resolved", matched_alias=query)
+
+    requested_nationalities = {term for term in _NATIONALITY_TERMS.values() if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", normalized)}
+    requested_positions = {position for position, terms in _POSITION_TERMS.items() if any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", normalized) for term in terms)}
+    if not requested_nationalities and not requested_positions:
+        return None
+    qualified = [entity for entity, _ in named
+                 if (not requested_nationalities or _NATIONALITY_TERMS.get(entity.nationality.lower(), "") in requested_nationalities)
+                 and (not requested_positions or entity.position in requested_positions)]
+    if len(qualified) == 1:
+        return EntityMatch(query, qualified[0], 0.95, "qualified_resolved", matched_alias=qualified[0].canonical_name)
+    return EntityMatch(query, None, 0.0, "qualification_unresolved", candidates=[entity for entity, _ in named])

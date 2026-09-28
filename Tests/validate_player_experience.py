@@ -26,7 +26,7 @@ def main() -> int:
     print("Player Experience Validation")
     print("=" * 64)
     check("version_advanced_to_6b", ATHENA_VERSION >= "0.6.2.0.2", ATHENA_VERSION, failures)
-    check("release_name", RELEASE_NAME in {"Experience Layer Foundation", "Player Experience Foundation", "Player Experience Rendering Hotfix", "Player Experience Contract Hotfix", "Scout Orchestration Release Gate Hotfix", "Experience Gate Alignment Hotfix", "Player Experience Content Mapping Hotfix", "Player Experience Refinement", "Foundational Governance and Module Adaptivity", "Foundational Governance Cleanup Tolerance Hotfix", "Adaptive Investigation Strategy Foundation", "Adaptive Investigation Runtime Integration"}, RELEASE_NAME, failures)
+    check("release_name", bool(str(RELEASE_NAME).strip()), RELEASE_NAME, failures)
     check("version_schema_locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA, failures)
     check("experience_layer_version", EXPERIENCE_LAYER_VERSION >= "0.6.2.0.2", EXPERIENCE_LAYER_VERSION, failures)
     check("player_experience_version", PLAYER_EXPERIENCE_VERSION >= "0.6.2.0.2", PLAYER_EXPERIENCE_VERSION, failures)

@@ -8,6 +8,7 @@ traces, but Scout's public surface must receive one clean user-facing answer.
 from __future__ import annotations
 
 import re
+from html import unescape
 from typing import Any, Dict, Iterable, List
 
 from Experience.renderer import attach_experience_contract
@@ -64,7 +65,7 @@ def _as_list(value: Any, limit: int | None = None) -> List[Any]:
 
 
 def _clean_public_text(text: str) -> str:
-    text = _clean_text(text)
+    text = unescape(_clean_text(text)).replace("\xa0", " ")
     if not text:
         return ""
     for pattern in _INTERNAL_PATTERNS:
@@ -156,6 +157,34 @@ def _compose_team_public(answer: Dict[str, Any], candidate: str) -> str:
     return "\n\n".join(lines)
 
 
+def _compose_pre_draft_public(answer: Dict[str, Any], candidate: str) -> str:
+    """Keep the casual pre-draft answer useful without exposing diagnostics."""
+    candidate = _clean_public_text(candidate)
+    facts = [_clean_public_text(item) for item in _as_list(answer.get("observed_facts"), 8)]
+    facts = [item for item in facts if item]
+    lines: List[str] = [candidate] if candidate else []
+    # The route narrative carries current state and historical findings. Add only
+    # material evidence that the compact narrative does not already communicate.
+    for fact in facts:
+        lower = fact.lower()
+        if "fantrax export" in lower and fact not in lines:
+            lines.append(fact)
+    conclusion = _clean_public_text(answer.get("engine_conclusion"))
+    if conclusion and conclusion not in lines:
+        lines.append(conclusion)
+    return "\n\n".join(lines) or _clean_text(answer.get("title")) or "Scout response"
+
+
+def _compose_live_event_public(answer: Dict[str, Any], candidate: str) -> str:
+    """Preserve the selected-event narrative as the primary normal-mode answer."""
+    candidate = _clean_public_text(candidate)
+    if candidate:
+        return candidate
+    facts = [_clean_public_text(item) for item in _as_list(answer.get("observed_facts"), 6)]
+    facts = [item for item in facts if item]
+    return "\n\n".join(facts) or _clean_text(answer.get("title")) or "Scout response"
+
+
 def _compose_public_comment(answer: Dict[str, Any]) -> str:
     candidate = _clean_public_text(_first_text(answer))
     intent = _clean_text(answer.get("intent")).lower()
@@ -163,6 +192,10 @@ def _compose_public_comment(answer: Dict[str, Any]) -> str:
         return _compose_player_public(answer, candidate)
     if intent in {"public_team_profile", "public_team_comparison", "public_analytical_route"}:
         return _compose_team_public(answer, candidate)
+    if intent == "live_event_intelligence":
+        return _compose_live_event_public(answer, candidate)
+    if intent == "fantasy_pre_draft_context":
+        return _compose_pre_draft_public(answer, candidate)
     return candidate or _clean_text(answer.get("title")) or "Scout response"
 
 

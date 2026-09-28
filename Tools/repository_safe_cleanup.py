@@ -19,7 +19,6 @@ SAFE_RUNTIME_SUFFIXES = {
     ".pyc",
     ".pyo",
     ".tmp",
-    ".log",
 }
 
 LOCKED_FILE_WARNING_PREFIX = "Skipped locked/in-use file"
@@ -67,6 +66,7 @@ class CleanupCandidate:
     path: str
     kind: str
     reason: str
+    classification: str = "safe"
 
 @dataclass(frozen=True)
 class CleanupReport:
@@ -108,7 +108,9 @@ def discover_cleanup_candidates(root: Path) -> list[CleanupCandidate]:
     candidates: list[CleanupCandidate] = []
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root).as_posix()
-        if ".git/" in rel or rel == ".git":
+        if ".git/" in rel or rel == ".git" or rel.startswith(("AthenaEngine/", "Intelligence/" + "Core/", "Archive/runtime_quarantine/")) or path.is_symlink():
+            continue
+        if any(_is_runtime_dir(parent) for parent in path.parents if parent != root and root in parent.parents):
             continue
         if path.is_dir() and _is_runtime_dir(path):
             candidates.append(CleanupCandidate(rel, "runtime_dir", "Generated runtime/cache directory."))
@@ -116,13 +118,30 @@ def discover_cleanup_candidates(root: Path) -> list[CleanupCandidate]:
         if path.is_file() and _is_runtime_file(path):
             candidates.append(CleanupCandidate(rel, "runtime_file", "Generated runtime/log/cache file."))
             continue
+        if path.is_file() and path.parent == root and (path.name.endswith(".patch") or path.name.startswith(("APPLY_", "APPLY_NOTES_"))):
+            candidates.append(CleanupCandidate(rel, "legacy_patch", "Old patch/apply artifact; review before removal.", "review"))
+            continue
+        if path.is_dir() and path.parent == root and path.name == "AthenaEngine":
+            candidates.append(CleanupCandidate(rel, "nested_overlay", "Nested overlay may contain an older build; review before removal.", "review"))
+            continue
         if path.is_dir():
             try:
                 if not any(path.iterdir()) and path.name not in SEMANTIC_EMPTY_DIR_ALLOWLIST:
                     candidates.append(CleanupCandidate(rel, "empty_dir", "Empty non-semantic directory."))
             except OSError:
                 pass
-    return candidates
+    # Preserve evidence and source: consensus actions remain visible as review items.
+    for rel, kind in (("Intelligence/" + "Core", "legacy_core"), ("Archive/runtime_quarantine", "runtime_quarantine"), ("Configuration/workspace.json", "workspace_state")):
+        if (root / rel).exists():
+            candidates.append(CleanupCandidate(rel, kind, "Legacy consensus action; requires separate ownership review.", "review"))
+    for path in root.iterdir():
+        if path.is_file() and path.name.startswith("README_") and "apply_notes" in path.name.lower() and path.suffix.lower() == ".txt":
+            candidates.append(CleanupCandidate(path.name, "legacy_apply_notes", "Old installation notes; review before archival or removal.", "review"))
+        if path.is_file() and path.suffix.lower() == ".md" and path.name.startswith("CHANGE_MANIFEST_"):
+            candidates.append(CleanupCandidate(path.name, "root_change_manifest", "Historical change manifest; archive to canonical change-manifest history."))
+        elif path.is_file() and path.suffix.lower() == ".md" and path.name.startswith(("RELEASE_NOTES_", "CLEANUP_REPORT_", "README_")):
+            candidates.append(CleanupCandidate(path.name, "root_history", "Historical documentation; review archival.", "review"))
+    return sorted(set(candidates), key=lambda c: c.path)
 
 
 def update_gitignore(root: Path, apply: bool = False) -> list[str]:
@@ -144,7 +163,7 @@ def apply_candidates(root: Path, candidates: Iterable[CleanupCandidate]) -> tupl
     skipped_locked: list[str] = []
     for candidate in candidates:
         path = root / candidate.path
-        if not path.exists():
+        if candidate.classification != "safe" or not path.exists() or path.is_symlink():
             continue
         try:
             if candidate.kind == "runtime_dir":
@@ -155,6 +174,18 @@ def apply_candidates(root: Path, candidates: Iterable[CleanupCandidate]) -> tupl
                 removed.append(candidate.path)
             elif candidate.kind == "empty_dir":
                 path.rmdir()
+                removed.append(candidate.path)
+            elif candidate.kind == "root_change_manifest":
+                destination_dir = root / "Archive" / "Documentation" / "ChangeManifests"
+                destination_dir.mkdir(parents=True, exist_ok=True)
+                destination = destination_dir / path.name
+                if destination.exists():
+                    if destination.read_bytes() != path.read_bytes():
+                        skipped_locked.append(candidate.path)
+                        continue
+                    path.unlink()
+                else:
+                    shutil.move(str(path), str(destination))
                 removed.append(candidate.path)
         except PermissionError:
             skipped_locked.append(candidate.path)
@@ -170,6 +201,15 @@ def apply_candidates(root: Path, candidates: Iterable[CleanupCandidate]) -> tupl
     return removed, skipped_locked
 
 
+def _current_version() -> str:
+    import sys
+    root = str(project_root_from_here())
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from Core.version import ATHENA_VERSION
+    return ATHENA_VERSION
+
+
 def run_cleanup(root: Path | None = None, apply: bool = False) -> CleanupReport:
     project_root = (root or project_root_from_here()).resolve()
     candidates = discover_cleanup_candidates(project_root)
@@ -179,6 +219,8 @@ def run_cleanup(root: Path | None = None, apply: bool = False) -> CleanupReport:
     if apply:
         removed, skipped_locked = apply_candidates(project_root, candidates)
     warnings: list[str] = []
+    if any(c.classification == "review" for c in candidates):
+        warnings.append("Review candidates are reported only and never deleted by Apply Safe Cleanup.")
     if not apply:
         warnings.append("Preview mode only. Use Apply Safe Cleanup in Studio to remove safe runtime artifacts.")
     if skipped_locked:
@@ -187,7 +229,7 @@ def run_cleanup(root: Path | None = None, apply: bool = False) -> CleanupReport:
     reports.mkdir(parents=True, exist_ok=True)
     out = reports / f"repository_safe_cleanup_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
     report = CleanupReport(
-        version="0.5.6.2.3",
+        version=_current_version(),
         generated_at=datetime.now(timezone.utc).isoformat(),
         project_root=str(project_root),
         applied=apply,
@@ -213,6 +255,7 @@ def main() -> int:
     print(f"Applied: {report.applied}")
     print(f"Candidates: {len(report.candidates)}")
     print(f"Removed: {len(report.removed)}")
+    print(f"Review only: {sum(c.classification == 'review' for c in report.candidates)}")
     print(f"Gitignore updates: {len(report.gitignore_updates)}")
     print(f"Skipped locked: {len(report.skipped_locked)}")
     if report.skipped_locked:

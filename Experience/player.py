@@ -30,7 +30,7 @@ STAT_BOX_ORDER = ["Goals", "Assists", "Points", "P/GP", "+/-"]
 
 
 def _text(value: Any) -> str:
-    return str(value or "").strip()
+    return "" if value is None else str(value).strip()
 
 
 def _as_list(value: Any, limit: Optional[int] = None) -> List[Any]:
@@ -161,7 +161,7 @@ def _public_limitations(items: List[Any]) -> List[str]:
         if not text:
             continue
         text = replacements.get(text, text)
-        text = re.sub(r"\b(Player Intelligence|PIF Build|Build \d+|drop\w+)\b[^.]*", "the current public evidence path", text).strip()
+        text = re.sub(r"\b(Player Intelligence|PIF Build|Build \d+|drop\w+)\b[^.]*", "", text).strip(" .")
         if text and text not in public:
             public.append(text)
     return public
@@ -293,6 +293,22 @@ def _coverage_categories(answer: Dict[str, Any]) -> Dict[str, List[str]]:
 def deterministic_player_badges(answer: Dict[str, Any], cards: Dict[str, str] | None = None) -> List[str]:
     """Derive a compact, non-duplicative player badge set."""
     cards = cards or _card_map(answer)
+    professional = answer.get("professional_assessment")
+    if isinstance(professional, dict):
+        tier = _text(professional.get("current_tier"))
+        stars = {"Franchise Superstar": 5, "Star": 4, "Core Player": 3,
+                 "Role Player": 2, "Depth Player": 1}.get(tier)
+        current = ("★" * stars + "☆" * (5 - stars) + " " + tier) if stars else "Current Rating Pending"
+        badges = [current]
+        for key in ("career_legacy", "career_stage"):
+            value = _text(professional.get(key))
+            if value and value not in badges:
+                badges.append(value)
+        if professional.get("career_stage") == "Rookie" and len(badges) < 3:
+            badges.extend(professional.get("rookie_tags") or [])
+        return badges[:3]
+    if answer.get("assessment_badges") == ["Assessment Pending"]:
+        return ["Assessment Pending"]
     explicit = answer.get("assessment_badges")
     raw: List[str] = []
     if isinstance(explicit, list):
@@ -400,6 +416,8 @@ def build_current_stat_boxes(answer: Dict[str, Any], cards: Dict[str, str]) -> L
             value = _text(stat_source.get(key)) or _text(cards.get(key)) or _text(parsed.get(key))
             if value:
                 break
+        if label == "+/-" and value and value.lstrip("-").isdigit() and int(value) > 0:
+            value = "+" + value
         # Render the full header contract. Missing values should be visibly
         # unavailable instead of causing the whole box to disappear.
         boxes.append(StatBox(label=label, value=value or "—", context="current_season").__dict__)
@@ -409,15 +427,42 @@ def build_current_stat_boxes(answer: Dict[str, Any], cards: Dict[str, str]) -> L
 def _section_summary(answer: Dict[str, Any], cards: Dict[str, str], title: str) -> str:
     lower = title.lower()
     name = _player_name(answer)
+    professional = answer.get("professional_assessment") if isinstance(answer.get("professional_assessment"), dict) else {}
+    if answer.get("assessment_badges") == ["Assessment Pending"]:
+        if lower == "executive summary":
+            return _public_text(answer)
+        if lower in {"current season", "career trend", "organizational impact", "future outlook", "playing style"}:
+            return "Verified professional evidence is still needed for this section."
     if lower == "executive summary":
+        if professional:
+            return _public_text(answer)
         return _executive_brief(answer, cards)
     if lower == "playing style":
+        explicit_style = _text(cards.get("playing style"))
+        if explicit_style:
+            return _clean_player_copy(explicit_style)
+        developer = answer.get("developer") if isinstance(answer.get("developer"), dict) else {}
+        # Preserve canonical/rich profile style before applying lifecycle fallbacks.
+        # Lifecycle/news evidence can establish current state, but it must not erase
+        # a stronger existing scouting/style description or masquerade as one.
+        public_profile = developer.get("public_player_profile") if isinstance(developer.get("public_player_profile"), dict) else {}
+        canonical_style = _text(public_profile.get("style"))
+        if canonical_style:
+            return _clean_player_copy(canonical_style)
+        if isinstance(developer.get("player_lifecycle"), dict):
+            return "Playing-style evidence is not yet attached strongly enough to characterize this player from the current evidence set."
         return _clean_player_copy(
-            _text(cards.get("playing style"))
-            or _first_paragraph_matching(answer, ["playing profile", "speed", "release", "playmaking", "shot", "transition", "two-way"], 2)
-            or _sentence_from_facts(answer, ["style", "driver", "play", "scoring", "two-way"])
+            _first_paragraph_matching(answer, ["playing profile", "speed", "release", "playmaking", "shot", "transition", "two-way"], 2)
+            or _sentence_from_facts(answer, ["style", "driver", "scoring", "two-way"])
         )
     if lower == "current season":
+        if professional:
+            rows = answer.get("season_statistics") or []
+            if rows:
+                latest = rows[0]
+                return (f"{latest.get('season')}: {latest.get('pts')} points in {latest.get('gp')} NHL games. "
+                        f"The current tier uses {professional.get('seasons_used')} regular seasons; "
+                        f"{professional.get('trend', '').lower()} trend.")
         parsed = _extract_current_production(answer)
         band = _production_band(answer, cards)
         if parsed:
@@ -434,6 +479,11 @@ def _section_summary(answer: Dict[str, Any], cards: Dict[str, str], title: str) 
             return _clean_player_copy(sentence)
         return _clean_player_copy(_text(cards.get("current season")) or _sentence_from_facts(answer, ["current", "season", "production"]))
     if lower == "career trend":
+        if professional:
+            legacy = professional.get("career_legacy") or "Career legacy unclassified"
+            return (f"{name}'s current tier is separate from {legacy.lower()}. "
+                    f"The three-season trend is {professional.get('trend', '').lower()} "
+                    f"through {professional.get('as_of_season') or 'the latest attached season'}.")
         tier = _career_tier(cards)
         three_year = _text(cards.get("3-year ppg") or cards.get("three-year ppg"))
         peak_goals = _text(cards.get("peak goals"))
@@ -448,6 +498,8 @@ def _section_summary(answer: Dict[str, Any], cards: Dict[str, str], title: str) 
             return _clean_player_copy(f"{name}'s trend should be read from the career baseline first: " + "; ".join(pieces) + ".")
         return _clean_player_copy(_text(cards.get("career trend")) or _text(cards.get("trend")) or _sentence_from_facts(answer, ["trend", "career", "baseline", "historical"]))
     if lower == "organizational impact":
+        if professional:
+            return "Team-specific value requires verified leadership, role and deployment evidence beyond the scoring window."
         role = _text(cards.get("role") or cards.get("asset tier"))
         team = _text((answer.get("player") if isinstance(answer.get("player"), dict) else {}).get("team") or answer.get("team") or cards.get("team"))
         leadership = _text(cards.get("leadership") or cards.get("captaincy") or cards.get("captain"))

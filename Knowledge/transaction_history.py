@@ -32,7 +32,7 @@ OUTPUT_JSON = OUTPUT_DIR / "transaction_history.json"
 OUTPUT_CSV = OUTPUT_DIR / "transaction_history.csv"
 
 
-SCHEMA_VERSION = "0.3.1"
+SCHEMA_VERSION = "0.6.5.0.0"
 
 
 def _records(payload: Any) -> List[Dict[str, Any]]:
@@ -122,8 +122,15 @@ def build_transaction_history() -> Dict[str, Any]:
             )
             entry["transaction_count"] += 1
             entry["transaction_types"][transaction_type] += 1
+            participant_id = _participant_id(participant)
+            fee_rows = [fee for fee in (row.get("fees") or []) if isinstance(fee, dict)]
+            participant_fee = sum(
+                float(fee.get("amount") or 0)
+                for fee in fee_rows
+                if not participant_id or str(fee.get("team_id") or "").strip() == participant_id
+            ) if fee_rows else observed_fee_total
             entry["observed_transaction_fee_total"] = round(
-                float(entry["observed_transaction_fee_total"]) + observed_fee_total,
+                float(entry["observed_transaction_fee_total"]) + participant_fee,
                 2,
             )
             entry["transactions"].append(transaction_id)
@@ -150,6 +157,10 @@ def build_transaction_history() -> Dict[str, Any]:
                 "movement": movement,
                 "team_id": ((asset.get("movement_context") or {}).get("team_id") or ""),
                 "team_name": ((asset.get("movement_context") or {}).get("team_name") or ""),
+                "from_team_id": ((asset.get("movement_context") or {}).get("from_team_id") or ""),
+                "from_team_name": ((asset.get("movement_context") or {}).get("from_team_name") or ""),
+                "to_team_id": ((asset.get("movement_context") or {}).get("to_team_id") or ""),
+                "to_team_name": ((asset.get("movement_context") or {}).get("to_team_name") or ""),
             }
             asset_movements.append(movement_record)
 
@@ -204,6 +215,10 @@ def _write_csv(rows: List[Dict[str, Any]]) -> None:
         "movement",
         "team_id",
         "team_name",
+        "from_team_id",
+        "from_team_name",
+        "to_team_id",
+        "to_team_name",
     ]
     with OUTPUT_CSV.open("w", newline="", encoding="utf-8") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)

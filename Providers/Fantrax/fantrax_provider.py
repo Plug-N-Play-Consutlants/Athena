@@ -32,9 +32,23 @@ class FantraxProvider(BaseProvider):
         self._state: ConnectionState = ConnectionState.DISCONNECTED
         self._last_error: str = ""
 
-    def _get_client(self) -> FantraxClient:
-        if self._client is None:
+    def _get_client(self, requested_league_id: str = "") -> FantraxClient:
+        """Return a client bound to the current workspace/league context.
+
+        Provider instances are registry singletons and can outlive workspace changes
+        inside Studio. Rebuild the transport client whenever the requested league ID
+        differs from the cached client so a newly selected league can never inherit
+        stale connection state.
+        """
+        requested = str(requested_league_id or "").strip()
+        cached = str(getattr(self._client, "league_id", "") or "").strip() if self._client is not None else ""
+        if self._client is None or (requested and cached != requested):
             self._client = FantraxClient()
+        return self._client
+
+    def refresh_client(self) -> FantraxClient:
+        """Explicitly invalidate provider transport state after workspace changes."""
+        self._client = FantraxClient()
         return self._client
 
     def _safe_cookie_status(self) -> Dict[str, Any]:
@@ -58,7 +72,7 @@ class FantraxProvider(BaseProvider):
         self._state = ConnectionState.CONNECTING
         self._last_error = ""
         try:
-            client = self._get_client()
+            client = self._get_client(str(kwargs.get("league_id") or ""))
             client.validate_config()
             cookie_status = client.cookie_status()
             if not client.has_cookie_auth():
@@ -177,7 +191,9 @@ class FantraxProvider(BaseProvider):
         if selected in {"player_pool", "players", "rosters"}:
             return client.get_player_pool_payload()
         if selected in {"transactions", "transaction_history"}:
-            return client.get_transactions(**kwargs)
+            return client.get_transaction_evidence(**kwargs)
+        if selected in {"draft_picks", "draft", "draft_assets"}:
+            return client.get_draft_picks()
         if selected == "schedule":
             return client.get_schedule()
         if selected in {"player_stats", "stats"}:

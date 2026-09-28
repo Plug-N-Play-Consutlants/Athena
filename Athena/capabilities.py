@@ -118,6 +118,7 @@ def assess_capabilities(provider: str = "Fantrax") -> Dict[str, Any]:
     transaction_history = read_optional_json(OUTPUT_DIR / "transaction_history.json")
     manager_behavior = read_optional_json(OUTPUT_DIR / "manager_behavior.json")
     league_market = read_optional_json(OUTPUT_DIR / "league_market.json")
+    draft_picks = read_optional_json(OUTPUT_DIR / "draft_picks.json")
 
     league_teams = 0
     if isinstance(league, dict):
@@ -143,6 +144,13 @@ def assess_capabilities(provider: str = "Fantrax") -> Dict[str, Any]:
     manager_count = _count_records(manager_behavior)
     market_records = _count_records(league_market)
     tx_page_error = _page_error_code(transactions)
+    current_draft_count = 0
+    future_draft_count = 0
+    if isinstance(draft_picks, dict):
+        current = draft_picks.get("current_draft") or {}
+        future = draft_picks.get("future_draft_assets") or {}
+        current_draft_count = int(current.get("pick_count") or 0) if isinstance(current, dict) else 0
+        future_draft_count = int(future.get("pick_count") or 0) if isinstance(future, dict) else 0
 
     capabilities: List[Dict[str, Any]] = []
 
@@ -178,8 +186,8 @@ def assess_capabilities(provider: str = "Fantrax") -> Dict[str, Any]:
         tx_status = MISSING
         tx_reason = "transactions.json is missing."
     elif transaction_rows <= 0:
-        tx_status = PARTIAL
-        tx_reason = "transactions.json exists but has no transaction rows."
+        tx_status = AVAILABLE
+        tx_reason = "Transaction feed is available; no current-season transactions are recorded yet."
     else:
         tx_status = AVAILABLE
         tx_reason = f"Transaction rows detected: {transaction_rows}."
@@ -191,23 +199,32 @@ def assess_capabilities(provider: str = "Fantrax") -> Dict[str, Any]:
         evidence={"transaction_rows": transaction_rows, "page_error": tx_page_error},
     ))
 
-    tx_available = tx_status in {AVAILABLE, PARTIAL} and transaction_rows > 0
     capabilities.append(_capability(
-        "transaction_history", "Transaction history", AVAILABLE if transaction_history_records > 0 else SESSION_REQUIRED if tx_status == SESSION_REQUIRED else MISSING,
+        "draft_assets", "Draft assets", AVAILABLE if current_draft_count > 0 or future_draft_count > 0 else MISSING,
         layer="Knowledge", required=False,
-        reason=f"Transaction history records detected: {transaction_history_records}." if transaction_history_records > 0 else "Transaction history depends on transaction capability.",
+        reason=f"Draft knowledge contains {current_draft_count} current picks and {future_draft_count} future assets." if current_draft_count or future_draft_count else "Draft knowledge has not been built yet.",
+        impact="Draft-order, pick-ownership, draft-capital, and trade analysis are limited when unavailable.",
+        evidence={"current_pick_count": current_draft_count, "future_pick_count": future_draft_count},
+    ))
+
+    capabilities.append(_capability(
+        "transaction_history", "Transaction history", AVAILABLE if tx_status == AVAILABLE else SESSION_REQUIRED if tx_status == SESSION_REQUIRED else MISSING,
+        layer="Knowledge", required=False,
+        reason=f"Transaction history records detected: {transaction_history_records}." if transaction_history_records > 0 else "Transaction history is current; no transactions are recorded yet." if tx_status == AVAILABLE else "Transaction history depends on transaction capability.",
         impact="Required for active-manager analysis.", evidence={"record_count": transaction_history_records},
     ))
+    manager_status = (AVAILABLE if manager_count > 0 and transaction_history_records > 0 else PARTIAL if manager_count > 0 and tx_status == AVAILABLE else SESSION_REQUIRED if tx_status == SESSION_REQUIRED else MISSING)
+    manager_reason = (f"Behavioral evidence observed for {manager_count} managers from {transaction_history_records} transaction-history records." if manager_status == AVAILABLE else f"Manager population known: {manager_count}; no current-season transaction behavior has been observed yet." if manager_status == PARTIAL else "Manager behavior depends on transaction history.")
     capabilities.append(_capability(
-        "manager_activity", "Manager activity", AVAILABLE if manager_count > 0 else SESSION_REQUIRED if tx_status == SESSION_REQUIRED else MISSING,
+        "manager_activity", "Manager activity", manager_status,
         layer="Intelligence", required=False,
-        reason=f"Managers analyzed: {manager_count}." if manager_count > 0 else "Manager behavior depends on transaction history.",
-        impact="Most-active-manager questions are limited when unavailable.", evidence={"manager_count": manager_count},
+        reason=manager_reason,
+        impact="Most-active-manager questions require observed behavioral evidence; population presence alone does not establish activity.", evidence={"manager_count": manager_count, "observed_transaction_records": transaction_history_records},
     ))
     capabilities.append(_capability(
-        "trade_market", "Trade market", AVAILABLE if market_records > 0 and transaction_records > 0 else SESSION_REQUIRED if tx_status == SESSION_REQUIRED else MISSING,
+        "trade_market", "Trade market", AVAILABLE if tx_status == AVAILABLE and market_records > 0 else SESSION_REQUIRED if tx_status == SESSION_REQUIRED else MISSING,
         layer="Intelligence", required=False,
-        reason="League market output is available." if market_records > 0 and transaction_records > 0 else "Trade-market intelligence depends on transaction evidence.",
+        reason="League market output is available." if transaction_records > 0 else "League market is current; no transaction evidence exists yet." if tx_status == AVAILABLE and market_records > 0 else "Trade-market intelligence depends on transaction evidence.",
         impact="Trade-market questions are limited when unavailable.", evidence={"market_records": market_records, "canonical_transactions": transaction_records},
     ))
 
@@ -233,7 +250,7 @@ def assess_capabilities(provider: str = "Fantrax") -> Dict[str, Any]:
 
     capabilities.append(_capability(
         "live_scores", "Live scores", NOT_SUPPORTED, layer="Fetch", required=False,
-        reason="Live scoring is not implemented in Scout Alpha.",
+        reason="Live scoring is not currently implemented.",
         impact="No effect on static league analysis.", evidence={},
     ))
 

@@ -10,6 +10,7 @@ Active canonical Fantrax snapshots:
 - Raw/league_info.json
 - Raw/fantrax_player_pool.json
 - Raw/transactions.json
+- Raw/draft_picks.json
 
 Retired legacy endpoint fetches are archived under Archive/ and are not part
 of the canonical Fetch path.
@@ -29,6 +30,7 @@ from Core.logger import log_header, log_section, log
 from Providers.Fantrax.fetch import fetch_league
 from Providers.Fantrax.fetch import fetch_player_pool
 from Providers.Fantrax.fetch import fetch_transactions
+from Providers.Fantrax.fetch import fetch_draft_picks
 
 
 def main() -> None:
@@ -42,6 +44,9 @@ def main() -> None:
 
     log_section("Transactions")
     fetch_transactions.main()
+
+    log_section("Draft Picks")
+    fetch_draft_picks.main()
 
     log("")
     log_header("FETCH ALL COMPLETE")

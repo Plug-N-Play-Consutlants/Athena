@@ -1,0 +1,16 @@
+{
+  "provider": "Fantrax",
+  "active_season": 2026,
+  "historical_leagues": [
+    {"season": 2025, "league_id": "jttzojgxme37biw2", "trial": true},
+    {"season": 2024, "league_id": "bo71qf0vm11h8tcr"},
+    {"season": 2023, "league_id": "6try9waulmoa33z6"},
+    {"season": 2022, "league_id": "zbk135vql5r4k7lt"},
+    {"season": 2021, "league_id": "zob8rimfkrgzazs9", "schedule_context_required": true},
+    {"season": 2020, "league_id": "wmjf4iqqkixnp5n7", "schedule_context_required": true},
+    {"season": 2019, "league_id": "lwx8kvj8k0ed1e3p"},
+    {"season": 2018, "league_id": "e2l31qr9jlvgrtbs"},
+    {"season": 2017, "league_id": "5fce5io0j79m5y3f"},
+    {"season": 2016, "league_id": "ubhkjsgjisuqd99r"}
+  ]
+}

@@ -64,7 +64,7 @@ def main() -> int:
 
     ltir = route_question("How does LTIR work?", ctx, mode="public")
     _assert(ltir.get("intent") == "public_hockey_knowledge", report, "public_mode_routes_to_knowledge", str(ltir.get("intent")))
-    _assert(ltir.get("title") == "Public hockey knowledge", report, "public_answer_title", str(ltir.get("title")))
+    _assert(ltir.get("title") == "Professional hockey knowledge", report, "public_answer_title", str(ltir.get("title")))
     _assert(float(ltir.get("confidence") or 0) >= 0.45, report, "public_answer_confidence", str(ltir.get("confidence")))
     _assert(len(ltir.get("observed_facts") or []) >= 1, report, "public_answer_evidence_visible", f"facts={len(ltir.get('observed_facts') or [])}")
     dev = ltir.get("developer") if isinstance(ltir.get("developer"), dict) else {}
@@ -80,11 +80,11 @@ def main() -> int:
 
     unsupported = route_question("How does the Hiller hire affect the Leafs?", ctx, mode="public")
     _assert(unsupported.get("intent") in {"public_hockey_knowledge", "clarify_or_help", "event_intelligence_gap", "public_intelligence_gap"}, report, "unsupported_public_question_bounded", str(unsupported.get("title")))
-    _assert("invent" in " ".join(unsupported.get("known_limitations") or []) or "invent" in str(unsupported.get("natural_language_response", "")) or "will not answer" in str(unsupported.get("natural_language_response", "")).lower(), report, "unsupported_question_does_not_invent", str(unsupported.get("natural_language_response", ""))[:120])
+    _assert("do not have a verified matching event" in str(unsupported.get("natural_language_response", "")).lower() or "invent" in " ".join(unsupported.get("known_limitations") or []).lower(), report, "unsupported_question_does_not_invent", str(unsupported.get("natural_language_response", ""))[:120])
 
     overview = route_question("public sports overview", ctx, mode="public")
-    _assert(overview.get("title") == "Public sports mode", report, "public_overview_still_available", str(overview.get("title")))
-    _assert(ATHENA_VERSION.startswith("0.5.0-") and SCOUT_VERSION.startswith("v0.5.0-"), report, "version_metadata_available", f"Athena={ATHENA_VERSION}; Scout={SCOUT_VERSION}")
+    _assert(overview.get("title") == "Professional sports mode", report, "public_overview_still_available", str(overview.get("title")))
+    _assert(SCOUT_VERSION == "v" + ATHENA_VERSION, report, "version_metadata_available", f"Athena={ATHENA_VERSION}; Scout={SCOUT_VERSION}")
 
     return report.emit()
 

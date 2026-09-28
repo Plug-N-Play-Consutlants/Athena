@@ -19,6 +19,7 @@ from Core.project_paths import CONFIGURATION_DIR
 from Athena.exceptions import AthenaConfigurationError
 
 WORKSPACE_FILE = CONFIGURATION_DIR / "workspace.json"
+CONFIG_FILE = CONFIGURATION_DIR / "config.json"
 SECRETS_FILE = CONFIGURATION_DIR / "secrets.local.json"
 
 from Core.version import ATHENA_VERSION
@@ -94,6 +95,28 @@ def save_workspace(payload: Dict[str, Any]) -> Dict[str, Any]:
     return normalized
 
 
+def _mirror_live_fantrax_league_id(workspace: Dict[str, Any]) -> None:
+    """Keep the legacy provider league ID aligned with the active workspace.
+
+    workspace.json is the authoritative live context. config.json retains a
+    provider.league_id only for backward compatibility/migration, so it must
+    never remain pointed at a different league after a successful live save.
+    """
+    provider_key = str(workspace.get("provider_key") or workspace.get("provider") or "").strip().lower()
+    league_id = str(workspace.get("league_id") or "").strip()
+    if provider_key != "fantrax" or not league_id or is_placeholder_league_id(league_id):
+        return
+    config = read_optional_json(CONFIG_FILE)
+    config = dict(config) if isinstance(config, dict) else {}
+    provider = config.get("provider") if isinstance(config.get("provider"), dict) else {}
+    provider = dict(provider)
+    if str(provider.get("league_id") or "").strip() == league_id:
+        return
+    provider["league_id"] = league_id
+    config["provider"] = provider
+    write_json(CONFIG_FILE, config)
+
+
 def update_workspace(**updates: Any) -> Dict[str, Any]:
     """Update fields within the current workspace object."""
     payload = load_workspace()
@@ -102,7 +125,10 @@ def update_workspace(**updates: Any) -> Dict[str, Any]:
     if not workspace.get("provider_key") and workspace.get("provider"):
         workspace["provider_key"] = str(workspace.get("provider")).strip().lower()
     workspace["engine_version"] = f"Athena v{ATHENA_VERSION}"
-    return save_workspace(payload)
+    saved = save_workspace(payload)
+    _mirror_live_fantrax_league_id(saved.get("workspace", {}))
+    reload_configuration()
+    return saved
 
 
 def get_workspace_value(key: str, default: Optional[Any] = None) -> Any:

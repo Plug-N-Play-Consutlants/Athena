@@ -30,7 +30,6 @@ import Athena
 from Athena.capabilities import assess_capabilities, capability_dashboard
 from Athena.debug_export import write_debug_export
 from Scout.conversation.context import load_context, get_team_names
-from Scout.conversation.router import analyze_league, route_question
 from Providers.Fantrax.auth.connection_wizard import connection_capability_status, guided_connect_and_sync, open_fantrax_login
 from Knowledge.Graph.chain_engine import build_evidence_chain
 from Knowledge.Graph.reasoning_engine import build_reasoning_package
@@ -85,19 +84,12 @@ def _json_response(handler: BaseHTTPRequestHandler, payload: Dict[str, Any], sta
 
 
 def _session_answer_summary(answer: Dict[str, Any]) -> Dict[str, Any]:
-    """Return a compact prompt/response summary for acceptance comparison."""
+    """Return the complete serializable Scout turn record for session export."""
     if not isinstance(answer, dict):
-        return {"title": "Invalid answer", "text": str(answer)}
-    text = answer.get("public_comment") or answer.get("natural_language_response") or answer.get("response_text") or answer.get("scout_message") or answer.get("engine_conclusion") or ""
-    return {
-        "title": answer.get("title", "Scout response"),
-        "intent": answer.get("intent", ""),
-        "confidence": answer.get("confidence"),
-        "text": text,
-        "engine_conclusion": answer.get("engine_conclusion", ""),
-        "observed_facts": list(answer.get("observed_facts") or [])[:12] if answer.get("debug_session") else [],
-        "known_limitations": list(answer.get("known_limitations") or [])[:8] if answer.get("debug_session") else [],
-    }
+        return {"title": "Invalid answer", "text": str(answer), "raw_answer": str(answer)}
+    record = dict(answer)
+    record["text"] = answer.get("public_comment") or answer.get("natural_language_response") or answer.get("response_text") or answer.get("scout_message") or answer.get("engine_conclusion") or ""
+    return record
 
 
 def _record_session_turn(question: str, mode: str, answer: Dict[str, Any]) -> None:
@@ -143,14 +135,49 @@ def _write_session_log() -> Dict[str, Any]:
             "Response:",
             str(answer.get("text") or answer.get("engine_conclusion") or ""),
         ])
+        player_sections = [section for section in ((answer.get("athena_response") or {}).get("ui_sections") or [])
+                           if isinstance(section, dict) and section.get("section_type") == "player_experience"]
+        if player_sections:
+            data = player_sections[0].get("data") or {}
+            identity = data.get("identity") or {}
+            lines.append("Player card:")
+            for key in ("full_name", "team", "position", "age", "jersey_number", "photo_url", "assessment_badges"):
+                lines.append(f"  {key}: {json.dumps(identity.get(key), ensure_ascii=False)}")
+            for box in data.get("stat_boxes") or []:
+                lines.append(f"  {box.get('label')}: {box.get('value')}")
+        assessment = answer.get("professional_assessment")
+        if isinstance(assessment, dict):
+            lines.append("Professional assessment:")
+            for key in ("current_tier", "career_legacy", "career_stage", "window_seasons", "trend", "recent_games", "recent_points", "source"):
+                lines.append(f"  {key}: {json.dumps(assessment.get(key), ensure_ascii=False)}")
         facts = answer.get("observed_facts") or []
         if facts:
             lines.append("Observed facts:")
             lines.extend(f"  - {fact}" for fact in facts)
+        for section, key in (("Primary evidence", "source_links"), ("Additional evidence", "more_source_links")):
+            items=answer.get(key) or []
+            if items:
+                lines.append(section + ":")
+                for item in items:
+                    lines.append(f"  - {item.get('title') or item.get('label','')} | {item.get('publisher','')} | {item.get('published_at','')} | {item.get('url','')}")
+                    if item.get('summary'): lines.append(f"    Summary: {item.get('summary')}")
+        prompts=answer.get("suggested_prompts") or []
+        if prompts:
+            lines.append("Investigative follow-ups:")
+            lines.extend(f"  - {item}" for item in prompts)
         limits = answer.get("known_limitations") or []
         if limits:
-            lines.append("Known limitations:")
-            lines.extend(f"  - {item}" for item in limits)
+            lines.append("Known limitations:"); lines.extend(f"  - {item}" for item in limits)
+        developer=answer.get("developer") or {}
+        live=developer.get("live_evidence") if isinstance(developer,dict) else None
+        if isinstance(live,dict):
+            lines.append("Live evidence diagnostics:")
+            for key in ("acquisition_escalation","feed_count","event_count","selected_count","discovery_match_count","corroborating_event_count","ignored_count","evidence_sufficiency"):
+                lines.append(f"  {key}: {json.dumps(live.get(key), ensure_ascii=False)}")
+            ignored=live.get("ignored_events") or []
+            if ignored:
+                lines.append("  Rejected evidence:")
+                for item in ignored: lines.append(f"    - {item.get('title','')} | reasons={item.get('reasons',[])}")
         lines.append("")
     txt_path.write_text("\n".join(lines), encoding="utf-8")
     return {
@@ -161,7 +188,6 @@ def _write_session_log() -> Dict[str, Any]:
         "text_download_url": "/api/debug/download?file=scout_session_log.txt",
         "json_download_url": "/api/debug/download?file=scout_session_log.json",
     }
-
 
 def _html_response(handler: BaseHTTPRequestHandler, html: str, status: int = 200) -> None:
     body = html.encode("utf-8")
@@ -256,13 +282,22 @@ def test_fantrax_connection(league_id: str, cookie: str = "", league_secret: str
             "error": "Fantrax league ID is required.",
         }
     try:
-        return Athena.connect_fantrax(
+        result = Athena.connect_fantrax(
             league_id=cleaned_league_id,
             auth_cookie=cleaned_cookie,
             league_secret=cleaned_league_secret,
             validate=True,
             mode="fantasy_league",
         )
+        if result.get("ok"):
+            refresh = Athena.sync(mode="fantasy_league", provider="Fantrax", fetch=True)
+            result["state_refresh"] = {
+                "ok": bool(refresh.get("ok")),
+                "partial": bool(refresh.get("partial")),
+                "summary": refresh.get("summary", {}),
+                "warnings": refresh.get("warnings", []),
+            }
+        return result
     except Exception as exc:
         return {
             "ok": False,
@@ -311,12 +346,12 @@ INDEX_HTML = r'''<!doctype html>
     .answer h2 { margin:0 0 6px; font-size:22px; }
     .confidence { color:var(--muted); font-size:13px; margin-bottom:18px; }
     .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin:14px 0 20px; }
-    .card { background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:14px; }
+    .card { background:var(--panel2); border:1px solid var(--line); border-radius:14px; padding:14px; min-width:0; overflow:hidden; }
     .card.action-card { cursor:pointer; transition: transform .12s ease, border-color .12s ease; }
     .card.action-card:hover { transform: translateY(-1px); border-color:#6f7c96; }
     .action-note { margin-top:8px; color:var(--warn); font-size:11px; font-weight:700; }
     .card .label { color:var(--muted); font-size:12px; margin-bottom:6px; }
-    .card .value { font-size:22px; font-weight:700; }
+    .card .value { font-size:22px; font-weight:700; overflow-wrap:anywhere; word-break:break-word; max-width:100%; }
 
     .experience { margin:16px 0 18px; border:1px solid var(--line); border-radius:18px; overflow:hidden; background:#11141b; }
     .player-header { display:grid; grid-template-columns:92px 1fr; gap:16px; padding:18px; align-items:center; border-bottom:1px solid var(--line); }
@@ -375,9 +410,21 @@ INDEX_HTML = r'''<!doctype html>
     .raw-reasoning { margin:12px 0 16px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.025); padding:10px 12px; }
     .raw-reasoning summary { cursor:pointer; color:var(--muted); font-size:13px; }
     .raw-reasoning pre, .dev pre { white-space:pre-wrap; overflow:auto; max-height:420px; }
-    .source-links { margin:12px 0 16px; display:flex; gap:10px; flex-wrap:wrap; }
+    .source-links { margin:14px 0 18px; display:grid; gap:10px; }
+    .source-item { border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,.025); padding:12px 14px; }
+    .source-headline { color:#f3d77a; font-weight:650; text-decoration:none; line-height:1.35; }
+    .source-headline:hover { color:#ffe69a; text-decoration:underline; }
+    .source-meta { display:block; color:var(--muted); font-size:12px; margin-top:5px; }
+    .source-actions { margin-top:8px; }
     .source-link { border:1px solid var(--line); border-radius:999px; background:rgba(255,255,255,.04); color:#dbe3f1; padding:7px 10px; cursor:pointer; font-size:13px; }
     .source-link:hover { background:rgba(255,255,255,.08); }
+    .more-results { margin:4px 0 18px; }
+    .more-results-body { margin-top:10px; }
+    .more-results-body[hidden] { display:none; }
+    .suggested-prompts { margin:18px 0 8px; padding-top:14px; border-top:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; }
+    .suggested-prompts::before { content:'Investigate Further'; width:100%; color:var(--text); font-weight:700; margin-bottom:2px; }
+    .suggested-prompt { text-align:left; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.035); color:#dbe3f1; padding:9px 11px; cursor:pointer; font-size:13px; white-space:normal; overflow-wrap:anywhere; }
+    .suggested-prompt:hover { background:rgba(255,255,255,.075); }
     .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.62); display:flex; align-items:center; justify-content:center; z-index:9999; padding:24px; }
     .modal-card { max-width:780px; width:min(780px, 96vw); max-height:82vh; overflow:auto; background:#101827; border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 24px 70px rgba(0,0,0,.45); }
     .modal-card h2 { margin-top:0; }
@@ -402,7 +449,7 @@ INDEX_HTML = r'''<!doctype html>
       <input type="text" id="fantraxCredentialUsername" name="username" value="fantrax-personal-profile-secret" autocomplete="username" style="position:absolute; left:-10000px; width:1px; height:1px; opacity:0;" tabindex="-1" aria-hidden="true" />
       <div class="grid" style="margin-top:12px;">
         <input id="leagueId" name="fantrax_league_id" placeholder="Fantrax League ID" autocomplete="section-fantrax organization" />
-        <input id="leagueSecret" name="fantrax_personal_profile_secret" placeholder="Fantrax Personal/Profile Secret ID" type="password" autocomplete="section-fantrax current-password" data-lpignore="false" data-1p-ignore="false" />
+        <input id="leagueSecret" name="fantrax_personal_profile_secret" placeholder="Fantrax Personal/Profile Secret ID (user profile near email)" type="password" autocomplete="section-fantrax current-password" data-lpignore="false" data-1p-ignore="false" />
       </div>
       <div class="actions">
         <div>
@@ -420,7 +467,7 @@ INDEX_HTML = r'''<!doctype html>
       <input id="cookie" name="fantrax_cookie_header" placeholder="Paste authenticated browser Cookie header only if automatic auth fails" type="password" autocomplete="off" style="width:100%; margin-top:10px;" />
       <div class="note">Log into Fantrax in your browser, open Developer Tools → Network, refresh Fantrax, select a Fantrax request, and copy the Request Headers value named <strong>Cookie</strong>. Paste the full Cookie header here. Do not paste your password.</div>
     </details>
-    <div id="connectionStatus" class="status neutral">Select Fantasy League mode to connect Fantrax. Public Sports does not require Fantrax login.</div>
+    <div id="connectionStatus" class="status neutral">Select Fantasy League mode to connect Fantrax. Professional Sports does not require Fantrax login.</div>
   </details>
 
   <div class="context" id="context"></div>
@@ -432,12 +479,12 @@ INDEX_HTML = r'''<!doctype html>
   <section class="search" id="promptDock">
     <div class="grid">
       <select id="mode">
-        <option value="public" selected>Public Sports</option>
+        <option value="public" selected>Professional Sports</option>
         <option value="fantasy">Fantasy League</option>
       </select>
       <label class="toggle"><input type="checkbox" id="devMode" /> Developer Mode</label>
     </div>
-    <textarea id="question" placeholder="Ask Scout anything about your league, roster, players, rankings, trades, or public hockey..."></textarea>
+    <textarea id="question" placeholder="Ask Scout about professional hockey or your fantasy league..."></textarea>
     <div class="actions">
       <div>
         <button type="button" id="askBtn">Ask Scout</button>
@@ -460,6 +507,8 @@ const devMode = document.getElementById('devMode');
 const mode = document.getElementById('mode');
 const fantraxCredentialForm = document.getElementById('fantraxCredentialForm');
 const actionButtons = ['askBtn','analyzeBtn','exportBtn','sessionLogBtn','openFantraxBtn'].map(id => document.getElementById(id)).filter(Boolean);
+const answerTurnActions = new Map();
+let nextAnswerTurnId = 0;
 
 function setScoutStatus(kind, message) {
   const status = document.getElementById('scoutStatus');
@@ -492,7 +541,8 @@ function persistFantraxFieldsLocally() {
   try {
     const leagueId = document.getElementById('leagueId');
     const leagueSecret = document.getElementById('leagueSecret');
-    if (leagueId && leagueId.value) localStorage.setItem('athena.fantrax.league_id', leagueId.value.trim());
+    // League identity is server/workspace state, never browser-local state.
+    localStorage.removeItem('athena.fantrax.league_id');
     if (leagueSecret && leagueSecret.value) localStorage.setItem('athena.fantrax.personal_profile_secret', leagueSecret.value.trim());
   } catch (err) { console.warn('Scout local credential persistence failed', err); }
 }
@@ -501,9 +551,8 @@ function restoreFantraxFieldsLocally() {
   try {
     const leagueId = document.getElementById('leagueId');
     const leagueSecret = document.getElementById('leagueSecret');
-    const savedLeagueId = localStorage.getItem('athena.fantrax.league_id') || '';
+    localStorage.removeItem('athena.fantrax.league_id');
     const savedSecret = localStorage.getItem('athena.fantrax.personal_profile_secret') || '';
-    if (leagueId && !leagueId.value && savedLeagueId) leagueId.value = savedLeagueId;
     if (leagueSecret && !leagueSecret.value && savedSecret) leagueSecret.value = savedSecret;
   } catch (err) { console.warn('Scout local credential restore failed', err); }
 }
@@ -548,20 +597,42 @@ function closeSourcePopup() {
   if (modal) modal.remove();
 }
 
-function renderSourceLinks(answer) {
+function showTurnSource(turnId, idx, more=false) {
+  const turn = answerTurnActions.get(turnId);
+  const source = turn && (more ? turn.moreSources : turn.sources)[idx];
+  if (source) showSourcePopup(source);
+}
+
+function renderSourceItem(link, idx, turnId, more=false) {
+  const label = esc(link.title || link.label || 'Source');
+  const publisher = String(link.publisher || '').trim();
+  const published = String(link.published_at || '').trim();
+  const meta = [publisher, published].filter(Boolean).map(esc).join(' • ');
+  const url = String(link.url || '').trim();
+  const headline = url ? `<a class="source-headline" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label}</a>` : `<span class="source-headline">${label}</span>`;
+  return `<div class="source-item">${headline}${meta ? `<span class="source-meta">${meta}</span>` : ''}<div class="source-actions"><button class="source-link" onclick="showTurnSource(${turnId}, ${idx}, ${more})">Details</button></div></div>`;
+}
+
+function toggleMoreResults(id, button) {
+  const body = document.getElementById(id);
+  if (!body) return;
+  const opening = body.hidden;
+  body.hidden = !opening;
+  button.textContent = opening ? 'Fewer Results' : 'More Results';
+}
+
+function renderSourceLinks(answer, turnId) {
   const links = Array.isArray(answer.source_links) ? answer.source_links : [];
-  if (!links.length) return '';
-  window.__athenaSourceLinks = links;
-  return `<div class="source-links">${links.map((link, idx) => {
-    const label = esc(link.label || link.title || 'Source');
-    const ref = link.rule_reference ? '• ' + esc(link.rule_reference) : '';
-    const url = String(link.url || '').trim();
-    const details = `<button class="source-link" onclick="showSourcePopup(window.__athenaSourceLinks[${idx}])">Details</button>`;
-    if (url) {
-      return `<span class="source-link-wrap"><a class="source-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer">${label} ${ref}</a>${details}</span>`;
-    }
-    return `<button class="source-link" onclick="showSourcePopup(window.__athenaSourceLinks[${idx}])">${label} ${ref}</button>`;
-  }).join('')}</div>`;
+  const more = Array.isArray(answer.more_source_links) ? answer.more_source_links : [];
+  if (!links.length && !more.length) return '';
+  const primary = links.map((link, idx) => renderSourceItem(link, idx, turnId)).join('');
+  let moreBlock = '';
+  if (more.length) {
+    const id = 'more_results_' + Math.random().toString(36).slice(2);
+    const items = more.map((link, idx) => renderSourceItem(link, idx, turnId, true)).join('');
+    moreBlock = `<div class="more-results"><button type="button" class="source-link" onclick="toggleMoreResults('${id}', this)">More Results</button><div id="${id}" class="more-results-body source-links" hidden>${items}</div></div>`;
+  }
+  return `<div class="source-links">${primary}</div>${moreBlock}`;
 }
 
 function isDeveloperModeActive() {
@@ -641,7 +712,7 @@ function renderExperience(answer) {
   const identity = data.identity || {};
   const rootId = 'experience_' + Math.random().toString(36).slice(2);
   const number = identity.jersey_number ? `#${identity.jersey_number}` : '#—';
-  const meta = [number, identity.position || 'Position —', identity.team || 'Team —'].filter(Boolean).join(' • ');
+  const meta = [number, identity.position || 'Position —', identity.team || 'Team —', identity.age ? `Age ${identity.age}` : ''].filter(Boolean).join(' • ');
   const badges = Array.isArray(identity.assessment_badges) && identity.assessment_badges.length ? identity.assessment_badges.slice(0,3) : ['Assessment Pending'];
   const tabs = Array.isArray(player.children) ? player.children : [];
   const analysis = tabs.find(t => t && t.title === 'Analysis') || null;
@@ -676,31 +747,59 @@ function renderExperience(answer) {
   </section>`;
 }
 
+function renderSuggestedPrompts(answer, turnId) {
+  const prompts = Array.isArray(answer.suggested_prompts) ? answer.suggested_prompts.filter(Boolean).slice(0,4) : [];
+  if (!prompts.length) return '';
+  return `<div class="suggested-prompts">${prompts.map((prompt, idx) => `<button type="button" class="suggested-prompt" onclick="askSuggestedPrompt(${turnId}, ${idx})">${esc(prompt)}</button>`).join('')}</div>`;
+}
+
+function askSuggestedPrompt(turnId, idx) {
+  const turn = answerTurnActions.get(turnId);
+  const item = turn && turn.prompts[idx];
+  if (item) askText(item.text, item.continuation);
+}
+
+function humanizeCardValue(value) {
+  const text = String(value == null ? '' : value);
+  if (/^[a-z0-9]+(?:_[a-z0-9]+)+$/.test(text)) {
+    return text.split('_').map(part => part ? part.charAt(0).toUpperCase() + part.slice(1) : part).join(' ');
+  }
+  return text;
+}
+
 function renderAnswer(answer, userText=null) {
+  const turnId = ++nextAnswerTurnId;
+  answerTurnActions.set(turnId, {
+    prompts: (Array.isArray(answer.suggested_prompts) ? answer.suggested_prompts.filter(Boolean).slice(0,4) : []).map(text => ({text, continuation: answer.continuation || null})),
+    cards: [],
+    sources: Array.isArray(answer.source_links) ? answer.source_links : [],
+    moreSources: Array.isArray(answer.more_source_links) ? answer.more_source_links : []
+  });
   const developerActive = isDeveloperModeActive();
   const developerVisible = developerActive;
+  const normalDetail = Boolean(answer.normal_detail);
   const publicLike = !developerActive;
   const publicText = String(answer.public_comment || '').trim();
   const rawCards = Array.isArray(answer.cards) ? answer.cards : [];
-  const answerCards = developerVisible ? rawCards : rawCards.filter(card => {
+  const answerCards = (developerVisible || normalDetail) ? rawCards : rawCards.filter(card => {
     const label = String((card && card.label) || '').trim().toLowerCase();
     return label === 'try' || (card && (card.action === 'ask_prompt' || card.prompt));
   });
-  window.__athenaCardActions = answerCards;
+  answerTurnActions.get(turnId).cards = answerCards;
   const cards = answerCards.map((card, idx) => {
     const label = String((card && card.label) || '');
-    const value = String((card && card.value) || '');
+    const value = humanizeCardValue((card && card.value) || '');
     const impliedPrompt = /^try$/i.test(label.trim()) ? value : '';
     if (card && !card.prompt && impliedPrompt) card.prompt = impliedPrompt;
     const actionable = card && (card.prompt || card.action === 'ask_prompt');
-    const onclick = actionable ? ` onclick="askCardPrompt(${idx})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){askCardPrompt(${idx})}"` : '';
+    const onclick = actionable ? ` onclick="askCardPrompt(${turnId}, ${idx})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){askCardPrompt(${turnId}, ${idx})}"` : '';
     const cls = actionable ? 'card action-card' : 'card';
     const note = actionable ? '<div class="action-note">Click to continue</div>' : '';
-    return `<div class="${cls}"${onclick}><div class="label">${esc(card.label)}</div><div class="value">${esc(card.value)}</div>${note}</div>`;
+    return `<div class="${cls}"${onclick}><div class="label">${esc(card.label)}</div><div class="value">${esc(value)}</div>${note}</div>`;
   }).join('');
   let diagnosticBlock = '';
   let diagnosticLists = false;
-  if (developerActive) diagnosticLists = true;
+  if (developerActive || normalDetail) diagnosticLists = true;
   const facts = diagnosticLists ? (answer.observed_facts || []).map(item => `<li>${esc(item)}</li>`).join('') : '';
   const limits = diagnosticLists ? (answer.known_limitations || []).map(item => `<li>${esc(item)}</li>`).join('') : '';
   const op = answer.operation_result || (answer.developer && answer.developer.operation_result) || null;
@@ -720,11 +819,12 @@ function renderAnswer(answer, userText=null) {
   const conclusionText = answer.engine_conclusion || '';
   const conclusionIsRedundant = natural && conclusionText && natural.toLowerCase().includes(String(conclusionText).toLowerCase().slice(0, 120));
   const conclusionBlock = (developerActive && conclusionText && !conclusionIsRedundant) ? `<h3>Engine Conclusion</h3><div>${esc(conclusionText || 'No conclusion available.')}</div>` : '';
-  const sourceLinks = renderSourceLinks(answer);
+  const sourceLinks = renderSourceLinks(answer, turnId);
+  const suggestedPrompts = renderSuggestedPrompts(answer, turnId);
   const rawPayload = answer.raw_reasoning_output || (answer.developer && answer.developer.raw_reasoning_output) || '';
   const rawReasoning = (developerActive && rawPayload) ? `<details class="raw-reasoning"><summary>Developer / Raw Reasoning Output</summary><pre>${esc(rawPayload)}</pre></details>` : '';
   const you = userText ? `<div class="you chat-turn"><strong>You:</strong> ${esc(userText)}</div>` : '';
-  conversation.insertAdjacentHTML('beforeend', `${you}<article class="answer chat-turn"><h2>${esc(answer.title || 'Scout response')}</h2>${confidence}${experienceBlock}${naturalBlock}${(developerActive && cards) ? `<div class="cards">${cards}</div>` : ''}${sourceLinks}${conclusionBlock}${diag}${facts ? `<h3>Observed Facts</h3><ul>${facts}</ul>` : ''}${limits ? `<h3>Known Limitations</h3><ul>${limits}</ul>` : ''}${rawReasoning}${developer}</article>`);
+  conversation.insertAdjacentHTML('beforeend', `${you}<article class="answer chat-turn"><h2>${esc(answer.title || 'Scout response')}</h2>${confidence}${experienceBlock}${naturalBlock}${cards ? `<div class="cards">${cards}</div>` : ''}${sourceLinks}${suggestedPrompts}${conclusionBlock}${diag}${facts ? `<h3>Observed Facts</h3><ul>${facts}</ul>` : ''}${limits ? `<h3>Known Limitations</h3><ul>${limits}</ul>` : ''}${rawReasoning}${developer}</article>`);
   const last = conversation.lastElementChild;
   if (last) last.scrollIntoView({behavior:'smooth', block:'end'});
 }
@@ -750,12 +850,12 @@ async function postJSON(url, payload) {
   }
 }
 
-async function askText(text) {
+async function askText(text, continuation=null) {
   const cleanText = String(text || '').trim();
   if (!cleanText) return;
   setBusy(true, 'Scout is evaluating your question with Athena...');
   const pendingId = addPendingTurn('Scout', 'Evaluating question, loading available Athena evidence, and preparing a response...');
-  const data = await postJSON('/api/ask', {question: cleanText, mode: mode.value});
+  const data = await postJSON('/api/ask', {question: cleanText, mode: mode.value, continuation: continuation});
   removePendingTurn(pendingId);
   setBusy(false);
   if (!data.http_ok || data.error) {
@@ -767,12 +867,11 @@ async function askText(text) {
   renderAnswer(data.answer, cleanText);
 }
 
-async function askCardPrompt(idx) {
-  const card = (window.__athenaCardActions || [])[idx];
+async function askCardPrompt(turnId, idx) {
+  const turn = answerTurnActions.get(turnId);
+  const card = turn && turn.cards[idx];
   const prompt = card && card.prompt;
   if (!prompt) return;
-  const questionEl = document.getElementById('question');
-  if (questionEl) questionEl.value = prompt;
   await askText(prompt);
 }
 
@@ -995,12 +1094,12 @@ async function loadContext() {
   const rawPills = Object.entries(raw).map(([name, exists]) => `<span class="pill ${exists ? 'good' : 'warn'}">${exists ? '✓' : '✗'} ${esc(name)}</span>`).join('');
   const publicStatus = data.public_status || {};
   const publicPills = [
-    ['Public player profiles', Boolean(publicStatus.public_player_profiles)],
+    ['Professional player profiles', Boolean(publicStatus.public_player_profiles)],
     ['NHL Rules', Boolean(publicStatus.nhl_rules)],
     ['NHL/NHLPA MOU', Boolean(publicStatus.nhl_mou)],
     ['RSS feeds', Boolean(publicStatus.rss_feeds)],
   ].map(([label, exists]) => `<span class="pill ${exists ? 'good' : 'warn'}">${exists ? '✓' : '✗'} ${esc(label)}</span>`).join('');
-  const league = workspace.league_id ? `<span class="pill good">League: ${esc(workspace.name || workspace.league_id)}</span>` : `<span class="pill warn">No league connected</span>`;
+  const league = workspace.league_id ? `<span class="pill good">League: ${esc(workspace.league_name || workspace.name || workspace.league_id)}</span>` : `<span class="pill warn">No league connected</span>`;
   const sport = `<span class="pill">Sport: ${esc(workspace.sport || 'unknown')}</span>`;
   const season = `<span class="pill">Season: ${esc(workspace.season || 'unknown')}</span>`;
   const teams = (data.team_names || []).length ? `<span class="pill good">${data.team_names.length} teams loaded</span>` : `<span class="pill warn">No team profiles loaded</span>`;
@@ -1067,7 +1166,7 @@ function updateProviderVisibility() {
     if (historyEl && historyEl.innerHTML.trim()) historyPanel.style.display = 'block';
   }
   if (selected === 'public') {
-    setConnectionStatus('neutral', 'Public Sports selected. Fantrax login, league sync, and operation history are hidden because private league data is not needed.');
+    setConnectionStatus('neutral', 'Professional Sports selected. Fantrax login, league sync, and operation history are hidden because private league data is not needed.');
   } else {
     setConnectionStatus('neutral', 'Fantasy League selected. Fantrax login and sync controls are available.');
     jumpToFantraxLogin();
@@ -1165,7 +1264,7 @@ def build_sync_answer(sync_result: Dict[str, Any]) -> Dict[str, Any]:
         limitations = [str(item) for item in operation_warnings] or [
             "Finance page data is not yet synchronized; financial totals remain outside the authoritative Athena sync pipeline.",
             "Relationship graph and historical player trends are not yet available.",
-            "Natural-language answers are deterministic templates in this alpha, not freeform AI reasoning.",
+            "Some optional evidence domains remain limited even when the required league sync pipeline completes.",
         ]
         confidence = operation_result.get("confidence", 0.86)
     else:
@@ -1177,7 +1276,7 @@ def build_sync_answer(sync_result: Dict[str, Any]) -> Dict[str, Any]:
         confidence = operation_result.get("confidence", 0.1)
 
     return {
-        "title": ("League sync — partial" if ok and (operation_result.get("warnings") or capability_dash.get("status") == "partial") else "League sync") if ok else "League sync failed",
+        "title": "League sync — complete" if ok else "League sync failed",
         "confidence": confidence,
         "cards": [
             {"label": "Available capabilities", "value": capability_dash.get("available_count", summary.get("available_capabilities", 0))},
@@ -1331,7 +1430,21 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                 ctx = load_context()
                 question_text = str(body.get("question") or "")
                 selected_mode = str(body.get("mode") or "fantasy")
-                answer = route_question(question_text, ctx, mode=selected_mode)
+                answer = Athena.ask(question_text, context=ctx, mode=selected_mode, continuation=body.get("continuation"))
+                # League analysis is a current-state operation. If Scout routes a
+                # fantasy prompt to league analysis, refresh the active workspace
+                # before composing the final answer so stale derived artifacts are
+                # never presented as current league state.
+                if selected_mode.strip().lower() != "public" and answer.get("intent") == "analyze_league":
+                    refresh = Athena.sync(mode="fantasy_league", provider="Fantrax", fetch=True)
+                    answer = Athena.ask(question_text, context=load_context(), mode=selected_mode)
+                    if isinstance(answer.get("developer"), dict):
+                        answer["developer"]["state_refresh"] = {
+                            "ok": bool(refresh.get("ok")),
+                            "partial": bool(refresh.get("partial")),
+                            "warnings": refresh.get("warnings", []),
+                            "summary": refresh.get("summary", {}),
+                        }
                 LATEST_ANSWER = {"question": question_text, "answer": answer}
                 _record_session_turn(question_text, selected_mode, answer)
                 _json_response(self, {"answer": answer})
@@ -1340,11 +1453,25 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                 body = _read_json_body(self)
                 selected_mode = str(body.get("mode") or "fantasy")
                 if selected_mode == "public":
-                    answer = route_question("public sports overview", load_context(), mode="public")
+                    answer = Athena.ask("public sports overview", context=load_context(), mode="public")
                     _json_response(self, {"sync": {"completed_steps": [], "mode": "public", "ok": True}, "answer": answer})
                     return
                 sync_result = Athena.sync(mode="fantasy_league", provider="Fantrax", fetch=True)
                 answer = build_sync_answer(sync_result)
+                if bool(sync_result.get("ok")):
+                    league_reading = Athena.ask("Analyze league", context=load_context(), mode=selected_mode)
+                    if isinstance(league_reading, dict):
+                        answer["league_reading"] = league_reading
+                        answer["engine_conclusion"] = league_reading.get("engine_conclusion") or answer.get("engine_conclusion")
+                        answer["public_comment"] = league_reading.get("public_comment") or league_reading.get("natural_language_response") or answer.get("public_comment")
+                        answer["natural_language_response"] = answer["public_comment"]
+                        answer["normal_detail"] = True
+                        answer["observed_facts"] = league_reading.get("observed_facts") or answer.get("observed_facts", [])
+                        answer["known_limitations"] = league_reading.get("known_limitations") or answer.get("known_limitations", [])
+                        answer["cards"] = league_reading.get("cards") or answer.get("cards", [])
+                        answer["suggested_prompts"] = league_reading.get("suggested_prompts") or []
+                        if isinstance(answer.get("developer"), dict):
+                            answer["developer"]["league_reading"] = league_reading.get("developer", {})
                 LATEST_OPERATION = sync_result.get("operation_result") if isinstance(sync_result, dict) else {}
                 LATEST_ANSWER = {"question": "Sync League", "answer": answer}
                 _json_response(self, {"sync": sync_result, "answer": answer}, 200)

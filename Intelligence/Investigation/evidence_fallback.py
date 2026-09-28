@@ -65,10 +65,20 @@ def select_recent_relevant_evidence(
             ("Athena did not substitute unrelated evidence.",),
         )
     live = [c for c in trusted if c.live]
-    pool = live or trusted
+    dated = [c for c in trusted if c.observed_at and _timestamp(c.observed_at) > 0]
+    if live:
+        pool = live
+        tier = "live"
+        limitations = ()
+    elif dated:
+        pool = dated
+        tier = "recent_fallback"
+        limitations = ("No matching live evidence was available; Athena used dated relevant trustworthy evidence instead.",)
+    else:
+        pool = trusted
+        tier = "context_fallback"
+        limitations = ("No matching live or dated recent evidence was available; Athena used same-entity background context instead.",)
     pool = sorted(pool, key=lambda c: (_timestamp(c.observed_at), c.confidence), reverse=True)[:max(1, limit)]
-    tier = "live" if live else "recent_fallback"
     newest = pool[0].observed_at if pool else ""
-    freshness = f"Most recent evidence observed: {newest}." if newest else "Source did not provide a reliable observation date."
-    limitations = () if live else ("No matching live evidence was available; Athena used the most recent relevant trustworthy evidence instead.",)
+    freshness = f"Most recent evidence observed: {newest}." if newest else "No reliable observation date is available. This is background context, not recent news."
     return EvidenceSelection("available", tier, tuple(pool), freshness, limitations)

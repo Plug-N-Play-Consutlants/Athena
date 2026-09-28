@@ -25,6 +25,7 @@ class ScoutContext:
     league_market: Dict[str, Any] | None = None
     transaction_history: Dict[str, Any] | None = None
     player_contracts: Dict[str, Any] | None = None
+    draft_picks: Dict[str, Any] | None = None
     player_master: List[Dict[str, Any]] | None = None
     raw_league_info: Dict[str, Any] | None = None
     raw_status: Dict[str, bool] | None = None
@@ -63,6 +64,7 @@ def load_context() -> ScoutContext:
         league_market=_read(OUTPUT_DIR / "league_market.json") or {},
         transaction_history=_read(OUTPUT_DIR / "transaction_history.json") or {},
         player_contracts=_read(OUTPUT_DIR / "player_contracts.json") or {},
+        draft_picks=_read(OUTPUT_DIR / "draft_picks.json") or {},
         player_master=_read(OUTPUT_DIR / "player_master.json") or [],
         raw_league_info=_read(RAW_DIR / "league_info.json") or {},
         raw_status={path.name: path.exists() for path in raw_files},

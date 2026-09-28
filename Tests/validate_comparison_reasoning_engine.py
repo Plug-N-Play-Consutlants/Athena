@@ -70,11 +70,22 @@ def main() -> int:
     answer = route_question("Compare Matthews and McDavid", mode="public")
     text = _text(answer)
     report.check(answer.get("intent") == "public_player_comparison", "scout_public_player_comparison_route", str(answer.get("intent")))
-    for heading in ["executive comparison", "strengths", "weaknesses", "historical comparison", "prime comparison", "future outlook", "athena conclusion"]:
-        report.check(heading in text, f"rendered_player_section_{heading.replace(' ', '_')}")
+    public_headings = {
+        "executive_comparison": "overall:",
+        "strengths": "strengths:",
+        "weaknesses": "limitations:",
+        "historical_comparison": "career context:",
+        "prime_comparison": "at their peaks:",
+        "future_outlook": "outlook:",
+        "athena_conclusion": "bottom line:",
+    }
+    for section, heading in public_headings.items():
+        report.check(heading in text, f"rendered_player_section_{section}", heading)
     dev = answer.get("developer") or {}
     report.check("comparison_reasoning_engine" in (dev.get("intelligence_used") or []), "developer_intelligence_used_comparison_engine")
     report.check("comparison_assessment" in dev, "developer_comparison_assessment_attached")
+    dev_assessment = dev.get("comparison_assessment") or {}
+    report.check(all(dev_assessment.get(key) for key in required), "developer_comparison_sections_preserved", ", ".join(required))
     report.check(any(str(card.get("label")).lower() == "fantasy" and str(card.get("value")).lower() == "skipped" for card in answer.get("cards", [])), "public_player_comparison_skips_fantasy")
     report.check("owner" not in text and "fantrax" not in text, "public_player_comparison_no_provider_leakage")
 
@@ -88,11 +99,13 @@ def main() -> int:
     team_answer = route_question("Compare Leafs and Hurricanes", mode="public")
     team_text = _text(team_answer)
     report.check(team_answer.get("intent") == "public_team_comparison", "scout_public_team_comparison_route", str(team_answer.get("intent")))
-    for heading in ["executive comparison", "strengths", "weaknesses", "historical comparison", "prime comparison", "future outlook", "athena conclusion"]:
-        report.check(heading in team_text, f"rendered_team_section_{heading.replace(' ', '_')}")
+    for section, heading in public_headings.items():
+        report.check(heading in team_text, f"rendered_team_section_{section}", heading)
     team_dev = team_answer.get("developer") or {}
     report.check("comparison_reasoning_engine" in (team_dev.get("intelligence_used") or []), "developer_team_comparison_engine")
     report.check("comparison_assessment" in team_dev, "developer_team_comparison_assessment_attached")
+    team_dev_assessment = team_dev.get("comparison_assessment") or {}
+    report.check(all(team_dev_assessment.get(key) for key in required), "developer_team_comparison_sections_preserved", ", ".join(required))
     report.check(any(str(card.get("label")).lower() == "fantasy" and str(card.get("value")).lower() == "skipped" for card in team_answer.get("cards", [])), "public_team_comparison_skips_fantasy")
     report.check("owner" not in team_text and "fantrax" not in team_text, "public_team_comparison_no_provider_leakage")
 

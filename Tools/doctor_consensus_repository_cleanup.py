@@ -72,6 +72,23 @@ def main() -> int:
         "CHANGE_MANIFEST_v0.6.2.0.0_player_experience_foundation.md",
         "CHANGE_MANIFEST_v0.6.2.0.2_player_experience_rendering_hotfix.md",
         "CHANGE_MANIFEST_v0.6.3.0.0_foundational_governance_and_module_adaptivity.md",
+        # Overlay extraction cannot delete the immediately previous release manifest.
+        # It is a known safe-cleanup target and must not create a false Verify Build failure.
+        "CHANGE_MANIFEST_v0.6.4.3.0_canonical_draft_knowledge_integration.md",
+        "CHANGE_MANIFEST_v0.6.4.7.0_historical_identity_resolution_foundation.md",
+        "CHANGE_MANIFEST_v0.6.4.8.0_historical_draft_intelligence_foundation.md",
+        "CHANGE_MANIFEST_v0.6.4.8.1_historical_draft_intelligence_release_history_hotfix.md",
+        "CHANGE_MANIFEST_v0.6.4.9.0_pre_draft_context_and_readiness_intelligence.md",
+        "CHANGE_MANIFEST_v0.6.4.9.1_pre_draft_routing_evidence_diversity_hotfix.md",
+        "CHANGE_MANIFEST_v0.6.4.9.2_scout_normal_response_composition_hotfix.md",
+        "CHANGE_MANIFEST_v0.6.4.10.0_scout_investigative_response_contextual_followup_foundation.md",
+        "CHANGE_MANIFEST_v0.6.4.10.1_scout_evidence_presentation_hotfix.md",
+        "CHANGE_MANIFEST_v0.6.4.10.2_scout_evidence_presentation_polish_hotfix.md",
+        "CHANGE_MANIFEST_v0.6.4.10.3_scout_verification_contract_hotfix.md",
+        "CHANGE_MANIFEST_v0.6.4.11.0_league-wide_evidence_sufficiency_foundation.md",
+        "CHANGE_MANIFEST_v0.6.4.11.1_evidence_quality,_synthesis_&_session_observability_hotfix.md",
+        "CHANGE_MANIFEST_v0.6.4.11.2_scout_information_flow_regression_hotfix.md",
+        f"CHANGE_MANIFEST_v{version.ATHENA_VERSION}_" + str(version.RELEASE_NAME).strip().lower().replace(" ", "_") + ".md",
     }
     root_history = [
         p.name for p in ROOT.iterdir()

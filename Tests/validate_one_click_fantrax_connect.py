@@ -114,7 +114,7 @@ def main() -> None:
         from Core.version import ATHENA_VERSION, SCOUT_VERSION
         results.append(result(
             "version_updated",
-            ATHENA_VERSION == "0.5.0-drop4d1" and SCOUT_VERSION == "v0.5.0-drop4d1",
+            ATHENA_VERSION == "0.6.4.1.3" and SCOUT_VERSION == "v0.6.4.1.3",
             f"Athena={ATHENA_VERSION}; Scout={SCOUT_VERSION}",
         ))
 

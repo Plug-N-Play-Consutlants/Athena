@@ -1,0 +1,25 @@
+{
+  "schema": "athena.nhl.rule_environments.v1",
+  "records": [
+    {
+      "environment_id": "nhl_cba_2013_extended",
+      "effective_from": "2013-01-12",
+      "effective_to": "2026-09-15",
+      "label": "2013 NHL/NHLPA CBA as extended in 2020",
+      "authority": "National Hockey League / National Hockey League Players' Association",
+      "source_id": "nhl_nhlpa_cba_2013",
+      "source_url": "https://media.nhl.com/site/asset/public/ext/CBA.pdf",
+      "notes": "Base CBA environment before the general effective date of the 2026 agreement. Individual accelerated provisions may supersede this environment earlier and must carry their own effective dates."
+    },
+    {
+      "environment_id": "nhl_cba_2026",
+      "effective_from": "2026-09-16",
+      "effective_to": "2030-09-15",
+      "label": "2026 NHL/NHLPA CBA",
+      "authority": "National Hockey League / National Hockey League Players' Association",
+      "source_id": "nhl_nhlpa_mou_2025_06_27",
+      "source_url": "https://media.nhl.com/site/vasset/public/attachments/2025/07/19116/NHLPA-NHL-MOU-June-27-2025.pdf",
+      "notes": "General effective interval. Provision-level exceptions must be resolved independently rather than inferred from this envelope."
+    }
+  ]
+}

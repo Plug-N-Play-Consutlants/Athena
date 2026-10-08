@@ -1,0 +1,33 @@
+{
+  "schema": "athena.nhl.payroll_ranges.v1",
+  "records": [
+    {
+      "league_year": "2025-26",
+      "effective_from": "2025-07-01",
+      "effective_to": "2026-06-30",
+      "lower_limit": 70600000,
+      "midpoint": 83050000,
+      "upper_limit": 95500000,
+      "status": "final",
+      "source_id": "nhl_nhlpa_payroll_ranges_2025_01_31",
+      "source_title": "NHLPA, NHL announce team payroll ranges for next three seasons",
+      "authority": "National Hockey League / National Hockey League Players' Association",
+      "source_url": "https://media.nhl.com/site/vasset/public/attachments/2025/01/18611/PayrollRange013125.pdf",
+      "announced_on": "2025-01-31"
+    },
+    {
+      "league_year": "2026-27",
+      "effective_from": "2026-07-01",
+      "effective_to": "2027-06-30",
+      "lower_limit": 76900000,
+      "midpoint": 90400000,
+      "upper_limit": 104000000,
+      "status": "final",
+      "source_id": "nhl_nhlpa_payroll_range_2026_05_06",
+      "source_title": "NHL, NHLPA announce team payroll range for 2026-27",
+      "authority": "National Hockey League / National Hockey League Players' Association",
+      "source_url": "https://www.nhl.com/news/nhl-nhlpa-announce-team-payroll-range-for-2026-27-season",
+      "announced_on": "2026-05-06"
+    }
+  ]
+}

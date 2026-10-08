@@ -124,10 +124,13 @@ def _stat_boxes(answer: Dict[str, Any], cards: Dict[str, str]) -> List[StatBox]:
         ("P/GP", "ppg"),
         ("+/-", "+/-"),
     ]
-    stat_source = answer.get("stats") if isinstance(answer.get("stats"), dict) else {}
+    has_current_stats = isinstance(answer.get("stats"), dict)
+    stat_source = answer.get("stats") if has_current_stats else {}
     boxes: List[StatBox] = []
     for label, key in labels:
-        value = _text(stat_source.get(key)) or _text(cards.get(label.lower())) or _text(cards.get(key))
+        value = _text(stat_source.get(key))
+        if not has_current_stats:
+            value = value or _text(cards.get(label.lower())) or _text(cards.get(key))
         if value:
             boxes.append(StatBox(label=label, value=value, context="current_season"))
     return boxes

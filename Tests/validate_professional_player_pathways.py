@@ -31,11 +31,12 @@ with patch('Knowledge.Intelligence.Public.player_evidence._records',return_value
      patch('Knowledge.Intelligence.Public.player_evidence._live_record',return_value=None):
     car = player_evidence('Sebastian Aho',team='CAR',position='C',birth_date='1997-07-26')
     swe = player_evidence('Sebastian Aho',team='NYI/AHL',position='D',birth_date='1996-02-17')
-checks.append(check('same_name_never_borrows_other_player',not swe and car.get('stats',{}).get('+/-')==11))
+checks.append(check('same_name_never_borrows_other_player',not swe and car.get('stats',{})=={} and car.get('season_history',[{}])[0].get('plus_minus')==11))
 zero_boxes = build_current_stat_boxes({'stats': {'goals': 29, 'assists': 45, 'points': 74, 'ppg': 1.088, '+/-': 0}}, {})
 checks.append(check('recorded_zero_plus_minus_is_visible', next(box['value'] for box in zero_boxes if box['label'] == '+/-') == '0'))
-checks.append(check('three_seasons_determine_current_tier',car.get('season')=='2025-26' and
-                    player_tier(car)=='Star' and assess_player(car)['seasons_used']==3))
+checks.append(check('three_seasons_determine_current_tier',car.get('season')=='2026-27' and
+                    player_tier(car)=='Star' and assess_player(car)['seasons_used']==3 and
+                    assess_player(car)['as_of_season']=='2025-26'))
 fake_client = ModuleType('Providers.NHL.nhl_client')
 fake_client.NHLClient = lambda: type('Client', (), {'get_player_landing': lambda _, nhl_id: {**payload,'birthDate':'1989-12-08','position':'D','currentTeamAbbrev':'LAK'}})()
 with patch('Knowledge.Intelligence.Public.player_evidence._records',return_value=([],{})), \

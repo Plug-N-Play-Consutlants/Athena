@@ -298,12 +298,14 @@ def _manager_coverage(ctx: ScoutContext) -> Dict[str, Any]:
         except Exception:
             team_count = 0
 
-    active_ids = {str(row.get("team_id") or row.get("manager_id") or "") for row in active_records}
+    active_ids = {str(row.get("team_id") or row.get("manager_id") or "").strip() for row in active_records if str(row.get("team_id") or row.get("manager_id") or "").strip()}
+    active_names = {normalize_external_text(row.get("team_name") or row.get("manager_name") or "").strip().casefold() for row in active_records if normalize_external_text(row.get("team_name") or row.get("manager_name") or "").strip()}
     missing = []
     for team in teams:
-        team_id = str(team.get("team_id") or "")
-        if team_id and team_id not in active_ids:
-            missing.append(normalize_external_text(team.get("team_name") or team_id))
+        team_id = str(team.get("team_id") or "").strip()
+        team_name = normalize_external_text(team.get("team_name") or team_id).strip()
+        if team_id and team_id not in active_ids and team_name.casefold() not in active_names:
+            missing.append(team_name)
 
     average_per_team = round(total_transactions / team_count, 2) if team_count else 0
     average_active_manager = round(total_transactions / len(active_records), 2) if active_records else 0
@@ -348,8 +350,10 @@ def _historical_league_coverage() -> Dict[str, Any]:
     }
 
 
-def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
+def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[str, Any]:
     ctx = ctx or load_context()
+    from Athena.Inquiry.state import build_inquiry_state
+    inquiry = build_inquiry_state(question, "fantasy")
     market = _market(ctx)
     readiness = ctx.knowledge_readiness or {}
     readiness_summary = readiness.get("summary") if isinstance(readiness, dict) else {}
@@ -358,6 +362,50 @@ def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
     coverage = _manager_coverage(ctx)
     draft_status = _draft_pick_status(ctx)
     historical = _historical_league_coverage()
+
+    # A user-scoped recap is an inquiry execution problem, not a generic league
+    # inventory request. Athena performs the time-scoped significance pass and
+    # Scout presents that result.
+    if inquiry.temporal_scope.kind == "relative_period" and inquiry.operation == "summarize":
+        from Athena.Inquiry.execution import summarize_recent_league_activity
+        activity = summarize_recent_league_activity(ctx.transaction_history or {}, days=7)
+        highlights = activity.get("highlights") or []
+        facts = [
+            f"Time scope: {inquiry.temporal_scope.label}.",
+            f"Canonical transactions in scope: {activity.get('transaction_count', 0)} across {activity.get('team_count', 0)} observed teams.",
+        ]
+        types = activity.get("transaction_types") or {}
+        if types:
+            facts.append("Transaction mix: " + ", ".join(f"{k}={v}" for k, v in sorted(types.items())) + ".")
+        facts.extend(f"Significant activity: {item.get('summary')}" for item in highlights)
+        if highlights:
+            lead = highlights[0].get("summary")
+            conclusion = (f"For {inquiry.temporal_scope.label}, Athena found {activity.get('transaction_count', 0)} canonical transaction(s) "
+                          f"in the requested window. The strongest transaction signal is: {lead} "
+                          "The recap is ranked from time-scoped transaction evidence rather than season-wide league inventory.")
+        else:
+            conclusion = (f"Athena found no dated canonical transactions inside the requested {inquiry.temporal_scope.label} window. "
+                          "It will not substitute season-to-date transaction totals for a weekly recap.")
+        limitations = [
+            "Current standings are required to explain how weekly activity connects to the league table; no canonical standings snapshot is loaded in Scout context yet.",
+            "Player-performance significance requires current NHL statistical evidence for the moved or acquired players.",
+        ]
+        answer=response(intent="analyze_league",title=f"{profile['league_name']}: {inquiry.temporal_scope.label} recap",
+                        engine_conclusion=conclusion,natural_language_response=conclusion,observed_facts=facts,
+                        known_limitations=limitations,confidence=.84 if highlights else .65,
+                        cards=[{"label":"Transactions in scope","value":activity.get("transaction_count",0)},
+                               {"label":"Teams involved","value":activity.get("team_count",0)},
+                               {"label":"Significant items","value":len(highlights)}],
+                        developer=developer_info("analyze_league",ctx.files_loaded,
+                            knowledge_used=["league_profile","transaction_history"],
+                            intelligence_used=["inquiry_state","adaptive_inquiry_execution","temporal_evidence_selection","significance_ranking"],
+                            files_read=["Output/league_profile.json","Output/transaction_history.json"],
+                            missing=["standings","current_player_performance"] ))
+        answer["developer"]["inquiry_state"]=inquiry.to_dict()
+        answer["developer"]["adaptive_execution"]=activity
+        answer["developer"]["evidence_requirements"]=["time_scoped_transactions","standings","current_player_performance"]
+        answer["normal_detail"]=True
+        return answer
 
     subtype = str(profile.get("league_subtype") or "").replace("_", " ").strip()
     continuity = str(profile.get("roster_continuity") or "").replace("_", " ").strip()
@@ -440,6 +488,11 @@ def analyze_league(ctx: ScoutContext | None = None) -> Dict[str, Any]:
             missing=["finance_profile", "relationship_graph", "injury_availability"],
         ),
     )
+    answer.setdefault("developer", {})["inquiry_state"] = inquiry.to_dict()
+    if inquiry.temporal_scope.source == "user":
+        answer["developer"]["requested_temporal_scope"] = inquiry.temporal_scope.__dict__
+    if "standings" in inquiry.evidence_requirements:
+        answer["developer"].setdefault("evidence_requirements", []).append("standings")
     answer["normal_detail"] = True
     answer["suggested_prompts"] = [
         "Analyze the upcoming draft",
@@ -1760,7 +1813,7 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     # League/team intent must win before player routing. This prevents prompts
     # such as "Analyze my league" from being treated as a failed player lookup.
     if _should_route_to_fantasy_league(raw_question, selected_mode):
-        return analyze_league(ctx)
+        return analyze_league(ctx, raw_question)
 
     if any(term in q for term in ["most active", "active managers", "aggressive managers", "who is active", "who are active"]):
         return most_active_managers(ctx)

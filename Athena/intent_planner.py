@@ -166,6 +166,15 @@ def plan_capability(question: str, mode: str = "public") -> Optional[AthenaInten
     if not q:
         return None
 
+    # Inquiry State is the canonical semantic interpretation. The planner may
+    # still use raw text for specialist-specific modifiers, but must not
+    # maintain a competing transaction grammar.
+    try:
+        from Athena.Inquiry.state import build_inquiry_state
+        inquiry = build_inquiry_state(question, selected_mode)
+    except Exception:
+        inquiry = None
+
     # Entity ambiguity must win before fantasy player lookup.
     if "sebastian aho" in q and not _has_any(q, ["finnish", "carolina", "hurricanes", "swedish", "islanders", "penguins"]):
         return AthenaIntentPlan("ambiguous_public_entity", 0.95, "Ambiguous public entity name requires disambiguation.", 98)
@@ -184,6 +193,49 @@ def plan_capability(question: str, mode: str = "public") -> Optional[AthenaInten
         return AthenaIntentPlan("public_player_comparison", 0.94, "Two-player comparison intent outranks live-event terms.", 96)
 
     if selected_mode == "public":
+        # Development/projection is an analytical inquiry even when it mentions
+        # college, the current season, or roster opportunity. News is supplementary.
+        development_terms = ("development pathway", "development ahead", "late-develop",
+                             "late developing", "late compared", "nhl debut",
+                             "made the nhl at", "reach the nhl", "never reach the nhl",
+                             "development trajectory", "development projection")
+        analytical_terms = ("compared with relevant prospects", "project about him",
+                            "prospect attainment", "drafted players who never",
+                            "college pathway", "ahl pathway")
+        if (_has_any(q, development_terms) or _has_any(q, analytical_terms)) and _has_any(
+            q, ("nhl", "prospect", "player", "ahl", "ncaa", "college")
+        ):
+            return AthenaIntentPlan(
+                "public_player_development", 0.997,
+                "Player development requires pathway, attainment baselines and opportunity reasoning; current news may supplement but cannot replace the player analysis.", 103
+            )
+        # Comparative reluctance/significance questions about multiple organizational
+        # assets are asset-analysis inquiries, even when phrased with "trade" or
+        # "why would". They do not require a transaction target/counterparty.
+        if _has_any(q,["reluctant","reluctance","hardest to move","least willing","most protect","differently significant","significant to toronto"]) and _has_any(q,["maple leafs","leafs","toronto"]):
+            return AthenaIntentPlan("public_nhl_organizational_assets",0.998,"Comparative organizational-asset significance/reluctance requires controlled-asset analysis, not transaction plausibility.",104)
+        if _has_any(q,["organizational assets","organization assets","leafs prospects","which leafs prospects","prospects could actually be traded","prospects can be traded","tradeable prospects","tradable prospects"]):
+            return AthenaIntentPlan("public_nhl_organizational_assets",0.996,"Organizational asset inquiry requires current provider acquisition plus explicit control/rights and transaction-eligibility classification.",102)
+        # Transaction routing consumes normalized Inquiry State. Do not reparse
+        # transaction verbs here: phrasing such as get/acquire/trade for must
+        # converge once Inquiry State has classified the operation.
+        is_transaction = bool(inquiry and inquiry.operation == "transaction")
+        is_current_event_investigation = _has_any(q, ["news", "story", "reported", "investigate"])
+        if is_transaction and not is_current_event_investigation:
+            if "salary_cap" in inquiry.constraints_waived:
+                return AthenaIntentPlan("public_nhl_transaction_scenario", 0.999, "Normalized transaction inquiry includes an explicit salary-cap waiver; execute the hypothetical scenario without re-imposing that constraint.", 103)
+            if inquiry.plausibility_requested:
+                return AthenaIntentPlan("public_nhl_organizational_plausibility", 0.997, "Normalized transaction inquiry explicitly requests organizational plausibility and fit analysis.", 101)
+            if inquiry.organizations and inquiry.subjects:
+                return AthenaIntentPlan("public_nhl_transaction_scenario", 0.995, "Normalized transaction inquiry requires scenario-state reasoning over the resolved organization, subjects and protected assets.", 100)
+        if comparison_players and _has_any(q, ["organizational asset", "asset to", "asset state", "player asset", "organizational value", "what kind of asset"]) and not _has_any(q, ["news", "story", "reported", "investigate"]):
+            return AthenaIntentPlan("public_nhl_player_asset_state", 0.985, "Player organizational-asset question requires composed identity, production and professional contract/control evidence without an opaque trade-value score.", 99)
+        if _has_any(q, ["contract", "aav", "cap hit", "signed through", "signed until", "free agent", "ufa", "rfa"]) and comparison_players and not _has_any(q, ["news", "story", "reported", "investigate"]):
+            return AthenaIntentPlan("public_nhl_player_contract", 0.97, "Named-player contract question requires canonical professional contract evidence, not fantasy contract knowledge.", 98)
+        if _has_any(q, ["salary cap", "salary-cap", "cap usage", "cap space", "payroll", "payroll range", "cap ceiling", "upper limit", "lower limit"]) and not _has_any(q, ["news", "story", "reported", "investigate"]):
+            if _has_any(q, ["maple leafs", "leafs", "toronto"]):
+                return AthenaIntentPlan("public_nhl_cap_reasoning", 0.99, "Team-specific NHL cap question requires executable cap/CBA reasoning over canonical team state with completeness gating.", 99)
+            return AthenaIntentPlan("public_nhl_economic_context", 0.96, "NHL economic question requires effective-dated league context before team or contract calculation.", 97)
         mckenna_scenario = _has_any(q, ["mckenna first overall", "first overall in the 2026 nhl draft"]) or (
             "gavin mckenna" in q and _has_any(q, ["toronto", "maple leafs", "leafs", "selected", "select", "draft", "organization", "outlook", "five years", "5 years"])
         )

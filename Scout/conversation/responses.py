@@ -36,6 +36,7 @@ def response(
         "intent": intent,
         "title": title,
         "natural_language_response": natural,
+        "internal_narrative": natural,
         "engine_conclusion": engine_conclusion,
         "observed_facts": facts,
         "known_limitations": limitations,

@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any, Dict
 from urllib.parse import parse_qs, urlparse
 
+from Scout.conversation.composition import compose_answer_payload
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -92,13 +94,27 @@ def _session_answer_summary(answer: Dict[str, Any]) -> Dict[str, Any]:
     return record
 
 
-def _record_session_turn(question: str, mode: str, answer: Dict[str, Any]) -> None:
+def _record_session_turn(question: str, mode: str, answer: Dict[str, Any], presentation_mode: str = "normal") -> int:
+    turn_id = len(SESSION_TRANSCRIPT) + 1
     SESSION_TRANSCRIPT.append({
+        "turn_id": turn_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "mode": mode,
+        "presentation_mode": presentation_mode,
         "question": question,
         "answer": _session_answer_summary(answer),
+        "user_visible_text": "",
     })
+    return turn_id
+
+
+def _record_user_visible_turn(turn_id: int, visible_text: str) -> bool:
+    """Attach the browser-rendered text for one Scout answer to its diagnostic turn."""
+    for turn in reversed(SESSION_TRANSCRIPT):
+        if int(turn.get("turn_id") or 0) == int(turn_id):
+            turn["user_visible_text"] = str(visible_text or "").strip()
+            return True
+    return False
 
 
 def _write_session_log() -> Dict[str, Any]:
@@ -128,11 +144,16 @@ def _write_session_log() -> Dict[str, Any]:
             f"--- Turn {idx} ---",
             f"Time: {turn.get('timestamp', '')}",
             f"Mode: {turn.get('mode', '')}",
+            f"Presentation: {turn.get('presentation_mode', 'normal')}",
             f"Prompt: {turn.get('question', '')}",
+            "USER-VISIBLE RESPONSE:",
+            str(turn.get("user_visible_text") or "[Browser-rendered response was not captured for this turn.]"),
+            "",
+            "INTERNAL EXECUTION RESULT:",
             f"Title: {answer.get('title', '')}",
             f"Intent: {answer.get('intent', '')}",
             f"Confidence: {answer.get('confidence', '')}",
-            "Response:",
+            "Internal response text:",
             str(answer.get("text") or answer.get("engine_conclusion") or ""),
         ])
         player_sections = [section for section in ((answer.get("athena_response") or {}).get("ui_sections") or [])
@@ -406,7 +427,7 @@ INDEX_HTML = r'''<!doctype html>
     .conversation-note { color:var(--muted); font-size:12px; text-align:center; margin:8px 0 14px; }
     .auth-roadmap { border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#0c0e13; color:var(--muted); font-size:12px; line-height:1.45; margin-top:10px; }
     .pending-card { margin-top:16px; border:1px dashed var(--line); border-radius:18px; padding:16px; color:var(--muted); background:rgba(255,255,255,.025); }
-    .answer-copy { margin:12px 0 16px; color:#dbe3f1; line-height:1.55; white-space:pre-wrap; }
+    .answer-copy { margin:12px 0 16px; color:#dbe3f1; line-height:1.55; }\n    .answer-copy-line { white-space:pre-wrap; }\n    .answer-copy-heading { margin:18px 0 7px; color:#f7f9fc; font-weight:800; letter-spacing:.01em; font-size:15px; }
     .raw-reasoning { margin:12px 0 16px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.025); padding:10px 12px; }
     .raw-reasoning summary { cursor:pointer; color:var(--muted); font-size:13px; }
     .raw-reasoning pre, .dev pre { white-space:pre-wrap; overflow:auto; max-height:420px; }
@@ -422,9 +443,9 @@ INDEX_HTML = r'''<!doctype html>
     .more-results-body { margin-top:10px; }
     .more-results-body[hidden] { display:none; }
     .suggested-prompts { margin:18px 0 8px; padding-top:14px; border-top:1px solid var(--line); display:flex; gap:8px; flex-wrap:wrap; }
-    .suggested-prompts::before { content:'Investigate Further'; width:100%; color:var(--text); font-weight:700; margin-bottom:2px; }
-    .suggested-prompt { text-align:left; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.035); color:#dbe3f1; padding:9px 11px; cursor:pointer; font-size:13px; white-space:normal; overflow-wrap:anywhere; }
-    .suggested-prompt:hover { background:rgba(255,255,255,.075); }
+    .suggested-prompts::before { content:'Investigate Further'; width:100%; color:#f7f9fc; font-weight:800; margin-bottom:2px; }
+    .suggested-prompt { text-align:left; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.035); color:#f3d77a; padding:9px 11px; cursor:pointer; font-size:13px; white-space:normal; overflow-wrap:anywhere; }
+    .suggested-prompt:hover, .suggested-prompt:focus-visible { background:rgba(255,255,255,.075); color:#ffe69a; text-decoration:underline; }
     .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.62); display:flex; align-items:center; justify-content:center; z-index:9999; padding:24px; }
     .modal-card { max-width:780px; width:min(780px, 96vw); max-height:82vh; overflow:auto; background:#101827; border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:0 24px 70px rgba(0,0,0,.45); }
     .modal-card h2 { margin-top:0; }
@@ -474,7 +495,7 @@ INDEX_HTML = r'''<!doctype html>
   <section class="panel history" id="operationHistoryPanel" style="display:none;"><h2>Operation History</h2><div id="operationHistory"></div></section>
   <div class="status neutral" id="scoutStatus">Ready.</div>
   <div class="loading" id="loading" style="display:none;">Scout is asking Athena...</div>
-  <section id="conversation"><div class="conversation-note">Scout responses appear here. The newest response appears just above the prompt.</div></section>
+  <section id="conversation"></section>
 
   <section class="search" id="promptDock">
     <div class="grid">
@@ -747,6 +768,17 @@ function renderExperience(answer) {
   </section>`;
 }
 
+function renderAnswerCopy(text) {
+  const headings = new Set([
+    'Organizational Significance','Scenario Assessment','Assets on the Table','What Needs Are We Addressing on Both Sides',
+    'Proposed Construction','Financial Impact','Rules & Transaction Mechanics','Opportunity Cost','Credible Alternatives',
+    "Athena's Verdict",'Decision Quality vs. Outcome','Controlled Prospects Eligible for Analysis','Rights & Restrictions','Most Reluctant to Move'
+  ]);
+  return String(text || '').split('\n').map(line => headings.has(line.trim())
+    ? `<div class="answer-copy-heading">${esc(line.trim())}</div>`
+    : `<div class="answer-copy-line">${esc(line) || '&nbsp;'}</div>`).join('');
+}
+
 function renderSuggestedPrompts(answer, turnId) {
   const prompts = Array.isArray(answer.suggested_prompts) ? answer.suggested_prompts.filter(Boolean).slice(0,4) : [];
   if (!prompts.length) return '';
@@ -815,7 +847,7 @@ function renderAnswer(answer, userText=null) {
   const natural = publicText || answer.natural_language_response || answer.response_text || answer.scout_message || '';
   const displayText = natural; // compatibility marker: canonical public text selected after diagnostic gating
   const experienceBlock = renderExperience(answer);
-  const naturalBlock = (natural && !experienceBlock) ? `<div class="answer-copy">${esc(natural)}</div>` : '';
+  const naturalBlock = (natural && !experienceBlock) ? `<div class="answer-copy">${renderAnswerCopy(natural)}</div>` : '';
   const conclusionText = answer.engine_conclusion || '';
   const conclusionIsRedundant = natural && conclusionText && natural.toLowerCase().includes(String(conclusionText).toLowerCase().slice(0, 120));
   const conclusionBlock = (developerActive && conclusionText && !conclusionIsRedundant) ? `<h3>Engine Conclusion</h3><div>${esc(conclusionText || 'No conclusion available.')}</div>` : '';
@@ -827,6 +859,7 @@ function renderAnswer(answer, userText=null) {
   conversation.insertAdjacentHTML('beforeend', `${you}<article class="answer chat-turn"><h2>${esc(answer.title || 'Scout response')}</h2>${confidence}${experienceBlock}${naturalBlock}${cards ? `<div class="cards">${cards}</div>` : ''}${sourceLinks}${suggestedPrompts}${conclusionBlock}${diag}${facts ? `<h3>Observed Facts</h3><ul>${facts}</ul>` : ''}${limits ? `<h3>Known Limitations</h3><ul>${limits}</ul>` : ''}${rawReasoning}${developer}</article>`);
   const last = conversation.lastElementChild;
   if (last) last.scrollIntoView({behavior:'smooth', block:'end'});
+  return last ? String(last.innerText || '').trim() : '';
 }
 
 function setConnectionStatus(kind, message, details=null) {
@@ -855,7 +888,7 @@ async function askText(text, continuation=null) {
   if (!cleanText) return;
   setBusy(true, 'Scout is evaluating your question with Athena...');
   const pendingId = addPendingTurn('Scout', 'Evaluating question, loading available Athena evidence, and preparing a response...');
-  const data = await postJSON('/api/ask', {question: cleanText, mode: mode.value, continuation: continuation});
+  const data = await postJSON('/api/ask', {question: cleanText, mode: mode.value, continuation: continuation, developer_mode: isDeveloperModeActive()});
   removePendingTurn(pendingId);
   setBusy(false);
   if (!data.http_ok || data.error) {
@@ -864,7 +897,10 @@ async function askText(text, continuation=null) {
     return;
   }
   setScoutStatus('good', 'Scout response ready.');
-  renderAnswer(data.answer, cleanText);
+  const visibleText = renderAnswer(data.answer, cleanText);
+  if (data.session_turn_id && visibleText) {
+    await postJSON('/api/session/visible', {turn_id: data.session_turn_id, visible_text: visibleText});
+  }
 }
 
 async function askCardPrompt(turnId, idx) {
@@ -1425,11 +1461,17 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                 LATEST_ANSWER = {}
                 _json_response(self, result, 200 if result.get("ok") else 400)
                 return
+            if path == "/api/session/visible":
+                body = _read_json_body(self)
+                ok = _record_user_visible_turn(int(body.get("turn_id") or 0), str(body.get("visible_text") or ""))
+                _json_response(self, {"ok": ok}, 200 if ok else 404)
+                return
             if path == "/api/ask":
                 body = _read_json_body(self)
                 ctx = load_context()
                 question_text = str(body.get("question") or "")
                 selected_mode = str(body.get("mode") or "fantasy")
+                presentation_mode = "developer" if bool(body.get("developer_mode")) else "normal"
                 answer = Athena.ask(question_text, context=ctx, mode=selected_mode, continuation=body.get("continuation"))
                 # League analysis is a current-state operation. If Scout routes a
                 # fantasy prompt to league analysis, refresh the active workspace
@@ -1445,9 +1487,13 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                             "warnings": refresh.get("warnings", []),
                             "summary": refresh.get("summary", {}),
                         }
+                # Final public composition is authoritative at the API boundary.
+                # Specialists may carry internal narratives, but normal mode may
+                # only receive the registered public presentation contract.
+                answer = compose_answer_payload(answer)
                 LATEST_ANSWER = {"question": question_text, "answer": answer}
-                _record_session_turn(question_text, selected_mode, answer)
-                _json_response(self, {"answer": answer})
+                turn_id = _record_session_turn(question_text, selected_mode, answer, presentation_mode=presentation_mode)
+                _json_response(self, {"answer": answer, "session_turn_id": turn_id})
                 return
             if path in {"/api/sync", "/api/analyze"}:
                 body = _read_json_body(self)

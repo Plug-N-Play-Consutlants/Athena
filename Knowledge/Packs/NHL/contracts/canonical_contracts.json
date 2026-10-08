@@ -1,0 +1,96 @@
+{
+  "schema_version": "0.7.1.0.0",
+  "league": "NHL",
+  "purpose": "Authoritative contract evidence fixtures proving Athena's provider-neutral canonical SPC model. This is not a complete league contract ledger.",
+  "contracts": [
+    {
+      "contract_id": "nhl.player.connor_mcdavid:2026-27:edm",
+      "player_entity_id": "nhl.player.connor_mcdavid",
+      "player_name": "Connor McDavid",
+      "team_id": "nhl.team.edm",
+      "team_name": "Edmonton Oilers",
+      "signed_on": "2025-10-06",
+      "effective_from": "2026-07-01",
+      "effective_to": "2028-06-30",
+      "start_league_year": "2026-27",
+      "term_years": 2,
+      "total_value": 25000000,
+      "aav": 12500000,
+      "contract_level": "standard",
+      "expiry_status": "not_asserted",
+      "evidence_status": "authoritative_public",
+      "provenance": [
+        {
+          "source_id": "nhl_mcdavid_contract_2025_10_07",
+          "authority": "NHL",
+          "publisher": "NHL.com",
+          "title": "McDavid signs 2-year, $25 million contract with Oilers",
+          "published_on": "2025-10-07",
+          "url": "https://www.nhl.com/news/connor-mcdavid-signs-2-year-deal-with-edmonton",
+          "supports": [
+            "team",
+            "term_years",
+            "total_value",
+            "aav",
+            "start_league_year"
+          ]
+        },
+        {
+          "source_id": "oilers_mcdavid_release_2025_10_06",
+          "authority": "NHL club",
+          "publisher": "Edmonton Oilers",
+          "title": "RELEASE: Oilers sign McDavid to two-year extension",
+          "published_on": "2025-10-06",
+          "url": "https://www.nhl.com/oilers/news/topic/transactions/release-oilers-sign-mcdavid-to-two-year-extension",
+          "supports": [
+            "team",
+            "term_years",
+            "aav"
+          ]
+        }
+      ],
+      "limitations": [
+        "Public signing evidence does not expose the complete registered SPC or every clause/payment component.",
+        "This record does not establish Edmonton's complete team cap ledger."
+      ]
+    },
+    {
+      "contract_id": "nhl.player.auston_matthews:2024-25:tor",
+      "player_entity_id": "nhl.player.auston_matthews",
+      "player_name": "Auston Matthews",
+      "team_id": "nhl.team.tor",
+      "team_name": "Toronto Maple Leafs",
+      "signed_on": "2023-08-23",
+      "effective_from": "2024-07-01",
+      "effective_to": "2028-06-30",
+      "start_league_year": "2024-25",
+      "term_years": 4,
+      "total_value": 53000000,
+      "aav": 13250000,
+      "contract_level": "standard",
+      "expiry_status": "not_asserted",
+      "evidence_status": "authoritative_public",
+      "provenance": [
+        {
+          "source_id": "nhl_matthews_future_2026_04_16",
+          "authority": "NHL",
+          "publisher": "NHL.com",
+          "title": "Matthews said he 'can't predict' his future with Maple Leafs",
+          "published_on": "2026-04-16",
+          "url": "https://www.nhl.com/news/auston-matthews-cant-predict-his-future-with-toronto",
+          "supports": [
+            "team",
+            "term_years",
+            "total_value",
+            "aav",
+            "effective_to"
+          ]
+        }
+      ],
+      "limitations": [
+        "Public NHL reporting confirms the headline contract economics but is not the complete registered SPC.",
+        "This record does not establish Toronto's complete team cap ledger."
+      ]
+    }
+  ]
+}

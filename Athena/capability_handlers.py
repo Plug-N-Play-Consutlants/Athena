@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 from Scout.conversation.context import ScoutContext
 from Scout.conversation.responses import developer_info, response
 
-ORCHESTRATION_VERSION = "0.6.5.7.0"
+ORCHESTRATION_VERSION = "0.7.7.0.11"
 
 
 from Athena.intent_planner import (
@@ -29,53 +29,46 @@ def scout_intent_plan(question: str, mode: str = "public") -> Optional[ScoutInte
 
 
 def _answer_player_temporal_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    from Athena.Inquiry.state import build_inquiry_state
+    inquiry=build_inquiry_state(question,"public")
     profiles = _public_player_profiles_for(question)
     if len(profiles) != 1:
         from Athena.public_identity import resolve_public_player
         from Knowledge.Intelligence.Public.public_player_profiles import profile_for_entity
         match = resolve_public_player(question)
         resolved = profile_for_entity(match.entity) if match is not None and match.entity is not None else None
-        if resolved is not None:
-            profiles = [resolved]
-    if len(profiles) != 1:
-        return _answer_player_comparison(ctx, question)
+        if resolved is not None: profiles = [resolved]
+    if len(profiles) != 1: return _answer_player_comparison(ctx, question)
     from Knowledge.Intelligence.Entities.entity_registry import find_by_id
     from Knowledge.Intelligence.Public.player_evidence import player_evidence
-    profile = profiles[0]
-    entity = find_by_id(profile.entity_id)
-    evidence = player_evidence(profile.display_name, team=profile.team, position=profile.position,
-                               birth_date=entity.birth_date if entity else "")
-    statistical = evidence.get("statistical_evidence", {}) if isinstance(evidence.get("statistical_evidence"), dict) else {}
-    seasons = [row for row in statistical.get("season_series", evidence.get("season_history", [])) if isinstance(row, dict)
-               and isinstance(row.get("gp"), (int, float)) and row["gp"] > 0
-               and isinstance(row.get("points"), (int, float))]
-    if len(seasons) >= 2:
-        latest = seasons[0]
-        baseline = seasons[1:3]
-        games = sum(row["gp"] for row in baseline)
-        points = sum(row["points"] for row in baseline)
-        latest_rate = latest["points"] / latest["gp"]
-        baseline_rate = points / games
-        narrative = (f"{profile.display_name} recorded {latest['points']} points in {latest['gp']} NHL games "
-                     f"in {latest['season']} ({latest_rate:.2f} points per game). Across the preceding "
-                     f"{len(baseline)} available season(s), the baseline was {points} points in {games} games "
-                     f"({baseline_rate:.2f} per game). That is a scoring-rate comparison; deployment, health "
-                     "and playing time need separate evidence before explaining the difference.")
-        facts = [f"{row['season']}: {row['points']} points in {row['gp']} NHL games." for row in seasons[:3]]
-        confidence = 0.78
+    profile=profiles[0]; entity=find_by_id(profile.entity_id)
+    evidence=player_evidence(profile.display_name,team=profile.team,position=profile.position,birth_date=entity.birth_date if entity else "")
+    statistical=evidence.get("statistical_evidence",{}) if isinstance(evidence.get("statistical_evidence"),dict) else {}
+    seasons=[row for row in statistical.get("season_series",evidence.get("season_history",[])) if isinstance(row,dict) and isinstance(row.get("gp"),(int,float)) and row["gp"]>0 and isinstance(row.get("points"),(int,float))]
+    requested=inquiry.temporal_scope.value if inquiry.temporal_scope.kind in {"season_window","career_opening_window"} else None
+    if inquiry.temporal_scope.kind=="career": requested=len(seasons)
+    selected=(list(reversed(seasons))[:requested] if inquiry.temporal_scope.kind=="career_opening_window" and requested else seasons[:requested] if requested else seasons[:3])
+    missing_count=max((requested or 0)-len(selected),0)
+    if selected:
+        facts=[f"{row['season']}: {row['points']} points in {row['gp']} NHL games." for row in selected]
+        if requested:
+            coverage=(f"The requested window is complete in current evidence." if not missing_count else f"The current evidence is short by {missing_count} season(s); Athena should acquire the missing history before treating the window as complete.")
+            season_lines=" ".join(f"{row['season']}: {row['points']} points in {row['gp']} games ({row['points']/row['gp']:.2f} P/GP)." for row in selected)
+            rates=[row['points']/row['gp'] for row in selected]
+            trend_note=""
+            if len(rates) >= 2:
+                hi=max(range(len(rates)), key=lambda i: rates[i]); lo=min(range(len(rates)), key=lambda i: rates[i])
+                trend_note=f" Within this window, the highest scoring rate is {selected[hi]['season']} at {rates[hi]:.2f} P/GP and the lowest is {selected[lo]['season']} at {rates[lo]:.2f} P/GP; the current-season sample is only {selected[0]['gp']} games."
+            narrative=(f"{profile.display_name} has {len(selected)} verified NHL season records in the requested {inquiry.temporal_scope.label} window. {coverage} " + season_lines + trend_note)
+        else:
+            latest=selected[0]; narrative=f"{profile.display_name}'s recent verified NHL evidence begins with {latest['points']} points in {latest['gp']} games in {latest['season']}."
+        confidence=.82 if not missing_count else .58
     else:
-        narrative = (f"I can identify {profile.display_name}, but do not have two verified NHL seasons "
-                     "for a recent production comparison. I cannot infer a trend from the profile alone.")
-        facts = [f"Verified NHL season records available: {len(seasons)}."]
-        confidence = 0.42
-    answer = response(intent="public_player_temporal_comparison", title=f"{profile.display_name}: recent production",
-                      engine_conclusion=narrative, natural_language_response=narrative,
-                      observed_facts=facts, known_limitations=["Scoring rate alone does not establish why performance changed."],
-                      confidence=confidence, developer=developer_info("public_player_temporal_comparison", getattr(ctx, "files_loaded", []),
-                      knowledge_used=["nhl_player_landing"], intelligence_used=["season_baseline_comparison"],
-                      missing=[] if len(seasons) >= 2 else ["two_verified_nhl_seasons"]))
-    answer["developer"]["comparison_semantics"] = comparison_semantics(question)
-    answer["developer"]["subject_entity_id"] = profile.entity_id
+        facts=[]; narrative=f"I can identify {profile.display_name}, but verified NHL season evidence is unavailable for the requested window."; confidence=.35
+    limitations=["Scoring rate alone does not establish why performance changed."]
+    if missing_count: limitations.append(f"Requested {requested} seasons; only {len(selected)} are currently verified in canonical statistical evidence.")
+    answer=response(intent="public_player_temporal_comparison",title=f"{profile.display_name}: {inquiry.temporal_scope.label if inquiry.temporal_scope.source=='user' else 'recent production'}",engine_conclusion=narrative,natural_language_response=narrative,observed_facts=facts,known_limitations=limitations,confidence=confidence,developer=developer_info("public_player_temporal_comparison",getattr(ctx,"files_loaded",[]),knowledge_used=["canonical_player_statistical_evidence"],intelligence_used=["temporal_scope","season_window_selection"],missing=(["missing_requested_season_history"] if missing_count else [])))
+    answer["developer"]["comparison_semantics"]=comparison_semantics(question); answer["developer"]["subject_entity_id"]=profile.entity_id; answer["developer"]["inquiry_state"]=inquiry.to_dict(); answer["developer"]["requested_seasons"]=requested; answer["developer"]["available_selected_seasons"]=len(selected)
     return answer
 
 
@@ -557,6 +550,9 @@ def orchestration_diagnostics() -> Dict[str, Any]:
             "public_player_explainability",
             "ambiguous_public_entity",
             "public_organization_impact",
+            "public_nhl_economic_context",
+            "public_nhl_team_economic_state",
+            "public_nhl_player_contract",
             "fantasy_longitudinal_draft",
             "fantasy_pre_draft_context",
             "fantasy_keeper_pool_context",
@@ -570,3 +566,398 @@ def orchestration_diagnostics() -> Dict[str, Any]:
         ],
         "principle": "route intent before first-match capability execution",
     }
+
+
+def _answer_nhl_economic_context(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Explain canonical league-wide economic context without inventing a club ledger."""
+    from datetime import date
+    from Knowledge.Economics.league_season_context import resolve_league_season_context
+
+    q = _text(question)
+    # Explicit season support is intentionally narrow and deterministic.
+    season_match = re.search(r"\b(20\d{2})[-/]?(\d{2})\b", q)
+    if season_match:
+        season = f"{season_match.group(1)}-{season_match.group(2)}"
+        economic = resolve_league_season_context(league_year=season)
+    else:
+        economic = resolve_league_season_context(as_of=date.today())
+    upper = economic.upper_limit / 1_000_000
+    lower = economic.lower_limit / 1_000_000
+    midpoint = economic.midpoint / 1_000_000
+    natural = (
+        f"For the {economic.league_year} NHL League Year, the canonical Team Payroll Range is "
+        f"${lower:.1f}M lower limit, ${midpoint:.1f}M midpoint and ${upper:.1f}M upper limit. "
+        f"The rules environment resolved for {economic.as_of} is {economic.cba_label}.\n\n"
+        "This is league-wide economic context, not a team cap calculation. Athena does not yet have the "
+        "canonical club contract/adjustment ledger required to state a team's actual cap usage from this capability."
+    )
+    answer = response(
+        intent="public_nhl_economic_context", title=f"NHL economic context: {economic.league_year}",
+        engine_conclusion=natural, natural_language_response=natural,
+        observed_facts=[
+            f"Upper Limit: ${upper:.1f}M.", f"Midpoint: ${midpoint:.1f}M.", f"Lower Limit: ${lower:.1f}M.",
+            f"CBA environment: {economic.cba_label} ({economic.cba_effective_from} through {economic.cba_effective_to}).",
+        ], known_limitations=list(economic.limitations), confidence=0.98,
+        developer=developer_info("public_nhl_economic_context", getattr(ctx, "files_loaded", []),
+            knowledge_used=["league_season_context", "public_hockey_knowledge"],
+            intelligence_used=["effective_dated_context_resolution"], missing=["canonical_team_economic_state"]),
+    )
+    answer["developer"]["league_season_context"] = economic.to_dict()
+    return answer
+
+
+def _answer_nhl_player_contract(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Answer from canonical professional contract evidence, never fantasy contracts."""
+    from datetime import date
+    from Knowledge.Contracts.player_contract_state import resolve_player_contract_state
+    subjects = _public_player_subjects_for(question)
+    profile = subjects[0].get("profile") if len(subjects) == 1 and isinstance(subjects[0], dict) else None
+    entity_id = str(getattr(profile, "entity_id", "") or "")
+    if not entity_id:
+        return response(
+            intent="public_nhl_player_contract", title="NHL contract evidence needs a player",
+            engine_conclusion="Athena could not establish one public NHL player identity for this contract question.",
+            natural_language_response="I need one clearly identified NHL player before applying contract evidence.",
+            observed_facts=[], known_limitations=["Professional contract evidence cannot be attached to an unresolved player identity."],
+            confidence=0.35, developer=developer_info("public_nhl_player_contract", getattr(ctx, "files_loaded", []), missing=["qualified_public_player_identity"]),
+        )
+    try:
+        contract = resolve_player_contract_state(player_entity_id=entity_id, as_of=date.today())
+    except LookupError as exc:
+        return response(
+            intent="public_nhl_player_contract", title="NHL contract evidence gap",
+            engine_conclusion=str(exc), natural_language_response=str(exc), observed_facts=[],
+            known_limitations=["The canonical NHL contract pack is intentionally incomplete in v0.7.1; absence is not evidence that a player is unsigned."],
+            confidence=0.35, developer=developer_info("public_nhl_player_contract", getattr(ctx, "files_loaded", []), missing=["canonical_player_contract_state"]),
+        )
+    share = contract.cap_share(date.today())
+    natural = (
+        f"{contract.player_name}'s canonical NHL contract evidence shows a {contract.term_years}-year, "
+        f"${contract.total_value / 1_000_000:.1f}M contract with {contract.team_name}, carrying a "
+        f"${contract.aav / 1_000_000:.2f}M AAV through {contract.effective_to}. "
+        f"At the current league upper limit, that AAV is {share * 100:.2f}% of the NHL cap. "
+        "That percentage normalizes the contract to its league economic environment; it is not the club's total cap usage."
+    )
+    answer = response(
+        intent="public_nhl_player_contract", title=f"{contract.player_name}: NHL contract state",
+        engine_conclusion=natural, natural_language_response=natural,
+        observed_facts=[
+            f"Signed: {contract.signed_on}.", f"Effective: {contract.effective_from} through {contract.effective_to}.",
+            f"AAV: ${contract.aav / 1_000_000:.2f}M.", f"Current upper-limit share: {share * 100:.2f}%.",
+        ], known_limitations=list(contract.limitations), confidence=0.97,
+        developer=developer_info("public_nhl_player_contract", getattr(ctx, "files_loaded", []),
+            knowledge_used=["canonical_nhl_player_contract_state", "league_season_context"],
+            intelligence_used=["effective_dated_contract_resolution", "cap_share_normalization"],
+            missing=["canonical_team_economic_state", "complete_registered_spc"]),
+    )
+    answer["developer"]["player_contract_state"] = contract.to_dict(as_of=date.today())
+    answer["developer"]["contract_subject"] = {"entity_id": entity_id, "display_name": contract.player_name}
+    return answer
+
+
+def _answer_nhl_team_economic_state(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Team-specific economic state; aggregate output is gated by ledger completeness."""
+    from Knowledge.Teams.team_economic_state import resolve_team_economic_state
+    from Knowledge.Economics.league_season_context import resolve_league_season_context
+    try:
+        team = resolve_team_economic_state(team_id="nhl.team.tor" if _has_any(_text(question), ["maple leafs","leafs","toronto"]) else "")
+    except LookupError as exc:
+        return response(intent="public_nhl_team_economic_state", title="NHL team economic evidence gap",
+            engine_conclusion=str(exc), natural_language_response=str(exc), observed_facts=[],
+            known_limitations=["Absence of a registered team state is not evidence of cap space or roster status."], confidence=0.35,
+            developer=developer_info("public_nhl_team_economic_state", getattr(ctx,"files_loaded",[]), missing=["canonical_team_economic_state"]))
+    economic=resolve_league_season_context(league_year=team.league_year)
+    covered=team.covered_contracts()
+    covered_names=", ".join(c.player_name for c in covered) or "none"
+    natural=(
+        f"For {team.team_name}, Athena has a canonical {team.league_year} team-state record, but the economic ledger is not complete enough to state actual cap usage or cap space. "
+        f"The league upper limit is ${economic.upper_limit/1_000_000:.1f}M. Current canonical professional-contract coverage for this team contains {len(covered)} player contract(s): {covered_names}. "
+        f"Roster evidence is currently classified as {team.roster_evidence_status.replace('_',' ')}. "
+        "Athena will not add the covered contracts together and present that partial sum as the club's payroll."
+    )
+    answer=response(intent="public_nhl_team_economic_state", title=f"{team.team_name}: team economic state",
+        engine_conclusion=natural, natural_language_response=natural,
+        observed_facts=[f"{team.league_year} upper limit: ${economic.upper_limit/1_000_000:.1f}M.",
+                        f"Canonical team contract coverage: {len(covered)} player(s): {covered_names}.",
+                        f"Roster evidence status: {team.roster_evidence_status}.",
+                        f"Aggregate cap usage status: {team.aggregate_cap_usage_status}."],
+        known_limitations=list(team.limitations), confidence=0.96,
+        developer=developer_info("public_nhl_team_economic_state", getattr(ctx,"files_loaded",[]),
+            knowledge_used=["canonical_nhl_team_economic_state","canonical_nhl_player_contract_state","league_season_context"],
+            intelligence_used=["team_state_reconciliation","economic_completeness_gate"],
+            missing=["complete_registered_spc","complete_current_roster","team_cap_adjustment_ledger"]))
+    answer["developer"]["team_economic_state"]=team.to_dict()
+    answer["developer"]["league_season_context"]=economic.to_dict()
+    return answer
+
+
+def _answer_nhl_cap_reasoning(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Apply executable cap/CBA constraints to canonical NHL team state."""
+    from Knowledge.Teams.team_economic_state import resolve_team_economic_state
+    from Knowledge.Economics.league_season_context import resolve_league_season_context
+    from Reasoning.Cap.cap_reasoning import evaluate_team_cap_state
+    try:
+        team = resolve_team_economic_state(team_id="nhl.team.tor" if _has_any(_text(question), ["maple leafs","leafs","toronto"]) else "")
+    except LookupError as exc:
+        return response(intent="public_nhl_cap_reasoning", title="NHL cap reasoning evidence gap",
+            engine_conclusion=str(exc), natural_language_response=str(exc), observed_facts=[],
+            known_limitations=["Executable cap reasoning requires a canonical team state."], confidence=0.35,
+            developer=developer_info("public_nhl_cap_reasoning", getattr(ctx,"files_loaded",[]), missing=["canonical_team_economic_state"]))
+    economic = resolve_league_season_context(league_year=team.league_year)
+    determination = evaluate_team_cap_state(team, economic)
+    covered = team.covered_contracts()
+    covered_names = ", ".join(c.player_name for c in covered) or "none"
+    natural = determination.explanation + (
+        f" Canonical contract coverage currently contains {len(covered)} {team.team_name} player contract(s): {covered_names}. "
+        "Athena is applying the cap rules here, not treating those covered contracts as the club's complete payroll."
+    )
+    answer = response(intent="public_nhl_cap_reasoning", title=f"{team.team_name}: executable cap determination",
+        engine_conclusion=natural, natural_language_response=natural,
+        observed_facts=[f"Determination: {determination.status}.",
+                        f"{team.league_year} Team Payroll Range: ${economic.lower_limit/1_000_000:.1f}M-${economic.upper_limit/1_000_000:.1f}M.",
+                        f"CBA environment: {economic.cba_label}.",
+                        f"Canonical team contract coverage: {len(covered)} player(s): {covered_names}."],
+        known_limitations=[item for item in team.limitations if not ("before the September 29, 2026 regular-season start" in item and __import__("datetime").date.today() >= __import__("datetime").date(2026,9,29))] + ["Special CBA cap treatments are not assumed without canonical factual inputs and applicable provision evidence."],
+        confidence=0.97,
+        developer=developer_info("public_nhl_cap_reasoning", getattr(ctx,"files_loaded",[]),
+            knowledge_used=["canonical_nhl_team_economic_state","canonical_nhl_player_contract_state","league_season_context"],
+            intelligence_used=["executable_cap_reasoning","effective_dated_cba_application","economic_completeness_gate"],
+            missing=list(determination.unresolved_inputs)))
+    answer["developer"]["cap_determination"] = determination.to_dict()
+    answer["developer"]["team_economic_state"] = team.to_dict()
+    answer["developer"]["league_season_context"] = economic.to_dict()
+    return answer
+
+
+def _transaction_team_id(question: str, inquiry=None) -> str:
+    q=_text(question)
+    if _has_any(q,["maple leafs","leafs","toronto"]): return "nhl.team.tor"
+    if inquiry is None:
+        from Athena.Inquiry.state import build_inquiry_state
+        inquiry=build_inquiry_state(question, "public")
+    if "Toronto Maple Leafs" in getattr(inquiry, "organizations", []): return "nhl.team.tor"
+    protected={str(x).casefold() for x in getattr(inquiry, "protected_assets", [])}
+    for profile in _public_player_profiles_for(question):
+        name=str(getattr(profile,"display_name","") or "").casefold()
+        team=str(getattr(profile,"team","") or "").upper()
+        if team == "TOR" and (not protected or name in protected or any(p in name or name in p for p in protected)):
+            return "nhl.team.tor"
+    return ""
+
+
+def _answer_nhl_organizational_assets(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Acquire the organization's current player universe, then classify control separately from location."""
+    from Knowledge.Organizations.nhl_roster_evidence import acquire_team_player_evidence
+    from Knowledge.Assets.organizational_rights_state import attach_rights_states, transaction_eligible
+    org=acquire_team_player_evidence("TOR")
+    players=attach_rights_states(list(org.get("roster") or [])+list(org.get("prospects") or []),"TOR")
+    controlled=[x for x in players if (x.get("rights_state") or {}).get("control_status")=="controlled"]
+    eligible=[x for x in controlled if transaction_eligible(x)]
+    q=_text(question)
+    asks_trade=_has_any(q,["trade","traded","tradeable","tradable","could actually be traded","movable"])
+    asks_prospects=_has_any(q,["prospect","prospects","development players","young players"])
+    selected=eligible if asks_trade else controlled
+    if asks_prospects:
+        selected=[x for x in selected if str(x.get("relationship") or "")=="prospect" or (isinstance(x.get("age"),int) and x.get("age")<=23)]
+    # When the user names multiple organizational assets, compare that requested
+    # set rather than widening the answer to every controlled Toronto asset.
+    named_selected=[x for x in selected if str(x.get("name") or "").casefold() in q]
+    if len(named_selected)>=2:
+        selected=named_selected
+    asks_reluctance=_has_any(q,["reluctant","reluctance","hardest to move","least willing","would you keep","most protect","significant","significance","differently significant"])
+    from Reasoning.Significance import assess_asset_significance, assess_organizational_significance, significance_sort_key
+    # Significance must consume the same material player evidence used by deeper
+    # transaction investigation. Enrich the requested comparison set before
+    # Player Intelligence is built; absence/failure remains explicit rather than
+    # silently degrading the player to age + control.
+    from Providers.NHL.nhl_client import NHLClient
+    client=NHLClient()
+    for asset in selected:
+        pid=str(asset.get("nhl_player_id") or "")
+        if pid:
+            try:
+                landing=client.get_player_landing(pid)
+                if isinstance(landing,dict):
+                    d=landing.get("draftDetails") if isinstance(landing.get("draftDetails"),dict) else {}
+                    def _int_or_none(v):
+                        try:return int(v) if v is not None else None
+                        except (TypeError,ValueError):return None
+                    asset["draft"]={"year":_int_or_none(d.get("year")),"round":_int_or_none(d.get("round")),"pick_in_round":_int_or_none(d.get("pickInRound")),"overall_pick":_int_or_none(d.get("overallPick")),"team_abbrev":str(d.get("teamAbbrev") or "")}
+                    asset["player_landing_acquired"]=True
+                    # Reuse the same career observations as the player-development
+                    # specialist; no separate Scout interpretation or fabricated cause.
+                    from Athena.player_development import _historical_levels
+                    asset["development_history"] = _historical_levels(landing)
+            except Exception as exc:
+                asset.setdefault("enrichment_errors",[]).append(f"player_landing: {type(exc).__name__}: {exc}")
+        asset["asset_significance"]=assess_asset_significance(asset)
+        asset["organizational_significance"]=assess_organizational_significance(asset,organization="Toronto Maple Leafs")
+    reluctance=sorted(selected,key=significance_sort_key,reverse=True) if asks_reluctance else []
+    facts=[]
+    for x in selected[:20]:
+        rs=x.get("rights_state") or {}; obj=str(rs.get("transferable_object") or "unknown")
+        facts.append(f"{x.get('name')}: {x.get('relationship')}; control {rs.get('control_status')}; transferable object {obj}; transaction state {rs.get('transaction_status')}.")
+    natural=(f"NHL organizational evidence currently identifies {len(controlled)} Toronto-controlled player relationships, with {len(eligible)} eligible for transaction analysis subject to exact contract/rights restrictions. "
+             "Athena treats playing location and organizational control separately: a player is not a Toronto trade asset merely because he plays for an affiliate, while a controlled prospect can remain a Toronto asset in junior, college or Europe. "
+             "The current provider path does not yet establish every player's exact SPC versus unsigned-rights mechanism or a complete Toronto draft-pick inventory, so those distinctions remain explicit rather than invented.")
+    answer=response(intent="public_nhl_organizational_assets",title="Toronto Maple Leafs: organizational asset rights",engine_conclusion=natural,natural_language_response=natural,observed_facts=facts,known_limitations=["Exact rights expiry, SPC clauses, NMC/NTC and other transfer restrictions require the corresponding contract/CBA evidence.","Draft capital is not yet acquired by this organizational-player path.","NHL provider prospect association establishes current organizational relationship but does not by itself identify every underlying rights mechanism."],confidence=.84,developer=developer_info("public_nhl_organizational_assets",getattr(ctx,"files_loaded",[]),knowledge_used=["nhl_current_roster","nhl_prospects","nhl_player_landing","organizational_rights_state"],intelligence_used=["control_vs_location_classification","transaction_eligibility","player_intelligence","asset_significance","organizational_significance"],missing=["complete_exact_rights_mechanisms","nhl_draft_pick_ownership"]))
+    answer["developer"]["organizational_assets"]={"team":"TOR","controlled_count":len(controlled),"transaction_analysis_count":len(eligible),"query_subset":"prospects" if asks_prospects else "all_controlled_assets","selected_players":selected,"players":controlled,"reluctance_requested":asks_reluctance,"reluctance_ranking":reluctance,"acquisition_errors":org.get("acquisition_errors") or []}
+    return answer
+
+def _answer_nhl_transaction_scenario(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Evaluate a bounded NHL transaction hypothetical without mutating canonical state."""
+    from Knowledge.Teams.team_economic_state import resolve_team_economic_state
+    from Knowledge.Economics.league_season_context import resolve_league_season_context
+    from Knowledge.Contracts.player_contract_state import resolve_player_contract_state
+    from Reasoning.Transactions.scenario_engine import acquire_contract, release_contract, evaluate_transaction_scenario
+    q=_text(question)
+    from Athena.Inquiry.state import build_inquiry_state, select_primary_player_subject
+    inquiry=build_inquiry_state(question, "public")
+    try:
+        team=resolve_team_economic_state(team_id=_transaction_team_id(question, inquiry))
+    except LookupError as exc:
+        return response(intent="public_nhl_transaction_scenario",title="NHL transaction scenario evidence gap",engine_conclusion=str(exc),natural_language_response=str(exc),observed_facts=[],known_limitations=["A canonical team state is required."],confidence=0.35,developer=developer_info("public_nhl_transaction_scenario",getattr(ctx,"files_loaded",[]),missing=["canonical_team_economic_state"]))
+    profile=select_primary_player_subject(question, _public_player_profiles_for(question))
+    player_id=getattr(profile, "entity_id", "") if profile is not None else ""
+    try:
+        contract=resolve_player_contract_state(player_entity_id=player_id,as_of=team.as_of)
+    except LookupError as exc:
+        natural=f"The hypothetical can be discussed, but Athena cannot calculate its contract/cap delta: {exc}"
+        return response(intent="public_nhl_transaction_scenario",title=f"{team.team_name}: transaction scenario evidence gap",engine_conclusion=natural,natural_language_response=natural,observed_facts=[],known_limitations=["Scenario cap deltas require canonical professional contract evidence."],confidence=0.45,developer=developer_info("public_nhl_transaction_scenario",getattr(ctx,"files_loaded",[]),missing=["canonical_transaction_contract_evidence"]))
+    # Whole-picture investigation: missing local evidence triggers registered NHL acquisition
+    # before Athena is allowed to describe roster/player evidence as unavailable.
+    from Athena.Investigation.nhl_transaction import investigate_nhl_transaction
+    target_team = str(getattr(profile, "team", "") or "")
+    investigation = investigate_nhl_transaction(inquiry=inquiry, buyer_abbrev="TOR", target_team_abbrev=target_team or "EDM", target_name=contract.player_name)
+    candidates = list(investigation.evidence.get("candidate_assets") or [])
+    candidate_names = [str(x.get("name") or "") for x in candidates if str(x.get("name") or "")]
+    candidate_text = ", ".join(candidate_names[:5])
+    if "salary_cap" in inquiry.constraints_waived:
+        from Athena.Inquiry.execution import construct_transaction_paths
+        construction = construct_transaction_paths(team_name=team.team_name, target_name=contract.player_name,
+                                                   protected_assets=inquiry.protected_assets, cap_waived=True,
+                                                   acquisition_price_known=False)
+        path_text = " ".join(f"{item['label']}: {item['analysis']}" for item in construction["paths"])
+        named = (f" Current NHL evidence gives Athena a non-protected candidate pool led by {candidate_text}. " if candidate_text else " NHL roster/prospect acquisition did not yield a usable named candidate pool, so Athena will not invent one. ")
+        natural=(f"For this hypothetical, salary-cap feasibility is explicitly waived. {construction['conclusion']} "
+                 f"{named}{path_text} These names are evidence-backed assets to examine, not a claim that Edmonton wants them or that the package is sufficient.")
+        observed=[f"Transaction subject: {contract.player_name}.", "Waived constraint: salary cap.",
+                  f"Protected assets: {', '.join(inquiry.protected_assets) or 'none specified'}."]
+        observed.extend(f"Construction path — {item['label']}: {item['analysis']}" for item in construction["paths"])
+        answer=response(intent="public_nhl_transaction_scenario",title=f"{team.team_name}: cap-waived transaction construction",engine_conclusion=natural,natural_language_response=natural,observed_facts=observed,known_limitations=["Athena does not yet have verified acquisition-price or counterparty-willingness evidence, so these are bounded construction paths rather than a claimed sufficient offer.","Waiving a constraint for analysis does not erase the real-world rule."],confidence=.82,developer=developer_info("public_nhl_transaction_scenario",getattr(ctx,"files_loaded",[]),knowledge_used=["canonical_nhl_player_contract_state"],intelligence_used=["inquiry_state","constraint_waiver","adaptive_inquiry_execution","transaction_construction"],missing=["verified_acquisition_price","verified_counterparty_willingness","verified_current_roster_asset_values"]))
+        answer["developer"]["inquiry_state"]=inquiry.to_dict(); answer["developer"]["canonical_contract_state"]=contract.to_dict(as_of=team.as_of); answer["developer"]["adaptive_execution"]=construction; answer["developer"]["investigation_state"]=investigation.to_dict()
+        return answer
+    outgoing = contract.team_id == team.team_id and _has_any(q,["trade away","trade matthews","move matthews","send matthews","deal matthews","lose matthews"])
+    op=release_contract(contract) if outgoing else acquire_contract(contract)
+    economic=resolve_league_season_context(league_year=team.league_year)
+    scenario=evaluate_transaction_scenario(team,economic,scenario_id=f"{team.team_id}:{op.operation}:{contract.player_entity_id}",operations=(op,),assumptions=("No unasserted salary retention or additional transaction components are assumed.",))
+    named = (f" NHL roster/prospect acquisition identified non-protected Toronto assets to examine, including {candidate_text}." if candidate_text else " NHL roster/prospect acquisition did not produce a usable named candidate pool.")
+    natural=scenario.explanation+f" The evidenced contract used is {contract.player_name} at ${contract.aav/1_000_000:.2f}M AAV.{named} Athena must evaluate why those assets could fit the other organization and why Toronto could rationally surrender them; fit is analysis, not evidence of front-office intent. No salary retention or additional transaction components are assumed unless stated."
+    answer=response(intent="public_nhl_transaction_scenario",title=f"{team.team_name}: transaction scenario",engine_conclusion=natural,natural_language_response=natural,observed_facts=[f"Scenario operation: {op.operation} {contract.player_name}.",f"Evidenced cap-charge delta: ${op.cap_charge_delta/1_000_000:+.2f}M.",f"Canonical current state remains unchanged.",f"Scenario cap determination: {scenario.cap_determination.get('status')}."],known_limitations=[item for item in team.limitations if not ("before the September 29, 2026 regular-season start" in item and __import__("datetime").date.today() >= __import__("datetime").date(2026,9,29))]+["A transaction scenario is hypothetical state, not evidence that a transaction occurred.","Retention legality and other special mechanics require separately executable CBA provisions and factual inputs."],confidence=0.96,developer=developer_info("public_nhl_transaction_scenario",getattr(ctx,"files_loaded",[]),knowledge_used=["canonical_nhl_team_economic_state","canonical_nhl_player_contract_state","league_season_context"],intelligence_used=["transaction_scenario_engine","hypothetical_state_isolation","executable_cap_reasoning"],missing=list(scenario.unresolved_inputs)))
+    answer["developer"]["transaction_scenario"]=scenario.to_dict(); answer["developer"]["canonical_contract_state"]=contract.to_dict(as_of=team.as_of); answer["developer"]["canonical_team_state_unchanged"]=team.to_dict(); answer["developer"]["investigation_state"]=investigation.to_dict()
+    return answer
+
+
+def _answer_nhl_player_asset_state(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Present canonical player/organizational asset state without inventing market value."""
+    from datetime import date
+    from Knowledge.Assets.player_asset_state import resolve_player_asset_state
+    profiles = _public_player_profiles_for(question)
+    if len(profiles) != 1:
+        return response(intent="public_nhl_player_asset_state", title="NHL player asset state",
+                        engine_conclusion="I need one resolved NHL player to build an organizational asset state.",
+                        natural_language_response="I need one resolved NHL player to build an organizational asset state.",
+                        observed_facts=[], known_limitations=["Player identity is unresolved or ambiguous."], confidence=0.35,
+                        developer=developer_info("public_nhl_player_asset_state", getattr(ctx,"files_loaded",[]),
+                        knowledge_used=["public_entity_registry"], intelligence_used=["player_asset_state"], missing=["resolved_player_identity"]))
+    profile=profiles[0]
+    try:
+        state=resolve_player_asset_state(player_entity_id=profile.entity_id,as_of=date.today())
+    except LookupError as exc:
+        text=str(exc)
+        return response(intent="public_nhl_player_asset_state", title=f"{profile.display_name}: organizational asset state",
+                        engine_conclusion=text,natural_language_response=text,observed_facts=[],
+                        known_limitations=[text],confidence=0.4,
+                        developer=developer_info("public_nhl_player_asset_state",getattr(ctx,"files_loaded",[]),
+                        knowledge_used=["player_asset_state"],intelligence_used=["asset_state_composition"],missing=["canonical_asset_state"]))
+    contract_text=(f" His canonical contract evidence carries a ${state.aav/1_000_000:.2f}M AAV through {state.effective_to}"
+                   f" ({state.cap_share_of_upper_limit*100:.2f}% of the current league upper limit)." if state.aav else
+                   " Canonical professional contract/control evidence is not registered for this player/date.")
+    production_text=(f" Canonical statistical evidence is {state.production_freshness}"
+                     + (f"; the latest observed season is {state.latest_observed_season}." if state.latest_observed_season else "."))
+    conclusion=(f"{state.player_name} is a {state.age}-year-old {state.position} in the {state.career_stage.replace('_',' ')} career stage, "
+                f"currently tied by canonical identity evidence to {state.team_id}.{contract_text}{production_text} "
+                "Athena is treating these as asset dimensions, not converting them into an unsupported trade-value score.")
+    facts=[
+        f"Career stage: {state.career_stage.replace('_',' ')}; age {state.age}.",
+        f"Organizational relationship: {state.organizational_relationship} ({state.team_id}).",
+        f"Evidence dimensions: {', '.join(state.evidence_dimensions)}.",
+    ]
+    if state.aav: facts.append(f"Canonical contract: ${state.aav/1_000_000:.2f}M AAV through {state.effective_to}.")
+    if state.career_totals: facts.append("Canonical career totals are available to the asset-state layer.")
+    answer=response(intent="public_nhl_player_asset_state",title=f"{state.player_name}: organizational asset state",
+                    engine_conclusion=conclusion,natural_language_response=conclusion,observed_facts=facts,
+                    known_limitations=list(state.limitations),confidence=0.84 if state.aav and state.production_authority=="canonical_statistical_evidence" else 0.7,
+                    developer=developer_info("public_nhl_player_asset_state",getattr(ctx,"files_loaded",[]),
+                    knowledge_used=["public_entity_registry","canonical_player_statistical_evidence","canonical_nhl_contract_state"],
+                    intelligence_used=["player_organizational_asset_state"],missing=list(state.missing_dimensions)))
+    answer["developer"]["player_asset_state"]=state.to_dict()
+    return answer
+
+
+def _answer_nhl_organizational_plausibility(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Assess organizational plausibility without turning contextual fit into claimed intent."""
+    from Knowledge.Teams.team_economic_state import resolve_team_economic_state
+    from Knowledge.Economics.league_season_context import resolve_league_season_context
+    from Knowledge.Contracts.player_contract_state import resolve_player_contract_state
+    from Knowledge.Assets.player_asset_state import resolve_player_asset_state
+    from Knowledge.Intelligence.Public.public_team_profiles import get_public_team_profile
+    from Reasoning.Transactions.scenario_engine import acquire_contract, evaluate_transaction_scenario
+    from Reasoning.Organizations.plausibility import assess_organizational_plausibility
+    q=_text(question)
+    from Athena.Inquiry.state import build_inquiry_state, select_primary_player_subject
+    inquiry=build_inquiry_state(question, "public")
+    try:
+        team=resolve_team_economic_state(team_id=_transaction_team_id(question, inquiry))
+    except LookupError as exc:
+        text=str(exc)
+        return response(intent="public_nhl_organizational_plausibility",title="Organizational plausibility evidence gap",engine_conclusion=text,natural_language_response=text,observed_facts=[],known_limitations=["Canonical team state is required."],confidence=.35,developer=developer_info("public_nhl_organizational_plausibility",getattr(ctx,"files_loaded",[]),missing=["canonical_team_state"]))
+    profiles=_public_player_profiles_for(question)
+    profile=select_primary_player_subject(question, profiles)
+    if profile is None:
+        text="I need one resolved NHL transaction subject to assess this organizational scenario."
+        return response(intent="public_nhl_organizational_plausibility",title=f"{team.team_name}: plausibility evidence gap",engine_conclusion=text,natural_language_response=text,observed_facts=[],known_limitations=[text],confidence=.35,developer=developer_info("public_nhl_organizational_plausibility",getattr(ctx,"files_loaded",[]),missing=["resolved_player_identity"]))
+    try:
+        contract=resolve_player_contract_state(player_entity_id=profile.entity_id,as_of=team.as_of)
+        asset=resolve_player_asset_state(player_entity_id=profile.entity_id,as_of=team.as_of)
+    except LookupError as exc:
+        text=f"The organizational scenario can be investigated, but the canonical player/contract state is incomplete: {exc}"
+        return response(intent="public_nhl_organizational_plausibility",title=f"{team.team_name}: plausibility evidence gap",engine_conclusion=text,natural_language_response=text,observed_facts=[],known_limitations=[text],confidence=.45,developer=developer_info("public_nhl_organizational_plausibility",getattr(ctx,"files_loaded",[]),missing=["canonical_player_asset_or_contract_state"]))
+    economic=resolve_league_season_context(league_year=team.league_year)
+    op=acquire_contract(contract)
+    scenario=evaluate_transaction_scenario(team,economic,scenario_id=f"{team.team_id}:plausibility:{asset.player_entity_id}",operations=(op,),assumptions=("No unasserted salary retention, outgoing assets or additional transaction components are assumed.",))
+    team_profile=get_public_team_profile("nhl.team.toronto_maple_leafs") if team.abbreviation=="TOR" else None
+    if team_profile is None:
+        text="Canonical economic state exists, but no matching public organizational profile is registered for this team."
+        return response(intent="public_nhl_organizational_plausibility",title=f"{team.team_name}: organizational context gap",engine_conclusion=text,natural_language_response=text,observed_facts=[],known_limitations=[text],confidence=.45,developer=developer_info("public_nhl_organizational_plausibility",getattr(ctx,"files_loaded",[]),missing=["public_team_profile"]))
+    assessment=assess_organizational_plausibility(team_profile=team_profile,team_state=team,player_asset_state=asset,scenario=scenario)
+    from Athena.Inquiry.execution import construct_transaction_paths
+    construction=construct_transaction_paths(team_name=team.team_name,target_name=asset.player_name,
+                                             protected_assets=inquiry.protected_assets,cap_waived=False,
+                                             acquisition_price_known="verified_acquisition_price" not in assessment.unresolved_inputs)
+    natural=assessment.explanation
+    if assessment.fit_considerations: natural+=" Fit evidence: "+" ".join(assessment.fit_considerations)
+    if assessment.friction_considerations: natural+=" Friction: "+" ".join(assessment.friction_considerations)
+    natural+=" Construction read: "+construction["conclusion"]+" "+" ".join(f"{item['label']}: {item['analysis']}" for item in construction["paths"])
+    answer=response(intent="public_nhl_organizational_plausibility",title=f"{team.team_name} / {asset.player_name}: organizational plausibility",
+        engine_conclusion=natural,natural_language_response=natural,observed_facts=list(assessment.established_facts),
+        known_limitations=list(assessment.limitations)+list(assessment.hypotheses),confidence=.78,
+        developer=developer_info("public_nhl_organizational_plausibility",getattr(ctx,"files_loaded",[]),
+        knowledge_used=["canonical_nhl_team_economic_state","player_organizational_asset_state","public_team_profile","canonical_nhl_player_contract_state"],
+        intelligence_used=["organizational_plausibility","transaction_scenario_engine","executable_cap_reasoning","adaptive_inquiry_execution","transaction_construction"],
+        missing=list(assessment.unresolved_inputs)))
+    answer["developer"]["organizational_plausibility"]=assessment.to_dict()
+    answer["developer"]["transaction_scenario"]=scenario.to_dict()
+    answer["developer"]["inquiry_state"]=inquiry.to_dict()
+    answer["developer"]["adaptive_execution"]=construction
+    return answer

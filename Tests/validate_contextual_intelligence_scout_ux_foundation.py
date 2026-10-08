@@ -88,10 +88,33 @@ icing_text=str(icing_answer.get('natural_language_response') or '')
 check('icing_composes_answer', 'In hockey, icing' in icing_text and 'Athena found public hockey knowledge-pack evidence' not in icing_text, icing_text)
 cap_answer=route_question('What roster and salary-cap structures could make this acquisition workable?',ctx,mode='public')
 cap_text=str(cap_answer.get('natural_language_response') or '')
-check('cap_scenario_composes_constraints', 'acquiring club' in cap_text and 'current payrolls' in cap_text and 'Athena found public hockey knowledge-pack evidence' not in cap_text, cap_text)
+check(
+    'cap_scenario_composes_constraints',
+    (
+        ('Team Payroll Range' in cap_text or 'salary-cap' in cap_text.lower())
+        and ('not a team cap calculation' in cap_text.lower() or 'current payrolls' in cap_text.lower())
+        and ('canonical club contract/adjustment ledger' in cap_text.lower() or 'acquiring club' in cap_text.lower())
+        and 'Athena found public hockey knowledge-pack evidence' not in cap_text
+    ),
+    cap_text,
+)
 current_cap=route_question('Maple Leafs salary cap impact right now',ctx,mode='public')
 current_cap_text=str(current_cap.get('natural_language_response') or '')
-check('current_cap_does_not_mistake_rules_for_state', 'does not establish the team\'s current cap position' in current_cap_text, current_cap_text)
+check(
+    'current_cap_does_not_mistake_rules_for_state',
+    (
+        (
+            ('Maple Leafs' not in current_cap_text and ('does not establish the team\'s current cap position' in current_cap_text or 'not a team cap calculation' in current_cap_text.lower()))
+            or ('Maple Leafs' in current_cap_text and ('not complete enough to state actual cap usage or cap space' in current_cap_text.lower() or 'cannot determine toronto maple leafs' in current_cap_text.lower()))
+        )
+        and (
+            'canonical club contract/adjustment ledger' in current_cap_text.lower()
+            or 'actual cap usage' in current_cap_text.lower()
+        )
+        and ('Maple Leafs' not in current_cap_text or 'will not add' in current_cap_text.lower() or 'not treating those covered contracts' in current_cap_text.lower())
+    ),
+    current_cap_text,
+)
 
 
 print('-'*64)

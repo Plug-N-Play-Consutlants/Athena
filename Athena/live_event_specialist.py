@@ -134,21 +134,41 @@ def _event_theme_counts(events: List[Dict[str, Any]]) -> List[tuple[str,int]]:
     return sorted(((k,v) for k,v in themes.items() if v), key=lambda x:x[1], reverse=True)
 
 def _compose_live_event_narrative(question: str, live: Dict[str, Any], events: List[Dict[str, Any]]) -> str:
-    """Compose a concise public synthesis; individual evidence is rendered once by Studio."""
+    """Compose a useful public synthesis from the selected event evidence.
+
+    The narrative must stand on its own in normal Scout mode. Source cards are
+    supporting evidence, not a substitute for saying what the selected evidence
+    actually contains.
+    """
     q = (question or "").lower()
     requested_types = set(str(x).lower() for x in (live.get("requested_event_types") or []))
     total = len(live.get("events") or events)
+    themes = _event_theme_counts(events)
     if "trade" in requested_types or "trades" in q or "transaction" in requested_types:
-        text = f"I found {total} qualifying recent trade/transaction result(s). The strongest source-backed items are below."
+        lead = f"I found {total} qualifying recent trade/transaction result(s)."
+    elif themes:
+        primary = themes[0][0]
+        secondary = themes[1][0] if len(themes) > 1 and themes[1][1] else ""
+        lead = f"Current coverage is centered on {primary}" + (f", with additional attention on {secondary}" if secondary else "") + "."
     else:
-        themes=_event_theme_counts(events)
-        if themes:
-            lead=themes[0][0]
-            second=themes[1][0] if len(themes)>1 and themes[1][1] else ""
-            text=f"Current coverage is centered on {lead}" + (f", with additional attention on {second}" if second else "") + ". The strongest source-backed items are below."
-        else:
-            text="The strongest current source-backed items are collected below."
-    return text
+        lead = "The selected current evidence does not collapse into one dominant theme yet."
+
+    evidence_lines: List[str] = []
+    for event in events[:2]:
+        if not isinstance(event, dict):
+            continue
+        title = _clean_event_text(event.get("title"))
+        summary = _clean_event_text(event.get("summary"))
+        if not title and not summary:
+            continue
+        item = title or summary
+        if title and summary and summary.lower() not in title.lower():
+            item = f"{title}: {summary}"
+        evidence_lines.append(item.rstrip(". ") + ".")
+
+    if evidence_lines:
+        return lead + " The strongest selected evidence includes " + " ".join(evidence_lines)
+    return lead + " No individual event summary was available to support a stronger public conclusion."
 
 def _focused_live_events(question: str, events: list[dict]) -> tuple[list[dict], str]:
     """Narrow generated investigation follow-ups to their referenced story/player."""

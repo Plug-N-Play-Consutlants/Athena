@@ -23,7 +23,13 @@ def _records():
 
 
 def _target_season_id():
-    start = date.today().year - 1
+    """Return the NHL season that is currently in progress or next to begin.
+
+    The NHL season crosses calendar years. From July onward, the season starts
+    in the current calendar year; before July it started in the prior year.
+    """
+    today = date.today()
+    start = today.year if today.month >= 7 else today.year - 1
     return f"{start}{start + 1}"
 
 
@@ -68,8 +74,8 @@ def _season_index(season_id: str):
 def _live_record(name: str, team: str, position: str, birth_date: str):
     if os.getenv("ATHENA_NHL_PLAYER_NETWORK", "1").lower() not in {"1", "true", "yes", "on"}:
         return None
-    # Prefer the last season with a usable regular-season sample. In autumn,
-    # the just-opened season has not established a player assessment yet.
+    # Current displayed production must come from the active season. Stable
+    # multi-season assessment is a separate downstream concern.
     season_id = _target_season_id()
     try:
         from Providers.NHL.nhl_client import NHLClient
@@ -173,7 +179,14 @@ def authoritative_statistical_view(evidence: dict[str, Any], *, window_size: int
     except ValueError:
         target_start = 0
     if target_start:
-        recent = [row for row in series if target_start - (window_size - 1) <= int(str(row.get("season") or "")[:4]) <= target_start][:window_size]
+        # Current production and stable assessment are different views. Early in
+        # a new season, keep the assessment window on completed seasons until a
+        # minimally meaningful current sample exists.
+        current = next((row for row in series if int(str(row.get("season") or "")[:4]) == target_start), None)
+        include_current = bool(current and isinstance(current.get("gp"), (int, float)) and current.get("gp", 0) >= 20)
+        eligible = [row for row in series if int(str(row.get("season") or "")[:4]) <= target_start and
+                    (include_current or int(str(row.get("season") or "")[:4]) < target_start)]
+        recent = eligible[:window_size]
     else:
         recent = series[:window_size]
     career = statistical.get("career", {}) if canonical and isinstance(statistical.get("career"), dict) else {
@@ -230,12 +243,12 @@ def player_evidence(name: str, *, team: str = "", position: str = "", birth_date
         return {}
     row, payload = candidates[0]
     featured = payload.get("featuredStats") or {}
-    season = featured.get("season")
+    featured_season = featured.get("season")
     regular = (featured.get("regularSeason") or {}) if isinstance(featured, dict) else {}
-    stats = regular.get("subSeason") or {}
+    featured_stats = regular.get("subSeason") or {}
     career = regular.get("career") or {}
-    if not isinstance(stats, dict):
-        stats = {}
+    if not isinstance(featured_stats, dict):
+        featured_stats = {}
     if not isinstance(career, dict):
         career = {}
     born = payload.get("birthDate")
@@ -245,6 +258,23 @@ def player_evidence(name: str, *, team: str = "", position: str = "", birth_date
         age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
     except ValueError:
         age = None
+
+    # Headline/card production is current-season state. NHL landing featuredStats
+    # may legitimately remain on the last completed season early in autumn, so
+    # select the active season from seasonTotals instead of relabelling old data.
+    target_id = int(_target_season_id())
+    nhl_seasons = _season_rows(payload)
+    current_row = next((item for item in nhl_seasons if int(item.get("season") or 0) == target_id), None)
+    if current_row is not None:
+        stats = current_row
+        season = current_row.get("season")
+    elif str(featured_season or "") == str(target_id):
+        stats = featured_stats
+        season = featured_season
+    else:
+        stats = {}
+        season = target_id
+
     gp = stats.get("gamesPlayed")
     points = stats.get("points")
     values = {"goals": stats.get("goals"), "assists": stats.get("assists"), "points": points,
@@ -257,7 +287,6 @@ def player_evidence(name: str, *, team: str = "", position: str = "", birth_date
                   "gp": gp, "g": stats.get("goals"), "a": stats.get("assists"),
                   "pts": points, "ppg": values.get("ppg"),
                   "plus_minus": ("+" + str(stats["plusMinus"]) if isinstance(stats.get("plusMinus"), (int, float)) and stats["plusMinus"] > 0 else stats.get("plusMinus"))}
-    nhl_seasons = _season_rows(payload)
     season_history = [
         {"season": _season_label(item.get("season")), "gp": item.get("gamesPlayed"),
          "goals": item.get("goals"), "assists": item.get("assists"),

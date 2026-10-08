@@ -42,10 +42,10 @@ def build_trace() -> dict[str, Any]:
             "domain": "rules_and_cap_boundary",
             "question": "Maple Leafs salary cap usage this year",
             "mode": "public",
-            "expected_route": "",
+            "expected_route": "public_nhl_cap_reasoning",
             "acquisition_owner": "Athena.request_execution",
-            "normalization_owner": "Knowledge.Sources.public_hockey_retrieval",
-            "authority": "rules_available_current_cap_ledger_unregistered",
+            "normalization_owner": "Reasoning.Cap.cap_reasoning",
+            "authority": "bounded_team_economic_state_incomplete_ledger",
         },
         {
             "domain": "historical_fantasy",
@@ -77,7 +77,7 @@ def build_trace() -> dict[str, Any]:
         "id": "current_public_cap_ledger",
         "severity": "evidence_gap",
         "status": "known_unregistered",
-        "detail": "Rules are retrievable, but no canonical current public payroll/roster cap ledger is registered.",
+        "detail": "Bounded team state is registered, but a complete current public payroll/roster cap ledger and adjustment ledger are not yet registered.",
     })
     return {
         "contract": "athena_application_path_trace",

@@ -400,8 +400,9 @@ def build_extended_player_identity(answer: Dict[str, Any], cards: Dict[str, str]
 
 
 def build_current_stat_boxes(answer: Dict[str, Any], cards: Dict[str, str]) -> List[Dict[str, Any]]:
-    stat_source = answer.get("stats") if isinstance(answer.get("stats"), dict) else {}
-    parsed = _extract_current_production(answer)
+    has_current_stats = isinstance(answer.get("stats"), dict)
+    stat_source = answer.get("stats") if has_current_stats else {}
+    parsed = _extract_current_production(answer) if not has_current_stats else {}
     lookup = {
         "Goals": ["goals", "g"],
         "Assists": ["assists", "a"],
@@ -413,7 +414,9 @@ def build_current_stat_boxes(answer: Dict[str, Any], cards: Dict[str, str]) -> L
     for label in STAT_BOX_ORDER:
         value = ""
         for key in lookup[label]:
-            value = _text(stat_source.get(key)) or _text(cards.get(key)) or _text(parsed.get(key))
+            value = _text(stat_source.get(key))
+            if not has_current_stats:
+                value = value or _text(cards.get(key)) or _text(parsed.get(key))
             if value:
                 break
         if label == "+/-" and value and value.lstrip("-").isdigit() and int(value) > 0:
@@ -457,12 +460,16 @@ def _section_summary(answer: Dict[str, Any], cards: Dict[str, str], title: str) 
         )
     if lower == "current season":
         if professional:
-            rows = answer.get("season_statistics") or []
-            if rows:
-                latest = rows[0]
-                return (f"{latest.get('season')}: {latest.get('pts')} points in {latest.get('gp')} NHL games. "
-                        f"The current tier uses {professional.get('seasons_used')} regular seasons; "
+            current_stats = answer.get("stats") if isinstance(answer.get("stats"), dict) else {}
+            developer = answer.get("developer") if isinstance(answer.get("developer"), dict) else {}
+            seed = developer.get("player_experience_seed") if isinstance(developer.get("player_experience_seed"), dict) else {}
+            target = _text(seed.get("target_season") or seed.get("season") or "current season")
+            if current_stats.get("games_played"):
+                return (f"{target}: {current_stats.get('points', 0)} points in {current_stats.get('games_played')} NHL games. "
+                        f"The stable assessment tier currently uses {professional.get('seasons_used')} completed/recent seasons; "
                         f"{professional.get('trend', '').lower()} trend.")
+            return (f"{target} is the active season, but verified current-season production is not available in the attached NHL evidence yet. "
+                    f"The assessment therefore remains anchored to {professional.get('seasons_used')} completed/recent seasons through {professional.get('as_of_season')} rather than relabelling last season's totals as current.")
         parsed = _extract_current_production(answer)
         band = _production_band(answer, cards)
         if parsed:
@@ -555,7 +562,7 @@ def build_stats_tab(answer: Dict[str, Any], cards: Dict[str, str]) -> UISection:
         key: value
         for key, value in {
             "production_band": _production_band(answer, cards),
-            "ppg": _text(cards.get("ppg") or cards.get("p/gp") or _extract_current_production(answer).get("ppg")),
+            "ppg": _text((answer.get("stats") or {}).get("ppg")) if isinstance(answer.get("stats"), dict) else _text(cards.get("ppg") or cards.get("p/gp") or _extract_current_production(answer).get("ppg")),
             "three_year_ppg": _text(cards.get("3-year ppg") or cards.get("three-year ppg")),
             "peak_goals": _text(cards.get("peak goals")),
             "career_tier": _career_tier(cards),

@@ -63,44 +63,32 @@ def main() -> int:
     ))
     rows.append(check("workspace_gitignored", workspace_ignored, ".gitignore"))
     rows.append(check("runtime_quarantine_gitignored", "Archive/runtime_quarantine/" in gitignore, ".gitignore"))
-    # Patch archives cannot delete pre-existing files on extract. Root history
-    # files are cleanup targets, but they must not break Verify Build while the
-    # Studio-first safe cleanup flow is responsible for archiving them.
-    tolerated_root_history = {
-        "CHANGE_MANIFEST_v0.5.6.2.4_repository_review.md",
-        "CHANGE_MANIFEST_v0.6.1.0.0_experience_layer_foundation.md",
-        "CHANGE_MANIFEST_v0.6.2.0.0_player_experience_foundation.md",
-        "CHANGE_MANIFEST_v0.6.2.0.2_player_experience_rendering_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.3.0.0_foundational_governance_and_module_adaptivity.md",
-        # Overlay extraction cannot delete the immediately previous release manifest.
-        # It is a known safe-cleanup target and must not create a false Verify Build failure.
-        "CHANGE_MANIFEST_v0.6.4.3.0_canonical_draft_knowledge_integration.md",
-        "CHANGE_MANIFEST_v0.6.4.7.0_historical_identity_resolution_foundation.md",
-        "CHANGE_MANIFEST_v0.6.4.8.0_historical_draft_intelligence_foundation.md",
-        "CHANGE_MANIFEST_v0.6.4.8.1_historical_draft_intelligence_release_history_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.4.9.0_pre_draft_context_and_readiness_intelligence.md",
-        "CHANGE_MANIFEST_v0.6.4.9.1_pre_draft_routing_evidence_diversity_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.4.9.2_scout_normal_response_composition_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.4.10.0_scout_investigative_response_contextual_followup_foundation.md",
-        "CHANGE_MANIFEST_v0.6.4.10.1_scout_evidence_presentation_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.4.10.2_scout_evidence_presentation_polish_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.4.10.3_scout_verification_contract_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.4.11.0_league-wide_evidence_sufficiency_foundation.md",
-        "CHANGE_MANIFEST_v0.6.4.11.1_evidence_quality,_synthesis_&_session_observability_hotfix.md",
-        "CHANGE_MANIFEST_v0.6.4.11.2_scout_information_flow_regression_hotfix.md",
-        f"CHANGE_MANIFEST_v{version.ATHENA_VERSION}_" + str(version.RELEASE_NAME).strip().lower().replace(" ", "_") + ".md",
-    }
+    # Root history is intentionally handled by the canonical Studio Safe Cleanup
+    # doctor. A recognized safe cleanup candidate is pending hygiene, not a
+    # structural repository failure. Unexpected root history still fails.
+    try:
+        from Tools.repository_safe_cleanup import discover_cleanup_candidates
+        safe_cleanup = {
+            candidate.path: candidate
+            for candidate in discover_cleanup_candidates(ROOT)
+            if candidate.classification == "safe"
+        }
+    except Exception:
+        safe_cleanup = {}
     root_history = [
         p.name for p in ROOT.iterdir()
         if p.is_file()
         and p.suffix.lower() == ".md"
         and (p.name.startswith("CHANGE_MANIFEST_") or p.name.startswith("README_") or p.name.startswith("RELEASE_NOTES_") or p.name.startswith("CLEANUP_REPORT_"))
-        and p.name not in tolerated_root_history
     ]
-    tolerated = sorted(p.name for p in ROOT.iterdir() if p.is_file() and (p.name in tolerated_root_history or p.name.startswith("README_v")))
-    # Only truly unexpected root history is a failure. Known root history residue
-    # remains a Release Hygiene warning and is archived by Studio Safe Cleanup.
-    rows.append(check("root_history_archived", not root_history, ", ".join(root_history[:10]) if root_history else ("tolerated root history pending safe cleanup: " + ", ".join(tolerated) if tolerated else "none")))
+    unexpected_root_history = [name for name in root_history if name not in safe_cleanup]
+    pending_safe_cleanup = [name for name in root_history if name in safe_cleanup]
+    detail = (
+        ", ".join(unexpected_root_history[:10])
+        if unexpected_root_history
+        else ("pending Studio Safe Cleanup: " + ", ".join(pending_safe_cleanup) if pending_safe_cleanup else "none")
+    )
+    rows.append(check("root_history_archived", not unexpected_root_history, detail))
     rows.append(check("archived_change_manifests_folder", (ROOT / "Archive" / "Documentation" / "ChangeManifests").exists(), "Archive/Documentation/ChangeManifests"))
     offenders = _contains_legacy_core_import()
     rows.append(check("no_legacy_core_importers", not offenders, ", ".join(offenders[:10]) if offenders else "none"))

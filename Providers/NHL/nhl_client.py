@@ -69,6 +69,43 @@ class NHLClient:
     def get_player_landing(self, player_id: str) -> Any:
         return self.get_web(f"player/{player_id}/landing")
 
+    def get_current_roster(self, team_abbrev: str) -> Any:
+        return self.get_web(f"roster/{quote(str(team_abbrev).upper())}/current")
+
+    def get_roster(self, team_abbrev: str, season_id: str) -> Any:
+        return self.get_web(f"roster/{quote(str(team_abbrev).upper())}/{quote(str(season_id))}")
+
+    def get_roster_seasons(self, team_abbrev: str) -> Any:
+        return self.get_web(f"roster-season/{quote(str(team_abbrev).upper())}")
+
+    def get_prospects(self, team_abbrev: str) -> Any:
+        return self.get_web(f"prospects/{quote(str(team_abbrev).upper())}")
+
+    def get_club_stats_now(self, team_abbrev: str) -> Any:
+        return self.get_web(f"club-stats/{quote(str(team_abbrev).upper())}/now")
+
+    def get_club_stats(self, team_abbrev: str, season_id: str, game_type_id: int = 2) -> Any:
+        return self.get_web(f"club-stats/{quote(str(team_abbrev).upper())}/{quote(str(season_id))}/{int(game_type_id)}")
+
+    def get_club_stats_seasons(self, team_abbrev: str) -> Any:
+        return self.get_web(f"club-stats-season/{quote(str(team_abbrev).upper())}")
+
+    def get_goalie_summary(self, season_id: str, game_type_id: int = 2, limit: int = -1) -> Any:
+        cayenne_exp = f"seasonId={season_id} and gameTypeId={game_type_id}"
+        return self.get_stats("goalie/summary", params={"limit": limit, "cayenneExp": cayenne_exp})
+
+    def get_skater_report(self, report: str, season_id: str, game_type_id: int = 2, limit: int = -1) -> Any:
+        cayenne_exp = f"seasonId={season_id} and gameTypeId={game_type_id}"
+        return self.get_stats(f"skater/{quote(str(report))}", params={"limit": limit, "cayenneExp": cayenne_exp})
+
+    def get_goalie_report(self, report: str, season_id: str, game_type_id: int = 2, limit: int = -1) -> Any:
+        cayenne_exp = f"seasonId={season_id} and gameTypeId={game_type_id}"
+        return self.get_stats(f"goalie/{quote(str(report))}", params={"limit": limit, "cayenneExp": cayenne_exp})
+
+    def get_team_report(self, report: str, season_id: str, game_type_id: int = 2, limit: int = -1) -> Any:
+        cayenne_exp = f"seasonId={season_id} and gameTypeId={game_type_id}"
+        return self.get_stats(f"team/{quote(str(report))}", params={"limit": limit, "cayenneExp": cayenne_exp})
+
     def save_raw_json(self, filename: str, payload: Any) -> None:
         path = RAW_DIR / filename
         write_json(path, payload)

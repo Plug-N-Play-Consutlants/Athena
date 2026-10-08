@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.7.2.0.0",
+  "league": "NHL",
+  "purpose": "Bounded team roster/economic evidence. Roster observations are typed by evidence status and must not be promoted to a final roster or complete cap ledger.",
+  "teams": [
+    {
+      "team_id": "nhl.team.tor",
+      "team_name": "Toronto Maple Leafs",
+      "abbreviation": "TOR",
+      "league_year": "2026-27",
+      "as_of": "2026-09-28",
+      "roster_evidence_status": "preseason_not_final",
+      "economic_completeness": "partial_contract_coverage",
+      "aggregate_cap_usage_status": "unavailable_incomplete_ledger",
+      "roster_observations": [
+        {"player_name":"Auston Matthews","position":"C","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Matthew Knies","position":"L","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Nick Paul","position":"L","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Colton Sissons","position":"C","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Jake McCabe","position":"D","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Darren Raddysh","position":"D","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Morgan Rielly","position":"D","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Troy Stecher","position":"D","observed_on":"2026-09-23","observation_type":"preseason_game_roster"},
+        {"player_name":"Easton Cowan","position":"R","observed_on":"2026-09-23","observation_type":"preseason_game_roster"}
+      ],
+      "provenance": [
+        {
+          "source_id":"nhl_tor_preseason_roster_2026_09_23",
+          "authority":"NHL",
+          "publisher":"NHL.com",
+          "title":"Club Playing Roster - Ottawa at Toronto, September 23, 2026",
+          "published_on":"2026-09-23",
+          "url":"https://www.nhl.com/scores/htmlreports/20262027/RO010035.HTM",
+          "supports":["team_identity","preseason_game_roster_observations"]
+        },
+        {
+          "source_id":"nhl_tor_season_preview_2026_09_26",
+          "authority":"NHL",
+          "publisher":"NHL.com",
+          "title":"Maple Leafs season preview: Bobrovsky, McKenna among new faces",
+          "published_on":"2026-09-26",
+          "url":"https://www.nhl.com/news/toronto-maple-leafs-season-preview-2026-27",
+          "supports":["2026_27_context","regular_season_start_2026_09_29","roster_transition_context"]
+        }
+      ],
+      "limitations": [
+        "September 28 is before the September 29, 2026 regular-season start; preseason game participation is not a finalized opening roster.",
+        "The canonical professional contract pack is not yet a complete Toronto SPC ledger.",
+        "Retained salary, buried salary, reserve-list treatment, injured-reserve/LTIR treatment, bonuses/overages and other club adjustments are not comprehensively registered.",
+        "No aggregate Toronto cap-usage or cap-space number may be asserted from this state."
+      ]
+    }
+  ]
+}

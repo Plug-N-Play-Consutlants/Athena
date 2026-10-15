@@ -157,6 +157,13 @@ def comparison_semantics(question: str) -> Dict[str, object]:
     }
 
 
+def _has_qualified_player_subject(question: str) -> bool:
+    """Detect an explicit person subject without asserting verified identity."""
+    # Candidate detection only: the specialist remains responsible for
+    # authoritative identity resolution and can return an identity gap.
+    return bool(re.search(r"\b(?:[Hh]ow has|[Hh]ow is|[Ww]hat has|[Ee]valuate|[Aa]ssess)\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b", question or ""))
+
+
 def plan_capability(question: str, mode: str = "public") -> Optional[AthenaIntentPlan]:
     """Return a high-priority orchestration plan when legacy routing is risky."""
     q = _text(question)
@@ -200,6 +207,20 @@ def plan_capability(question: str, mode: str = "public") -> Optional[AthenaInten
             "public_player_historical_stature", 0.995,
             "Named-player historical stature requires a career evidence inventory and explicit unresolved tests; incidental injury words must not trigger live news.", 105,
         )
+
+    if selected_mode == "public" and (len(comparison_players) == 1 or _has_qualified_player_subject(question)) and _has_any(q, (
+        "this season", "current season", "season so far", "performed this year",
+        "contribution to", "production this season", "playing this season",
+    )):
+        return AthenaIntentPlan("public_player_investigation", 0.96,
+            "Named player and current-season evaluation require player-scoped evidence acquisition.", 100)
+
+    if selected_mode == "public" and _has_any(q, (
+        "roster needs", "roster holes", "roster weaknesses", "roster flexibility",
+        "flexibility to address", "room to improve the roster",
+    )) and _has_any(q, ("maple leafs", "leafs", "toronto")):
+        return AthenaIntentPlan("public_nhl_team_economic_state", 0.94,
+            "Roster-flexibility inquiry requires canonical team economic evidence; roster needs remain separately unresolved unless supported.", 92)
 
     if selected_mode == "public":
         # Development/projection is an analytical inquiry even when it mentions

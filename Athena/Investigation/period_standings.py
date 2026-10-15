@@ -13,7 +13,7 @@ def required_periods(period: int, *, season_to_date: bool = False) -> list[int]:
     return list(range(1, period + 1)) if season_to_date else list(range(max(1, period - 1), period + 1))
 
 
-def compare_periods(snapshots: list[dict[str, Any]], *, requested_period: int) -> dict[str, Any]:
+def compare_periods(snapshots: list[dict[str, Any]], *, requested_period: int, season_to_date: bool = False) -> dict[str, Any]:
     """Compare complete league-wide cumulative snapshots with stable team IDs.
 
     A missing baseline yields unavailable deltas, never an invented zero.
@@ -33,7 +33,8 @@ def compare_periods(snapshots: list[dict[str, Any]], *, requested_period: int) -
     if requested_period not in indexed:
         return {"status": "missing_requested_period", "period": requested_period, "teams": [], "missing_periods": [requested_period]}
     current = indexed[requested_period]
-    prior = indexed.get(requested_period - 1)
+    baseline_period = 1 if season_to_date and requested_period > 1 else requested_period - 1
+    prior = indexed.get(baseline_period)
     previous_teams = {str(t["team_id"]): t for t in prior["teams"]} if prior else {}
     rows = []
     for team in current["teams"]:
@@ -47,8 +48,8 @@ def compare_periods(snapshots: list[dict[str, Any]], *, requested_period: int) -
                      "points": points, "rank_change": rank_change, "period_points": point_change,
                      "baseline_available": before is not None})
     return {"status": "compared" if prior else "baseline_missing", "period": requested_period,
-            "baseline_period": requested_period - 1 if requested_period > 1 else None,
-            "missing_periods": [requested_period - 1] if requested_period > 1 and not prior else [],
+            "baseline_period": baseline_period if requested_period > 1 else None,
+            "missing_periods": [baseline_period] if requested_period > 1 and not prior else [],
             "teams": rows, "source": "canonical_period_standings"}
 
 
@@ -64,7 +65,7 @@ def acquire_periods(period: int, fetch: Callable[[int], dict[str, Any]], *, seas
             snapshots.append(snapshot)
         except (ValueError, KeyError, TypeError, OSError) as exc:
             failures[p] = str(exc)
-    result = compare_periods(snapshots, requested_period=period)
+    result = compare_periods(snapshots, requested_period=period, season_to_date=season_to_date)
     result["requested_periods"] = requested
     result["acquisition_errors"] = failures
     return result

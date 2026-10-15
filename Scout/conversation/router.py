@@ -1943,15 +1943,6 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if any(term in q for term in diagnostic_terms):
         return _diagnostic_runtime_answer(ctx, raw_question, selected_mode)
 
-    # Targeted public roster-needs inquiries require a composed team investigation.
-    # A cap-only specialist cannot answer positional needs; retain the cap ledger
-    # as a constraint rather than allowing it to take ownership of the question.
-    if _is_targeted_team_query(raw_question) and re.search(
-        r"\b(roster needs?|positional needs?|lineup needs?|weakness(?:es)?|where .* (?:improve|upgrade)|how .* (?:improve|upgrade)|improvements?)\b",
-        _normalize_public_query_text(raw_question), re.IGNORECASE,
-    ) and not explicit_league:
-        return _public_analytical_answer(ctx, raw_question, "public")
-
     # Athena is the authoritative registered-specialist executor. Scout does
     # not preempt it with its own live-news priority or handler selection.
     from Athena.inquiry_execution import answer as athena_answer

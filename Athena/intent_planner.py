@@ -182,6 +182,15 @@ def plan_capability(question: str, mode: str = "public") -> Optional[AthenaInten
     except Exception:
         inquiry = None
 
+    # A team's primary roster/improvement objective owns its investigation;
+    # salary-cap language is a supporting constraint, not a cap-only objective.
+    # This decision lives in Athena's existing planner, never in Scout.
+    if selected_mode == "public":
+        from Athena.public_team_performance import team_investigation_target
+        if team_investigation_target(question) is not None:
+            return AthenaIntentPlan("public_current_season_team_investigation", 0.94,
+                "Team roster/improvement objective with economic context as a constraint.", 93)
+
     # Entity ambiguity must win before fantasy player lookup.
     if "sebastian aho" in q and not _has_any(q, ["finnish", "carolina", "hurricanes", "swedish", "islanders", "penguins"]):
         return AthenaIntentPlan("ambiguous_public_entity", 0.95, "Ambiguous public entity name requires disambiguation.", 98)

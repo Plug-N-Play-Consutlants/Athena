@@ -195,3 +195,53 @@ def official_team_player_row(player_name: str, team_name: str) -> dict[str, Any]
             return None
         return {"season": season, "gp": gp, "points": points, "goals": row.get("goals"), "assists": row.get("assists")}
     return None
+
+
+# Canonical objective selection and execution are Athena-owned. This is a
+# bounded team investigation, not a claim of verified positional deficiencies.
+_TEAM_SUBJECTS = (
+    (("leafs", "toronto", "maple leafs"), "TOR", "Toronto Maple Leafs"),
+    (("oilers", "edmonton"), "EDM", "Edmonton Oilers"),
+    (("hurricanes", "carolina"), "CAR", "Carolina Hurricanes"),
+    (("avalanche", "colorado"), "COL", "Colorado Avalanche"),
+    (("stars", "dallas"), "DAL", "Dallas Stars"),
+    (("panthers", "florida"), "FLA", "Florida Panthers"),
+)
+
+
+def team_investigation_target(question: str) -> tuple[str, str] | None:
+    import re
+    text = re.sub(r"[^a-z0-9\s]", " ", (question or "").casefold())
+    text = re.sub(r"\s+", " ", text)
+    subject = next(((abbrev, name) for aliases, abbrev, name in _TEAM_SUBJECTS
+                    if any(re.search(r"\b" + re.escape(alias) + r"\b", text) for alias in aliases)), None)
+    if subject is None:
+        return None
+    # An explicit team improvement/needs objective, not a generic cap inquiry.
+    primary = bool(re.search(r"\b(roster|lineup|positional|depth)\s+(needs?|holes?|weakness(?:es)?|improvements?|upgrades?)\b", text))
+    primary = primary or bool(re.search(r"\b(how|where|ways?|could|should)\b.{0,85}\b(improve|upgrade|strengthen|address)\b", text))
+    primary = primary or bool(re.search(r"\b(improve|upgrade|strengthen)\b.{0,55}\b(roster|lineup|team)\b", text))
+    return subject if primary else None
+
+
+def execute_team_investigation(ctx: Any, question: str) -> dict[str, Any]:
+    from Scout.conversation.responses import response, developer_info
+    team = team_investigation_target(question)
+    if team is None:
+        return response(intent="public_current_season_team_investigation", title="Team subject unresolved",
+                        engine_conclusion="The team and investigation objective could not be established.",
+                        known_limitations=["verified_team_investigation_subject"], confidence=0.2)
+    assessment = assess_team_performance(question, *team)
+    evidence = assessment["evidence"]
+    facts = [f"Official NHL season: {evidence['season']}"]
+    facts.extend(f"{row['name']}: {row['points']} points in {row['gp']} games"
+                 for row in evidence.get("leaders", []) if isinstance(row.get("points"), (int, float)))
+    return response(
+        intent="public_current_season_team_investigation", title=f"{team[1]}: current-season evidence",
+        engine_conclusion=assessment["conclusion"], observed_facts=facts,
+        known_limitations=list(evidence["missing"]), confidence=assessment["confidence"],
+        developer={**developer_info("public_current_season_team_investigation",
+                                   getattr(ctx, "files_loaded", []), knowledge_used=evidence["sources"],
+                                   intelligence_used=["nhl_team_performance_investigation"], missing=evidence["missing"]),
+                   "team_performance_evidence": evidence},
+    )

@@ -81,6 +81,14 @@ class NHLClient:
     def get_prospects(self, team_abbrev: str) -> Any:
         return self.get_web(f"prospects/{quote(str(team_abbrev).upper())}")
 
+    def get_team_standings_now(self) -> Any:
+        """Official NHL current standings, not a projection."""
+        return self.get_web("standings/now")
+
+    def get_team_schedule_now(self, team_abbrev: str) -> Any:
+        """Official NHL current team schedule and completed-game results."""
+        return self.get_web(f"club-schedule-season/{quote(str(team_abbrev).upper())}/now")
+
     def get_club_stats_now(self, team_abbrev: str) -> Any:
         return self.get_web(f"club-stats/{quote(str(team_abbrev).upper())}/now")
 

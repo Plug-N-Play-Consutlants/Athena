@@ -1297,7 +1297,7 @@ def _is_team_performance_inquiry(question: str) -> bool:
         r"\b(so far this season|this season|current season|season to date)\b",
         r"\b(what.s working|what isn.t|who.s making a difference)\b",
         r"\b(how (are|is|have) .{0,45}(looking|performing|playing|doing))\b",
-        r"\b(management|roster needs|trade deadline|lineup changes)\b",
+        r"\b(management|roster needs?|positional needs?|lineup needs?|weakness(?:es)?|improv(?:e|ement|ements)|upgrade|trade deadline|lineup changes)\b",
     )
     return any(re.search(pattern, text) for pattern in patterns)
 
@@ -1942,6 +1942,15 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     diagnostic_terms = ["what intelligence modules executed", "what modules executed", "what evidence did you use", "show pipeline trace", "pipeline trace", "runtime trace", "explain your reasoning"]
     if any(term in q for term in diagnostic_terms):
         return _diagnostic_runtime_answer(ctx, raw_question, selected_mode)
+
+    # Targeted public roster-needs inquiries require a composed team investigation.
+    # A cap-only specialist cannot answer positional needs; retain the cap ledger
+    # as a constraint rather than allowing it to take ownership of the question.
+    if _is_targeted_team_query(raw_question) and re.search(
+        r"\b(roster needs?|positional needs?|lineup needs?|weakness(?:es)?|where .* (?:improve|upgrade)|how .* (?:improve|upgrade)|improvements?)\b",
+        _normalize_public_query_text(raw_question), re.IGNORECASE,
+    ) and not explicit_league:
+        return _public_analytical_answer(ctx, raw_question, "public")
 
     # Athena is the authoritative registered-specialist executor. Scout does
     # not preempt it with its own live-news priority or handler selection.

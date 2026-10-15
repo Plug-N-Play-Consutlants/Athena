@@ -35,7 +35,51 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     except Exception as exc:
         evidence["missing"].append("verified_current_season_club_stats")
         evidence["acquisition_error"] = type(exc).__name__
-    evidence["missing"].append("verified_team_standings_and_game_trends")
+    # Team-level results are distinct from individual scoring. Keep each source
+    # independent so a failed standings endpoint does not erase verified players.
+    try:
+        standings_payload = NHLClient().get_team_standings_now()
+        rows = standings_payload.get("standings") if isinstance(standings_payload, dict) else None
+        if not isinstance(rows, list):
+            raise ValueError("standings_rows_missing")
+        match = next((r for r in rows if isinstance(r, dict) and
+                      str(r.get("teamAbbrev", {}).get("default", "") if isinstance(r.get("teamAbbrev"), dict) else r.get("teamAbbrev", "")).upper() == abbreviation.upper()), None)
+        if match is None:
+            raise ValueError("team_not_in_standings")
+        keys = ("gamesPlayed", "wins", "losses", "otLosses", "points", "pointPctg", "goalFor", "goalAgainst", "streakCode", "streakCount", "last10Wins", "last10Losses", "last10OtLosses")
+        evidence["standings"] = {key: match[key] for key in keys if isinstance(match.get(key), (int, float, str))}
+        evidence["sources"].append("nhl_official_current_standings")
+    except Exception as exc:
+        evidence["missing"].append("verified_current_team_standings")
+        evidence["standings_acquisition_error"] = type(exc).__name__
+    try:
+        schedule = NHLClient().get_team_schedule_now(abbreviation)
+        games = schedule.get("games") if isinstance(schedule, dict) else None
+        if not isinstance(games, list):
+            raise ValueError("schedule_games_missing")
+        completed = []
+        for game in games:
+            if not isinstance(game, dict) or game.get("gameState") not in ("OFF", "FINAL"):
+                continue
+            home, away = game.get("homeTeam") or {}, game.get("awayTeam") or {}
+            if not isinstance(home, dict) or not isinstance(away, dict):
+                continue
+            hs, aws = home.get("score"), away.get("score")
+            if not isinstance(hs, int) or not isinstance(aws, int):
+                continue
+            is_home = home.get("abbrev") == abbreviation
+            if not is_home and away.get("abbrev") != abbreviation:
+                continue
+            completed.append({"date": game.get("gameDate"), "opponent": away.get("abbrev") if is_home else home.get("abbrev"), "for": hs if is_home else aws, "against": aws if is_home else hs})
+        completed.sort(key=lambda g: str(g["date"] or ""))
+        evidence["recent_games"] = completed[-5:]
+        if completed:
+            evidence["sources"].append("nhl_official_completed_games")
+        else:
+            evidence["missing"].append("verified_recent_completed_games")
+    except Exception as exc:
+        evidence["missing"].append("verified_recent_completed_games")
+        evidence["schedule_acquisition_error"] = type(exc).__name__
     # Compose the existing roster and economics capabilities only when the question
     # calls for them. Roster membership does not establish deployment or need.
     wants_roster = any(term in question.casefold() for term in
@@ -50,6 +94,17 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
             if not counts:
                 raise ValueError("roster_groups_missing")
             evidence["roster_counts"] = counts
+            # A positional inventory is useful context but is not deployment,
+            # quality, injury status, or evidence of a shortage.
+            positions = {}
+            for group in groups:
+                for player in roster.get(group) or []:
+                    if isinstance(player, dict):
+                        pos = str(player.get("positionCode") or "").upper()
+                        if pos in ("C", "L", "R", "D", "G"):
+                            positions[pos] = positions.get(pos, 0) + 1
+            if positions:
+                evidence["roster_positions"] = positions
             evidence["sources"].append("nhl_current_roster")
         except Exception as exc:
             evidence["missing"].append("verified_current_roster")
@@ -81,10 +136,21 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     else:
         text = f"No verified {season} NHL team production was acquired for {name}. A current-season strengths-and-weaknesses assessment cannot be derived from a historical seed profile."
         confidence = 0.3
+    standings = evidence.get("standings")
+    if standings:
+        text += f" Official standings: {standings.get('wins', '?')}-{standings.get('losses', '?')}-{standings.get('otLosses', '?')} in {standings.get('gamesPlayed', '?')} games, {standings.get('points', '?')} standings points."
+        if isinstance(standings.get("goalFor"), int) and isinstance(standings.get("goalAgainst"), int):
+            text += f" Goals for/against: {standings['goalFor']}/{standings['goalAgainst']}."
+    recent = evidence.get("recent_games") or []
+    if recent:
+        wins = sum(g["for"] > g["against"] for g in recent)
+        text += f" In the last {len(recent)} verified completed games: {wins} wins and {len(recent)-wins} non-wins (including possible overtime/shootout losses)."
     if wants_roster:
         counts = evidence.get("roster_counts")
         if counts:
             text += " The official current roster lists " + ", ".join(f"{value} {key}" for key, value in counts.items()) + "; these are roster counts, not proof of positional surplus or shortage."
+        if evidence.get("roster_positions"):
+            text += " Positional inventory: " + ", ".join(f"{key} {value}" for key, value in sorted(evidence["roster_positions"].items())) + "."
         economic = evidence.get("economics")
         if economic:
             text += f" The {economic['league_year']} NHL upper limit is ${economic['upper_limit']:,}."

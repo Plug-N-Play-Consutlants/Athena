@@ -176,6 +176,25 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     # "invoked" are deliberately distinct from "registered" and "used".
     evidence_sources = request_evidence.get("sources") if isinstance(request_evidence, dict) else []
     evidence_missing = request_evidence.get("missing") if isinstance(request_evidence, dict) else []
+    # Execution is not completion. Surface unresolved evidence without claiming
+    # that a handler response has satisfied every requirement of the inquiry.
+    limitations = answer.get("known_limitations") or answer.get("limitations") or []
+    if isinstance(limitations, str):
+        limitations = [limitations]
+    elif not isinstance(limitations, (list, tuple)):
+        limitations = []
+    missing_requirements = [str(item) for item in evidence_missing if str(item).strip()] if isinstance(evidence_missing, list) else []
+    for item in limitations:
+        if str(item).strip() and str(item) not in missing_requirements:
+            missing_requirements.append(str(item))
+    completion_state = "partial" if missing_requirements else "unverified"
+    developer["inquiry_completion"] = {
+        "state": completion_state,
+        "handler_executed": True,
+        "inquiry_answered_verified": False,
+        "unresolved_requirements": missing_requirements,
+        "reason": "Evidence requirements unresolved" if missing_requirements else "No verified inquiry-completion assessment",
+    }
     developer["inquiry_execution_trace"] = {
         "schema": "athena.inquiry_trace.v1",
         "version": ATHENA_VERSION,
@@ -197,6 +216,8 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                        "natural_language_response", "public_comment", "response_text",
                        "scout_message", "engine_conclusion") if bool(answer.get(key))],
                    "limitations_present": bool(answer.get("limitations") or answer.get("known_limitations")),
+                   "completion_state": completion_state,
+                   "unresolved_requirement_count": len(missing_requirements),
                    "inquiry_completeness_verified": False,
                    "evidence_consumption_verified": False},
         "continuation": continuation_status,

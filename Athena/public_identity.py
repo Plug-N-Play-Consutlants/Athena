@@ -81,7 +81,7 @@ def execute_public_player_investigation(context: Any, question: str) -> Dict[str
                     facts.append(f"Official NHL club-season statistics: {profile.display_name}, {pts:g} points in {gp:g} games ({target}).")
                     limitations = [x for x in limitations if "current-season production" not in x.casefold()]
                     limitations.append("Deployment and defensive impact remain unverified.")
-                    official = {"statistical_evidence": {"target_season": target, "season_series": [{"season": target, "gp": gp, "points": pts, "goals": club_row.get("goals"), "assists": club_row.get("assists")}]}, "source": "official_nhl_club_stats"}
+                    official = {"statistical_evidence": {"contract": "canonical_player_statistical_evidence", "source": "official_nhl_club_stats", "target_season": target, "season_series": [{"season": target, "gp": gp, "points": pts, "goals": club_row.get("goals"), "assists": club_row.get("assists")}]}, "source": "official_nhl_club_stats"}
                     if isinstance(player_bundle, dict):
                         player_bundle["official_player_record"] = official
                         player_bundle["fallback_source"] = "official_nhl_club_stats"
@@ -117,9 +117,8 @@ def execute_public_player_investigation(context: Any, question: str) -> Dict[str
     if dated_news:
         for item in dated_news[:3]:
             facts.append(f"Dated player-specific report: {item.get('title')} ({item.get('published_at') or item.get('published') or 'date supplied by source'}).")
-        if assessment["kind"] == "current_evidence":
-            conclusion = (f"Athena found dated reporting tied specifically to {profile.display_name}. "
-                          "Those reports are attached as current evidence below; they should be interpreted alongside the official NHL record rather than the seeded identity profile alone.")
+        # Dated reports supplement official production; they must not replace
+        # a verified statistical conclusion or erase an evidence limitation.
     missing = list(player_bundle.get("missing", [])) if isinstance(player_bundle, dict) else ["athena_request_evidence_bundle"]
     answer = response(
         intent="public_player_investigation",

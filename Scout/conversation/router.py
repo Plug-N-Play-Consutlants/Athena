@@ -365,6 +365,7 @@ def _historical_league_coverage() -> Dict[str, Any]:
 def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[str, Any]:
     ctx = ctx or load_context()
     from Athena.Inquiry.state import build_inquiry_state
+    from Athena.entry_policy import select_entry_route
     inquiry = build_inquiry_state(question, "fantasy")
     market = _market(ctx)
     readiness = ctx.knowledge_readiness or {}
@@ -378,7 +379,7 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
     # A user-scoped recap is an inquiry execution problem, not a generic league
     # inventory request. Athena performs the time-scoped significance pass and
     # Scout presents that result.
-    if (inquiry.temporal_scope.kind == "relative_period" and inquiry.operation == "summarize") or _conversational_league_recap(question, "fantasy") or (any(t in question.lower() for t in ("week 2", "week two", "weekly report", "league period", "around the jhlpaa", "weekly recap", "last week", "completed scoring", "scoring week"))):
+    if select_entry_route(question, "fantasy").route == "league_recap" or (inquiry.temporal_scope.kind == "relative_period" and inquiry.operation == "summarize") or _conversational_league_recap(question, "fantasy") or (any(t in question.lower() for t in ("week 2", "week two", "weekly report", "league period", "around the jhlpaa", "weekly recap", "last week", "completed scoring", "scoring week"))):
         from Athena.Investigation.period_execution import execute_league_period
         from Scout.conversation.league_recap_narrative import compose_period_report
         execution = execute_league_period(ctx=ctx, question=question, inquiry=inquiry, profile=profile)

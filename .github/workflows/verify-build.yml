@@ -29,8 +29,11 @@ jobs:
         run: python -m compileall -q Athena Core Diagnostics Engine Intelligence Knowledge Providers Reasoning Scout Sports Tools Tests
 
       - name: Validate inquiry execution diagnostic contract
-        run: python Tests/validate_inquiry_trace_contract.py
-          python Tests/validate_inquiry_completion_071027.py
+        run: |
+          PYTHONPATH=. python Tests/validate_inquiry_trace_contract.py
+          PYTHONPATH=. python Tests/validate_inquiry_completion_071027.py
+          PYTHONPATH=. python Tests/validate_architecture_boundaries_0710210.py
+          PYTHONPATH=. python Tests/validate_recap_execution_and_completion_0710211.py
 
       - name: Validate release hygiene
         run: python Tests/validate_release_hygiene.py

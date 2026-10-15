@@ -22,7 +22,8 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
     standings = explicit and 'standings' in q and any(t in q for t in ('week', 'period', 'season', 'historical', 'movement'))
     if standings and not editorial:
         return EntryDecision('league_period_standings', 'explicit_period_standings')
-    recap = fantasy and any(t in q for t in ('week 2', 'week two', 'weekly report', 'league period', 'around the jhlpaa', 'last week', 'weekly recap'))
+    temporal_recap = bool(re.search(r'\b(this|past|last|current)\s+(week|period)\b|\bweek\s*\d+\b', q)) and bool(re.search(r'\b(what happened|what changed|happening|happened|developments|activity|recap|roundup)\b', q))
+    recap = fantasy and (temporal_recap or any(t in q for t in ('week 2', 'week two', 'weekly report', 'league period', 'around the jhlpaa', 'last week', 'weekly recap')))
     trade = fantasy and 'trade' in q and any(t in q for t in ('analy', 'assess', 'reconstruct', 'explain', 'implications'))
     if recap or (editorial and (mode != 'public' or explicit)):
         return EntryDecision('league_recap', 'explicit_editorial_objective')

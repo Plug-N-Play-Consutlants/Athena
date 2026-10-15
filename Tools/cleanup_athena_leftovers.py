@@ -1,3 +1,8 @@
+import argparse
+import filecmp
+import shutil
+from pathlib import Path
+
 """
 Athena cleanup utility
 Run from anywhere.
@@ -5,8 +10,8 @@ Run from anywhere.
 Default behavior is DRY RUN. Nothing is deleted unless --apply is passed.
 
 Recommended:
-    python cleanup_athena_leftovers.py --root F:\Development\Athena
-    python cleanup_athena_leftovers.py --root F:\Development\Athena --apply
+    python cleanup_athena_leftovers.py --root F:/Development/AthenaEngine
+    python cleanup_athena_leftovers.py --root F:/Development/AthenaEngine --apply
 
 Optional:
     --remove-generated-output  Remove Logs/Reports/Diagnostics contents.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable
+from time import perf_counter
 
 from Core.version import ATHENA_VERSION
 
@@ -72,6 +73,7 @@ def _continued_question(question: str, mode: str, continuation: Any) -> tuple[st
 
 
 def execute_request(request: AthenaRequest) -> Dict[str, Any]:
+    started = perf_counter()
     question = str(request.question or "").strip()
     mode = str(request.mode or "fantasy").strip().lower()
     if mode not in {"public", "fantasy"}:
@@ -110,14 +112,19 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     # specialist execution so every consumer sees the same canonical evidence
     # instead of independently reacquiring or falling back to seed material.
     from Athena.evidence_bundle import build_request_evidence
+    evidence_started = perf_counter()
     request_evidence = build_request_evidence(effective_question, mode=effective_mode, route=route)
+    evidence_ms = round((perf_counter() - evidence_started) * 1000, 2)
+    evidence_attached = False
     try:
         setattr(context, "request_evidence", request_evidence)
+        evidence_attached = True
     except (AttributeError, TypeError):
         # Minimal immutable test/adaptor contexts may not accept runtime fields.
         # Real ScoutContext instances do; specialists remain compatible with
         # contexts that predate the request-evidence handoff.
         pass
+    specialist_started = perf_counter()
     if route:
         answer = execute_specialist(route, context, effective_question, mode=effective_mode)
         if answer is None:
@@ -128,6 +135,7 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
         from Athena.specialist_compatibility import execute_existing_specialist
         answer = execute_existing_specialist(effective_question, mode=mode, context=context)
         owner = "legacy_scout_specialist_adapter"
+    specialist_ms = round((perf_counter() - specialist_started) * 1000, 2)
     if not isinstance(answer, dict):
         raise TypeError("Athena specialist returned a non-dictionary answer")
     if route == "live_event_intelligence" and answer.get("suggested_prompts"):
@@ -162,5 +170,36 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
         "evidence_readiness": str(request_evidence.get("status") or "not_required"),
         "selected_intent": answer.get("intent", ""),
         "continuation_status": continuation_status,
+    }
+    # Diagnostic-only execution record. No question text, credentials, raw evidence,
+    # or private league data are duplicated into the trace. "selected" and
+    # "invoked" are deliberately distinct from "registered" and "used".
+    evidence_sources = request_evidence.get("sources") if isinstance(request_evidence, dict) else []
+    evidence_missing = request_evidence.get("missing") if isinstance(request_evidence, dict) else []
+    developer["inquiry_execution_trace"] = {
+        "schema": "athena.inquiry_trace.v1",
+        "version": ATHENA_VERSION,
+        "entry": "Athena.request_execution.execute_request",
+        "mode": effective_mode,
+        "selection": {"route": route or "", "selected_by": selected_by,
+                      "registered": bool(route and route in SPECIALISTS)},
+        "invocation": {"owner": owner, "route": route or "legacy_fallback",
+                       "handler": SPECIALISTS[route].function if route else "execute_existing_specialist",
+                       "completed": True, "duration_ms": specialist_ms},
+        "evidence": {"status": request_evidence.get("status", "unknown"),
+                     "sources": list(evidence_sources) if isinstance(evidence_sources, list) else [],
+                     "missing": list(evidence_missing) if isinstance(evidence_missing, list) else [],
+                     "attached_to_context": evidence_attached,
+                     "acquisition_duration_ms": evidence_ms},
+        "result": {"intent": str(answer.get("intent") or ""),
+                   "confidence": answer.get("confidence") if isinstance(answer.get("confidence"), (int, float)) else None,
+                   "public_fields_present": [key for key in (
+                       "natural_language_response", "public_comment", "response_text",
+                       "scout_message", "engine_conclusion") if bool(answer.get(key))],
+                   "limitations_present": bool(answer.get("limitations") or answer.get("known_limitations")),
+                   "inquiry_completeness_verified": False,
+                   "evidence_consumption_verified": False},
+        "continuation": continuation_status,
+        "total_duration_ms": round((perf_counter() - started) * 1000, 2),
     }
     return answer

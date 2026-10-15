@@ -148,9 +148,16 @@ def resolve_qualified_player(question: str) -> EntityMatch | None:
     if len(full_name) == 1:
         return EntityMatch(query, full_name[0], 1.0, "resolved", matched_alias=query)
 
+    # A unique complete player name inside a natural-language inquiry is
+    # sufficient to establish identity when no conflicting qualifiers appear.
+    # Do not require nationality/position for every named-player question.
+    unique_entities = {entity.entity_id: entity for entity, _ in named}
     requested_nationalities = {term for term in _NATIONALITY_TERMS.values() if re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", normalized)}
     requested_positions = {position for position, terms in _POSITION_TERMS.items() if any(re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", normalized) for term in terms)}
     if not requested_nationalities and not requested_positions:
+        if len(unique_entities) == 1:
+            entity = next(iter(unique_entities.values()))
+            return EntityMatch(query, entity, 0.98, "qualified_resolved", matched_alias=entity.canonical_name)
         return None
     qualified = [entity for entity, _ in named
                  if (not requested_nationalities or _NATIONALITY_TERMS.get(entity.nationality.lower(), "") in requested_nationalities)

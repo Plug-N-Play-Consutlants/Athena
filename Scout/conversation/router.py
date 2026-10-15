@@ -1373,22 +1373,18 @@ def _public_analytical_answer(ctx: ScoutContext, question: str, selected_mode: s
 
     q = _normalize_public_query_text(question)
     if _is_team_performance_inquiry(question):
-        return response(
-            intent="public_current_season_analysis_gap",
-            title="Current-season NHL assessment requires verified evidence",
-            engine_conclusion=(
-                "Athena recognized the requested current-season evaluation, but the public "
-                "team profile is historical context, not verified 2026-27 performance evidence. "
-                "It cannot yet determine which players are driving results, what is working, "
-                "or what management should change without current roster, game and cap evidence."
-            ),
-            observed_facts=["Inquiry type: current-season team performance and management assessment"],
-            known_limitations=["Current-season team/player results, roster deployment and cap evidence are not connected to this analytical pathway."],
-            confidence=0.35,
-            developer=developer_info("public_current_season_analysis_gap", ctx.files_loaded,
-                knowledge_used=["public_team_profiles"], intelligence_used=["current_season_inquiry_classification"],
-                missing=["verified_current_season_team_results", "verified_player_production", "verified_roster_cap_context"]),
-        )
+        from Athena.public_team_performance import assess_team_performance
+        targets = {"toronto": ("TOR", "Toronto Maple Leafs"), "leafs": ("TOR", "Toronto Maple Leafs"), "edmonton": ("EDM", "Edmonton Oilers"), "oilers": ("EDM", "Edmonton Oilers"), "carolina": ("CAR", "Carolina Hurricanes"), "colorado": ("COL", "Colorado Avalanche"), "dallas": ("DAL", "Dallas Stars"), "florida": ("FLA", "Florida Panthers")}
+        team = next((v for k, v in targets.items() if k in q), None)
+        if team is not None:
+            assessment = assess_team_performance(question, *team)
+            return response(
+                intent="public_current_season_team_investigation", title=f"{team[1]}: current-season evidence",
+                engine_conclusion=assessment["conclusion"], observed_facts=[f"Official NHL season: {assessment['evidence']['season']}"] + [f"{r['name']}: {r['points']} points in {r['gp']} games" for r in assessment["evidence"].get("leaders", []) if isinstance(r.get("points"), (int,float))],
+                known_limitations=list(assessment["evidence"]["missing"]), confidence=assessment["confidence"],
+                developer={**developer_info("public_current_season_team_investigation", ctx.files_loaded, knowledge_used=assessment["evidence"]["sources"], intelligence_used=["nhl_team_performance_investigation"], missing=assessment["evidence"]["missing"]), "team_performance_evidence": assessment["evidence"]},
+            )
+        return response(intent="public_current_season_analysis_gap", title="Current NHL team identity unresolved", engine_conclusion="The team was not identified reliably for current-season acquisition.", confidence=0.25)
     target_terms = {
         "oilers": "edmonton",
         "edmonton": "edmonton",
@@ -1879,7 +1875,26 @@ def _league_standings_inquiry(ctx: ScoutContext, question: str) -> Dict[str, Any
     from Athena.Investigation.league_standings_inquiry import investigate_period_standings
     findings = investigate_period_standings(ctx, question)
     periods, facts, limitations = findings['periods'], findings['facts'], findings['limitations']
-    conclusion = (f"JHLPAA standings comparison for scoring periods {', '.join(map(str, periods))}:\n\n" + "\n".join(facts)) if facts else (
+    comparison = findings.get("comparison") or {}
+    baseline = comparison.get("baseline_period")
+    target = comparison.get("period")
+    scope = (f"season-opening period {baseline} through period {target}" if baseline == 1 and target and target > 1
+             else f"period {baseline} through period {target}" if baseline and target
+             else "available periods (comparison baseline not established)")
+    # Lead with verified movement; retain the full table as supporting evidence.
+    movers = [r for r in comparison.get("teams", []) if isinstance(r, dict) and isinstance(r.get("rank_change"), int)]
+    gainers = sorted((r for r in movers if r["rank_change"] > 0), key=lambda r: -r["rank_change"])
+    fallers = sorted((r for r in movers if r["rank_change"] < 0), key=lambda r: r["rank_change"])
+    lead = []
+    if gainers:
+        lead.append("Biggest climbers: " + "; ".join(f"{r.get('name') or r.get('team_id')} (+{r['rank_change']} places)" for r in gainers[:3]) + ".")
+    if fallers:
+        lead.append("Biggest slides: " + "; ".join(f"{r.get('name') or r.get('team_id')} ({r['rank_change']} places)" for r in fallers[:3]) + ".")
+    if movers and not gainers and not fallers:
+        lead.append("No verified changes in ranking across the compared snapshots.")
+    if lead:
+        lead.append("These are ranking movements, not evidence of manager motives or roster decisions.")
+    conclusion = (f"JHLPAA standings movement, {scope}:\n\n" + "\n".join(lead) + "\n\nFull standings:\n" + "\n".join(facts)) if facts else (
         "I cannot establish the requested league-wide standings or movement from verified period snapshots yet. "
         "A roster valuation for an unrelated team would not answer this question.")
     result = response(intent="league_period_standings", title="JHLPAA period standings",

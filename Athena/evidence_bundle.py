@@ -36,7 +36,7 @@ def _player_bundle(question: str, entity: Any = None) -> Dict[str, Any] | None:
     news = []
     news_status = "not_requested"
     q = question.casefold()
-    wants_current = any(term in q for term in ("camp", "preseason", "pre-season", "recent", "latest", "injury", "current", "outlook", "uncertaint"))
+    wants_current = any(term in q for term in ("camp", "preseason", "pre-season", "recent", "latest", "injury", "current", "outlook", "uncertaint", "this season", "performed", "performing"))
     if wants_current:
         news_status = "no_identity_matched_items"
         try:
@@ -78,7 +78,7 @@ def build_request_evidence(question: str, *, mode: str, route: str | None) -> Di
     if mode != "public":
         return bundle
 
-    if route in {"public_player_comparison", "league_player_comparison"}:
+    if route == "public_player_comparison":
         from Knowledge.Intelligence.Entities.entity_registry import entities_by_type, searchable_names
         matched = []
         for entity in entities_by_type("player"):

@@ -49,6 +49,14 @@ class PublicEntity:
 
 SEED_ENTITIES: List[PublicEntity] = [
     PublicEntity(
+        entity_id="nhl.player.william_nylander", entity_type="player",
+        canonical_name="William Nylander", team="TOR", position="RW",
+        nationality="Sweden", birth_date="1996-05-01",
+        draft="2014 NHL Draft, 8th overall, Toronto Maple Leafs",
+        summary="Toronto Maple Leafs winger; current performance requires official season evidence.",
+        aliases=["william nylander"],
+    ),
+    PublicEntity(
         entity_id="nhl.player.auston_matthews",
         entity_type="player",
         canonical_name="Auston Matthews",

@@ -83,12 +83,7 @@ def _answer_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any
     except Exception:
         player_comparison_answer = None  # type: ignore
     if player_comparison_answer is not None and len(profiles) >= 2:
-        # Athena's specialist registry owns this route before Scout's legacy
-        # fallback. Preserve an explicitly named league for the shared
-        # comparison's bounded league-specific application.
-        explicit_league = bool(re.search(r"\b(jhlpaa|fantrax)\b", question, re.IGNORECASE))
-        league_profile = getattr(ctx, "league_profile", None) if explicit_league else None
-        answer = player_comparison_answer(ctx, profiles, question, league_profile=league_profile)
+        answer = player_comparison_answer(ctx, profiles, question)
         answer.setdefault("developer", {}).setdefault("orchestration", scout_intent_plan(question, "public").to_dict())
         return answer
     if len(subjects) >= 2:
@@ -534,8 +529,14 @@ def _answer_longitudinal_draft(ctx: ScoutContext, question: str) -> Dict[str, An
 
 def scout_orchestrated_answer(ctx: ScoutContext, question: str, mode: str = "public") -> Optional[Dict[str, Any]]:
     """Compatibility entry point; Athena owns the executable handler map."""
-    from Athena.inquiry_execution import answer
-    return answer(question, ctx, mode=mode)
+    plan = scout_intent_plan(question, mode)
+    if plan is None:
+        return None
+    if plan.route == "live_event_intelligence":
+        # Existing router calls its live handler before this entry point.
+        return None
+    from Athena.execution_registry import execute_specialist
+    return execute_specialist(plan.route, ctx, question, mode=mode)
 
 
 def orchestration_diagnostics() -> Dict[str, Any]:
@@ -672,7 +673,8 @@ def _answer_nhl_team_economic_state(ctx: ScoutContext, question: str) -> Dict[st
         f"For {team.team_name}, Athena has a canonical {team.league_year} team-state record, but the economic ledger is not complete enough to state actual cap usage or cap space. "
         f"The league upper limit is ${economic.upper_limit/1_000_000:.1f}M. Current canonical professional-contract coverage for this team contains {len(covered)} player contract(s): {covered_names}. "
         f"Roster evidence is currently classified as {team.roster_evidence_status.replace('_',' ')}. "
-        "Athena will not add the covered contracts together and present that partial sum as the club's payroll."
+        "Athena will not add the covered contracts together and present that partial sum as the club's payroll. "
+        "The question of the team's biggest positional or tactical roster needs remains unanswered without verified current roster, deployment, and performance evidence."
     )
     answer=response(intent="public_nhl_team_economic_state", title=f"{team.team_name}: team economic state",
         engine_conclusion=natural, natural_language_response=natural,
@@ -680,7 +682,7 @@ def _answer_nhl_team_economic_state(ctx: ScoutContext, question: str) -> Dict[st
                         f"Canonical team contract coverage: {len(covered)} player(s): {covered_names}.",
                         f"Roster evidence status: {team.roster_evidence_status}.",
                         f"Aggregate cap usage status: {team.aggregate_cap_usage_status}."],
-        known_limitations=list(team.limitations), confidence=0.96,
+        known_limitations=list(team.limitations) + ["Current roster needs have not been evaluated; economic context alone does not establish positional needs."], confidence=0.38,
         developer=developer_info("public_nhl_team_economic_state", getattr(ctx,"files_loaded",[]),
             knowledge_used=["canonical_nhl_team_economic_state","canonical_nhl_player_contract_state","league_season_context"],
             intelligence_used=["team_state_reconciliation","economic_completeness_gate"],

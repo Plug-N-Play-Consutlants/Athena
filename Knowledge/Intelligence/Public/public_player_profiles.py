@@ -60,6 +60,13 @@ class PublicPlayerProfile:
 
 
 PROFILES: Dict[str, PublicPlayerProfile] = {
+    "nhl.player.william_nylander": PublicPlayerProfile(
+        entity_id="nhl.player.william_nylander", display_name="William Nylander",
+        position="RW", team="TOR", nationality="Sweden",
+        draft="2014 NHL Draft, 8th overall, Toronto Maple Leafs",
+        role="NHL winger", career_identity="Toronto Maple Leafs winger",
+        known_limitations=["Current-season performance must be verified against official NHL evidence."],
+    ),
     "nhl.player.auston_matthews": PublicPlayerProfile(
         entity_id="nhl.player.auston_matthews",
         display_name="Auston Matthews",

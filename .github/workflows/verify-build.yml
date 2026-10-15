@@ -28,6 +28,10 @@ jobs:
       - name: Compile repository Python files
         run: python -m compileall -q Athena Core Diagnostics Engine Intelligence Knowledge Providers Reasoning Scout Sports Tools Tests
 
+      - name: Validate inquiry execution diagnostic contract
+        run: python Tests/validate_inquiry_trace_contract.py
+          python Tests/validate_inquiry_completion_071027.py
+
       - name: Validate release hygiene
         run: python Tests/validate_release_hygiene.py
 

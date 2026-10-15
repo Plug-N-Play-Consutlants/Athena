@@ -11,7 +11,7 @@ from typing import Any, Dict
 
 def classify_player_question(question: str) -> str:
     text = str(question or "").casefold()
-    if any(term in text for term in ("camp", "preseason", "pre-season", "early-season", "recent form", "latest evidence", "injury")):
+    if any(term in text for term in ("camp", "preseason", "pre-season", "early-season", "recent form", "latest evidence", "injury", "this season", "current season", "season to date", "performed", "performing", "production", "contribution")):
         return "current_evidence"
     if any(term in text for term in ("uncertaint", "risk", "unknown", "biggest question", "what remains", "evidence-backed")):
         return "uncertainty"
@@ -53,9 +53,8 @@ def assess_player_question(profile: Any, question: str) -> Dict[str, Any]:
             "A stronger outlook needs current organization and usage evidence, health context, and comparable recent performance."
         )
     elif kind == "current_evidence":
-        conclusion = (f"I can identify {name}, but the player profile does not establish what happened in camp "
-                      "or preseason. A current assessment needs dated reports tied to this player's identity "
-                      "and deployment; without them, I cannot say whether the early-season outlook changed.")
+        conclusion = (f"The identity profile establishes {name}, but not current-season production. "
+                      "A performance assessment requires verified NHL season statistics and usage evidence.")
     elif kind == "development":
         conclusion = (
             f"{name}'s draft and public role establish the starting point for a development assessment. "

@@ -125,6 +125,9 @@ class AthenaStudio:
         self.developer_panel = None
         self._build_ui()
         self.refresh_status()
+        # A fresh Studio instance reports Doctor observations even when no cleanup remains.
+        # This is preview-only: deletion still requires explicit approval.
+        self.root.after(100, self._startup_cleanup_observation)
 
 
     def _load_studio_settings(self) -> dict[str, object]:
@@ -210,8 +213,8 @@ class AthenaStudio:
         # or recovering a patch does not require hunting through the UI.
         toolbar = ttk.Frame(self.root, style="Studio.TFrame")
         toolbar.pack(side=TOP, fill="x", padx=12, pady=(0, 6))
-        self._toolbar_button(toolbar, "🔁 Relaunch Studio", self.restart_studio, "Restart Athena Studio after applying a patch or when the UI state is stale.")
         self._toolbar_button(toolbar, "🔄 Reload Build", self.reload_patched_build, "Stop Scout, clear Python caches, and relaunch the patched build.")
+        self._toolbar_button(toolbar, "🔁 Relaunch Studio", self.restart_studio, "Preview required cleanup, request approval, then restart Studio.")
         self._toolbar_button(toolbar, "▶ Launch Scout", self.launch_scout, "Start managed Scout from the canonical Athena root.")
         self._toolbar_button(toolbar, "🌐 Open Scout", self.open_scout, "Open or focus the active Scout browser session.")
         self._toolbar_button(toolbar, "🛑 Stop Scout", self.stop_scout, "Stop Scout processes listening on the Scout port range.")
@@ -247,7 +250,7 @@ class AthenaStudio:
         info.pack(side=TOP, fill="x", padx=12, pady=(4, 2))
         ttk.Label(
             info,
-            text="Core Workflow Console — default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs. Developer Mode is off by default.",
+            text="Core Workflow Console — default path: Reload Build → Relaunch Studio → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs. Developer Mode is off by default.",
             anchor="w",
             style="Studio.Subtitle.TLabel",
         ).pack(fill="x")
@@ -270,7 +273,7 @@ class AthenaStudio:
         # Athena Studio Operations Console | Athena Studio Beta Tile UI | Athena Studio Compact Tile UI + Toolbar
         # Hover over controls for help | compact two-line dashboard tile label | compact dashboard tile grid | Compact tiles use icons
         # Historical default labels retained for compatibility only: ✅ Validate Everything | 🩺 Doctor Everything | 📤 Export Studio Log | 🧹 Clean Runtime | 🔃 Refresh | ⟲ Restart Studio
-        self.write("Athena Studio Core Workflow Console ready. Use Relaunch Studio → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer.\n")
+        self.write("Athena Studio Core Workflow Console ready. Use Reload Build → Relaunch Studio → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer.\n")
         if bool(self._studio_settings.get("auto_runtime_audit_on_start", False)):
             self.runtime_audit(auto=True)
 
@@ -388,8 +391,57 @@ class AthenaStudio:
         self.runtime_audit(auto=True)
         self._record_history("Refresh Studio Status", 0, self._status_line())
 
+    def _startup_cleanup_observation(self) -> None:
+        """Observe cleanup readiness on every Studio start; never mutate the repository."""
+        self.write("\n=== Startup Cleanup Doctor (observation only) ===\n")
+        try:
+            # Studio may be launched directly as Tools/athena_studio.py, in
+            # which case Python initially adds Tools/ rather than repo root.
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Tools.repository_safe_cleanup import run_cleanup
+            report = run_cleanup(PROJECT_ROOT, apply=False)
+            safe = [candidate for candidate in report.candidates if candidate.classification == "safe"]
+            review = [candidate for candidate in report.candidates if candidate.classification != "safe"]
+            self.write(f"Doctor observation: {len(safe)} safe, {len(review)} review-only candidates. No files changed.\n")
+            self.write(f"Doctor report: {report.report_path}\n")
+            self._record_history("Startup Cleanup Doctor", 0, report.report_path)
+        except Exception as exc:
+            self.write(f"[FAIL] Startup Cleanup Doctor observation: {exc}\n")
+            self._record_history("Startup Cleanup Doctor", 1, str(exc))
+
     def restart_studio(self) -> None:
         """Restart Studio after a patch while preserving logs/history on disk."""
+        self.write("\nChecking safe cleanup before Studio relaunch...\n")
+        try:
+            # Studio may be launched directly as Tools/athena_studio.py, in
+            # which case Python initially adds Tools/ rather than repo root.
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            from Tools.repository_safe_cleanup import run_cleanup
+            preview = run_cleanup(PROJECT_ROOT, apply=False)
+            safe = [c for c in preview.candidates if c.classification == "safe"]
+            review = [c for c in preview.candidates if c.classification != "safe"]
+            self.write(f"Cleanup preview: {len(safe)} safe candidate(s), {len(review)} review-only candidate(s). Report: {preview.report_path}\n")
+            if safe:
+                approved = messagebox.askyesno("Studio Cleanup Preview",
+                    f"Cleanup Doctor found {len(safe)} safe candidate(s) before relaunch.\n"
+                    f"Review-only items: {len(review)} (will not be deleted).\n\n"
+                    f"Preview report: {preview.report_path}\n\nApply Safe Cleanup now?",
+                    parent=self.root)
+                if approved:
+                    applied = run_cleanup(PROJECT_ROOT, apply=True)
+                    self.write(f"Safe cleanup applied: {len(applied.removed)} removed; {len(applied.skipped_locked)} locked/skipped.\n")
+                    self._record_history("Relaunch Safe Cleanup", 0, applied.report_path)
+                else:
+                    self.write("Cleanup deferred by user; safe candidates remain pending.\n")
+                    self._record_history("Relaunch Safe Cleanup", 1, "deferred")
+            elif review:
+                self.write("Review-only cleanup candidates remain; no automatic deletion.\n")
+        except Exception as exc:
+            self.write(f"Cleanup preview failed; relaunch cancelled: {exc}\n")
+            self._record_history("Relaunch Cleanup Preview", 1, str(exc))
+            return
         self.write("\nRestarting Athena Studio...\n")
         self._record_history("Restart Studio", 0, "requested")
         try:
@@ -909,7 +961,6 @@ class AthenaStudio:
             ("Doctor Whole-Picture Investigation", self._script_command("Tools/doctor_whole_picture_investigation.py")),
             ("Doctor Organizational Asset Rights", self._script_command("Tools/doctor_organizational_asset_rights.py")),
             ("Doctor Analytical Study & Evidence Reconciliation", self._script_command("Tools/doctor_analytical_study_evidence_reconciliation.py")),
-            ("Doctor Analytical Significance & Decision Quality", self._script_command("Tools/doctor_analytical_significance_decision_quality.py")),
             ("Doctor Team Reasoning", self._script_command("Tools/doctor_team_reasoning_engine.py")),
             ("Doctor Comparison", self._script_command("Tools/doctor_comparison_reasoning_engine.py")),
             ("Doctor Event Intelligence", self._script_command("Tools/doctor_event_intelligence_foundation.py")),
@@ -1716,6 +1767,10 @@ class AthenaStudio:
         label = "Apply Safe Cleanup" if apply else "Preview Cleanup"
         self.write(f"\n=== {label} ===\n")
         try:
+            if str(PROJECT_ROOT) not in sys.path:
+                sys.path.insert(0, str(PROJECT_ROOT))
+            # Studio may be launched directly as Tools/athena_studio.py, in
+            # which case Python initially adds Tools/ rather than repo root.
             if str(PROJECT_ROOT) not in sys.path:
                 sys.path.insert(0, str(PROJECT_ROOT))
             from Tools.repository_safe_cleanup import run_cleanup

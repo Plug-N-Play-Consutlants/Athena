@@ -38,6 +38,18 @@ PLAYER_COMMAND_RE = re.compile(
 )
 
 
+def _conversational_league_recap(q: str, mode: str) -> bool:
+    """Interpret informal league recap language without overriding public inquiries."""
+    if mode == "public":
+        return False
+    words = re.findall(r"[a-z]+", (q or "").lower())
+    league = any(w in ("league", "leauge", "leage") for w in words)
+    action = any(w in ("analyze", "analyse", "analize", "analise", "review", "summarize", "summarise", "recap", "assess") for w in words)
+    temporal = any(w in ("week", "weekly", "recent", "yesterday") for w in words)
+    informal = any(phrase in (q or "").lower() for phrase in ("how did things shake out", "how did my league do", "what happened in my league", "how was my league"))
+    return league and temporal and (action or informal)
+
+
 def _looks_like_league_intent(q: str) -> bool:
     text = (q or "").strip().lower()
     if not text:
@@ -366,33 +378,35 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
     # A user-scoped recap is an inquiry execution problem, not a generic league
     # inventory request. Athena performs the time-scoped significance pass and
     # Scout presents that result.
-    if inquiry.temporal_scope.kind == "relative_period" and inquiry.operation == "summarize":
-        from Athena.Inquiry.execution import summarize_recent_league_activity
-        activity = summarize_recent_league_activity(ctx.transaction_history or {}, days=7)
-        highlights = activity.get("highlights") or []
-        facts = [
-            f"Time scope: {inquiry.temporal_scope.label}.",
-            f"Canonical transactions in scope: {activity.get('transaction_count', 0)} across {activity.get('team_count', 0)} observed teams.",
-        ]
-        types = activity.get("transaction_types") or {}
-        if types:
-            facts.append("Transaction mix: " + ", ".join(f"{k}={v}" for k, v in sorted(types.items())) + ".")
-        facts.extend(f"Significant activity: {item.get('summary')}" for item in highlights)
-        if highlights:
-            lead = highlights[0].get("summary")
-            conclusion = (f"For {inquiry.temporal_scope.label}, Athena found {activity.get('transaction_count', 0)} canonical transaction(s) "
-                          f"in the requested window. The strongest transaction signal is: {lead} "
-                          "The recap is ranked from time-scoped transaction evidence rather than season-wide league inventory.")
-        else:
-            conclusion = (f"Athena found no dated canonical transactions inside the requested {inquiry.temporal_scope.label} window. "
-                          "It will not substitute season-to-date transaction totals for a weekly recap.")
-        limitations = [
-            "Current standings are required to explain how weekly activity connects to the league table; no canonical standings snapshot is loaded in Scout context yet.",
-            "Player-performance significance requires current NHL statistical evidence for the moved or acquired players.",
-        ]
-        answer=response(intent="analyze_league",title=f"{profile['league_name']}: {inquiry.temporal_scope.label} recap",
+    if (inquiry.temporal_scope.kind == "relative_period" and inquiry.operation == "summarize") or _conversational_league_recap(question, "fantasy") or (any(t in question.lower() for t in ("week 2", "week two", "weekly report", "league period", "around the jhlpaa", "weekly recap", "last week", "completed scoring", "scoring week"))):
+        from Athena.Investigation.period_execution import execute_league_period
+        from Scout.conversation.league_recap_narrative import compose_period_report
+        execution = execute_league_period(ctx=ctx, question=question, inquiry=inquiry, profile=profile)
+        selected_period = execution["selected_period"]
+        standings_period = execution["standings_period"]
+        activity = execution["activity"]
+        editorial = execution["editorial"]
+        dossier = execution["dossier"]
+        facts = execution["facts"]
+        highlights = execution["highlights"]
+        standings_comparison = execution["standings_comparison"]
+        standings_summary = execution["standings_summary"]
+        recap_context = execution["recap_context"]
+        evidence_coverage = execution["evidence_coverage"]
+        acquisition_audit = execution["acquisition_audit"]
+        athena_research = execution["athena_research"]
+        investigation_trace = execution["investigation_trace"]
+        explicit_week = execution["explicit_week"]
+        conclusion = compose_period_report(research=athena_research)
+        investigation_trace.append({"stage": "scout.presentation", "status": "composed", "detail": "Structured Athena research rendered"})
+        facts.append("Investigation execution trace: " + " | ".join(
+            f"{entry['stage']}={entry['status']}" for entry in investigation_trace) + ".")
+        limitations = ["Player-level scoring and keeper-fit conclusions require verified period-specific production, deployment and contract evidence; acquisition and validation status is recorded separately."]
+        if not standings_comparison or standings_comparison.get("status") != "compared":
+            limitations.append("A complete two-period standings comparison is not verified.")
+        answer=response(intent="analyze_league",title=(f"Around the {profile['league_name']} | Week {standings_period}" if standings_period else f"{profile['league_name']}: recent league recap"),
                         engine_conclusion=conclusion,natural_language_response=conclusion,observed_facts=facts,
-                        known_limitations=limitations,confidence=.84 if highlights else .65,
+                        known_limitations=limitations,confidence=(.68 if highlights and standings_comparison and standings_comparison.get("status") == "compared" else .55),
                         cards=[{"label":"Transactions in scope","value":activity.get("transaction_count",0)},
                                {"label":"Teams involved","value":activity.get("team_count",0)},
                                {"label":"Significant items","value":len(highlights)}],
@@ -403,8 +417,33 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
                             missing=["standings","current_player_performance"] ))
         answer["developer"]["inquiry_state"]=inquiry.to_dict()
         answer["developer"]["adaptive_execution"]=activity
+        if editorial: answer["developer"]["editorial_investigation"] = editorial
+        if standings_comparison:
+            answer["developer"]["period_standings_comparison"] = standings_comparison
+        answer["developer"]["athena_research"] = {k: v for k, v in athena_research.items() if k != "stories"}
+        answer["developer"]["investigation_dossier"]=dossier
+        answer["developer"]["recap_context_reconciliation"] = recap_context
+        answer["developer"]["evidence_coverage"]=evidence_coverage
+        answer["developer"]["investigation_execution_trace"] = investigation_trace
+        answer["developer"]["evidence_acquisition_audit"]=acquisition_audit
+        answer["developer"]["player_production_acquisition"] = {
+            k: v for k, v in execution["player_production_acquisition"].items() if k != "records"
+        }
+        if standings_summary:
+            answer["known_limitations"] = [item for item in answer.get("known_limitations", []) if "standings" not in item.lower()]
+        if standings_comparison and standings_comparison.get("status") != "compared":
+            answer["known_limitations"].append("Archived standings comparison is incomplete; do not infer team movement.")
+        if not explicit_week:
+            answer["known_limitations"].append("The latest archived period is not independently verified as completed.")
+        if selected_period is None:
+            answer["known_limitations"].append("No verified scoring-period identity; transactions use a rolling seven-day window.")
+        elif activity.get("scope_method") == "explicit_period":
+            answer["known_limitations"].append("Transaction membership uses recorded season-week labels; independent date-boundary reconciliation is pending.")
         answer["developer"]["evidence_requirements"]=["time_scoped_transactions","standings","current_player_performance"]
-        answer["normal_detail"]=True
+        answer["editorial_report"] = True
+        answer["normal_detail"] = False
+        answer["developer"]["response_role"] = "editorial"
+        answer["developer"]["period_selection"] = {"period": selected_period, "explicit": bool(explicit_week), "completion_verified": False}
         return answer
 
     subtype = str(profile.get("league_subtype") or "").replace("_", " ").strip()
@@ -696,6 +735,33 @@ def compare_team(ctx: ScoutContext, question: str) -> Dict[str, Any]:
             missing=["relationship_graph", "historical_player_trends", "injury_availability"],
         ),
     )
+
+
+def _fantasy_trade_investigation(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    from Athena.Inquiry.execution import reconstruct_league_trade
+    from Athena.Investigation.evidence_dossier import build_dossier
+    # Identify participants and named players from canonical data, not a fixed
+    # league-specific dictionary or an assumed trade direction.
+    q = question.casefold()
+    rows = [r for r in (ctx.transaction_history or {}).get("records", []) if isinstance(r, dict) and "trade" in str(r.get("transaction_type") or "").lower()]
+    names = sorted({str(p.get("participant_name") or "") for r in rows for p in r.get("participants", []) if isinstance(p, dict) and p.get("participant_name")}, key=len, reverse=True)
+    players = sorted({str(a.get("asset_name") or "") for r in rows for a in r.get("assets", []) if isinstance(a, dict) and a.get("asset_name")}, key=len, reverse=True)
+    named_parties = re.search(r"\bbetween\s+(.+?)\s+and\s+(.+?)(?:\s+involving\b|[.,;]|$)", question, re.IGNORECASE)
+    required_teams = [named_parties.group(1).strip(), named_parties.group(2).strip()] if named_parties else [n for n in names if n.casefold() in q]
+    match = reconstruct_league_trade(ctx.transaction_history or {}, team_names=required_teams, player_names=[n for n in players if n.casefold() in q])
+    selected = match["matches"][0]["record"] if match["matches"] else None
+    if selected is None:
+        return response(intent="fantasy_trade_investigation", title="JHLPAA trade investigation", engine_conclusion="No canonical trade matches the named participants or players. Athena cannot reconstruct this exchange from draft order alone.", known_limitations=["Transaction-history coverage or entity matching must be established before assigning trade assets."], confidence=.35)
+    parties = [str(p.get("participant_name") or "Unknown team") for p in selected.get("participants", []) if isinstance(p, dict)]
+    assets = [str(a.get("asset_name") or a.get("name") or "Unknown asset") for a in selected.get("assets", []) if isinstance(a, dict)]
+    facts = ["Trade participants recorded: " + ", ".join(parties), "Assets recorded in the canonical trade: " + ", ".join(assets), "Canonical transaction: " + str(selected.get("transaction_id"))]
+    for asset in selected.get("assets", []):
+        if isinstance(asset, dict):
+            facts.append("Asset movement: " + str(asset.get("asset_name") or asset.get("name") or "unnamed") + "; " + str(asset.get("movement") or "direction unresolved") + "; " + str(asset.get("from_team") or asset.get("from_team_name") or "source unverified") + " → " + str(asset.get("to_team") or asset.get("to_team_name") or "destination unverified"))
+    conclusion = "The recorded trade involves " + ", ".join(parties) + " and " + ", ".join(assets) + ". Its competitive value cannot be determined solely from asset names; team needs, keeper horizons and verified player performance must be reconciled."
+    result = response(intent="fantasy_trade_investigation", title="JHLPAA: trade investigation", engine_conclusion=conclusion, observed_facts=facts, known_limitations=["Asset direction must be independently verified where the canonical movement fields do not identify a destination.", "Short- and long-term trade verdicts require roster, keeper and performance context."], confidence=.68)
+    result.setdefault("developer", {})["investigation_dossier"] = build_dossier(subject="JHLPAA trade", requirements=["trade_assets", "team_needs", "player_performance"], evidence={"trade_assets": selected}, findings=[{"summary": conclusion, "source_id": selected.get("transaction_id")}])
+    return result
 
 
 def draft_order(ctx: ScoutContext) -> Dict[str, Any]:
@@ -1223,6 +1289,18 @@ _PUBLIC_ANALYTICAL_RE = re.compile(
 )
 
 
+def _is_team_performance_inquiry(question: str) -> bool:
+    """Separate current-season evaluation from static team identity questions."""
+    text = _normalize_public_query_text(question)
+    patterns = (
+        r"\b(so far this season|this season|current season|season to date)\b",
+        r"\b(what.s working|what isn.t|who.s making a difference)\b",
+        r"\b(how (are|is|have) .{0,45}(looking|performing|playing|doing))\b",
+        r"\b(management|roster needs|trade deadline|lineup changes)\b",
+    )
+    return any(re.search(pattern, text) for pattern in patterns)
+
+
 def _is_public_analytical_query(question: str) -> bool:
     """Detect broad public-analysis prompts that should not fall to clarify."""
     text = (question or "").strip()
@@ -1294,6 +1372,23 @@ def _public_analytical_answer(ctx: ScoutContext, question: str, selected_mode: s
         )
 
     q = _normalize_public_query_text(question)
+    if _is_team_performance_inquiry(question):
+        return response(
+            intent="public_current_season_analysis_gap",
+            title="Current-season NHL assessment requires verified evidence",
+            engine_conclusion=(
+                "Athena recognized the requested current-season evaluation, but the public "
+                "team profile is historical context, not verified 2026-27 performance evidence. "
+                "It cannot yet determine which players are driving results, what is working, "
+                "or what management should change without current roster, game and cap evidence."
+            ),
+            observed_facts=["Inquiry type: current-season team performance and management assessment"],
+            known_limitations=["Current-season team/player results, roster deployment and cap evidence are not connected to this analytical pathway."],
+            confidence=0.35,
+            developer=developer_info("public_current_season_analysis_gap", ctx.files_loaded,
+                knowledge_used=["public_team_profiles"], intelligence_used=["current_season_inquiry_classification"],
+                missing=["verified_current_season_team_results", "verified_player_production", "verified_roster_cap_context"]),
+        )
     target_terms = {
         "oilers": "edmonton",
         "edmonton": "edmonton",
@@ -1779,11 +1874,47 @@ def _multi_sport_route_card(ctx: ScoutContext, question: str, selected_mode: str
     )
 
 
+def _league_standings_inquiry(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Presentation adapter: Athena owns the period investigation and evidence."""
+    from Athena.Investigation.league_standings_inquiry import investigate_period_standings
+    findings = investigate_period_standings(ctx, question)
+    periods, facts, limitations = findings['periods'], findings['facts'], findings['limitations']
+    conclusion = (f"JHLPAA standings comparison for scoring periods {', '.join(map(str, periods))}:\n\n" + "\n".join(facts)) if facts else (
+        "I cannot establish the requested league-wide standings or movement from verified period snapshots yet. "
+        "A roster valuation for an unrelated team would not answer this question.")
+    result = response(intent="league_period_standings", title="JHLPAA period standings",
+                      engine_conclusion=conclusion, natural_language_response=conclusion,
+                      observed_facts=facts, known_limitations=limitations,
+                      confidence=.88 if facts else .25,
+                      developer=developer_info("league_period_standings", ctx.files_loaded,
+                          knowledge_used=["canonical_period_standings"],
+                          intelligence_used=["period_scope_preservation", "standings_comparison"],
+                          files_read=[], missing=[] if facts else ["canonical_standings_snapshots"]))
+    result["developer"]["requested_periods"] = periods
+    if findings['acquisition'] is not None:
+        result["developer"]["standings_acquisition"] = findings['acquisition']
+    if findings['comparison'] is not None:
+        result["developer"]["period_standings_comparison"] = findings['comparison']
+    result["developer"]["investigation_owner"] = "Athena.Investigation.league_standings_inquiry"
+    return result
+
+
 def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "fantasy") -> Dict[str, Any]:
     ctx = ctx or load_context()
     raw_question = (question or "").strip()
     q = raw_question.lower()
     selected_mode = (mode or "fantasy").strip().lower()
+    # Athena owns precedence classification; Scout retains only compatibility
+    # response adapters while their presentation contracts are migrated.
+    from Athena.entry_policy import select_entry_route
+    entry = select_entry_route(raw_question, selected_mode)
+    explicit_league = any(t in q for t in ('jhlpaa', 'fantrax'))
+    if entry.route == 'league_period_standings':
+        return _league_standings_inquiry(ctx, raw_question)
+    if entry.route == 'league_recap' or (entry.route == '' and _conversational_league_recap(raw_question, selected_mode)):
+        return analyze_league(ctx, raw_question)
+    if entry.route == 'fantasy_trade_investigation':
+        return _fantasy_trade_investigation(ctx, raw_question)
     # Prompt semantics must outrank stale UI/provider state. Public NHL prompts
     # cannot inherit fantasy mode just because the previous request used Fantrax.
     if _looks_like_public_sports_context(raw_question):
@@ -1796,16 +1927,12 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if any(term in q for term in diagnostic_terms):
         return _diagnostic_runtime_answer(ctx, raw_question, selected_mode)
 
-    orchestration_plan = scout_intent_plan(raw_question, selected_mode) if scout_intent_plan is not None else None
-    if orchestration_plan is not None and getattr(orchestration_plan, "route", "") == "live_event_intelligence":
-        return _live_events_answer(ctx, raw_question, selected_mode)
-    if scout_orchestrated_answer is not None:
-        orchestrated = scout_orchestrated_answer(ctx, raw_question, selected_mode)
-        if orchestrated is not None:
-            return orchestrated
-
-    if is_recent_event_query is not None and is_recent_event_query(raw_question):
-        return _live_events_answer(ctx, raw_question, selected_mode)
+    # Athena is the authoritative registered-specialist executor. Scout does
+    # not preempt it with its own live-news priority or handler selection.
+    from Athena.inquiry_execution import answer as athena_answer
+    orchestrated = athena_answer(raw_question, ctx, mode=selected_mode)
+    if orchestrated is not None:
+        return orchestrated
 
     if selected_mode != "public" and any(term in q for term in ["draft order", "draft picks", "pick ownership", "draft ownership", "who owns the picks"]):
         return draft_order(ctx)
@@ -1830,9 +1957,6 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if selected_mode == "public":
         if any(term in q for term in ["overview", "what can", "help", "public sports"]):
             return public_sports_overview(ctx)
-
-        if is_recent_event_query is not None and is_recent_event_query(raw_question):
-            return _live_events_answer(ctx, raw_question, selected_mode)
 
         multi_sport_card = _multi_sport_route_card(ctx, raw_question, selected_mode)
         # Runtime continuation hotfix: routing output is diagnostic context, not
@@ -1860,7 +1984,10 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
                     if profile is not None:
                         profiles.append(profile)
                 if len(profiles) >= 2:
-                    return player_comparison_answer(ctx, profiles, raw_question)
+                    return player_comparison_answer(
+                        ctx, profiles, raw_question,
+                        league_profile=getattr(ctx, "league_profile", None) if explicit_league else None,
+                    )
             if public_route.route == "team_comparison" and team_comparison_answer is not None and profile_for_team_entity is not None:
                 profiles = []
                 for match in public_route.entities:
@@ -1893,7 +2020,7 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
                 # route so Scout explains contender logic instead of only
                 # describing the team.
                 normalized_public_question = _normalize_public_query_text(raw_question)
-                if any(term in normalized_public_question for term in ["contender", "contenders", "championship window", "stanley cup", "cup contender"]):
+                if _is_team_performance_inquiry(raw_question) or any(term in normalized_public_question for term in ["contender", "contenders", "championship window", "stanley cup", "cup contender"]):
                     return _public_analytical_answer(ctx, raw_question, selected_mode)
                 entity = public_route.entities[0].entity if public_route.entities else None
                 profile = profile_for_team_entity(entity) if entity is not None else None

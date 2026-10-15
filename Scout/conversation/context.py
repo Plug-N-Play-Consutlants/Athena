@@ -29,6 +29,7 @@ class ScoutContext:
     player_master: List[Dict[str, Any]] | None = None
     raw_league_info: Dict[str, Any] | None = None
     raw_status: Dict[str, bool] | None = None
+    standings_archive: Dict[str, Any] | None = None
 
     @property
     def files_loaded(self) -> List[str]:
@@ -68,6 +69,7 @@ def load_context() -> ScoutContext:
         player_master=_read(OUTPUT_DIR / "player_master.json") or [],
         raw_league_info=_read(RAW_DIR / "league_info.json") or {},
         raw_status={path.name: path.exists() for path in raw_files},
+        standings_archive=_read(OUTPUT_DIR / "standings_archive_index.json") or {},
     )
 
 

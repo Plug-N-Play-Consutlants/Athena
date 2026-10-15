@@ -69,8 +69,8 @@ def main() -> int:
     checks.append(report("core workflow methods present", REQUIRED_SYMBOLS.issubset(methods), ", ".join(sorted(REQUIRED_SYMBOLS - methods))))
     checks.append(report("visible core workflow actions present", REQUIRED_VISIBLE_ACTIONS.issubset(set(a for a in REQUIRED_VISIBLE_ACTIONS if a in text)), ", ".join(sorted(REQUIRED_VISIBLE_ACTIONS))))
     toolbar_block = text[text.index("toolbar = ttk.Frame"):text.index("dev_toggle = ttk.Checkbutton")]
-    order = [toolbar_block.find("🔁 Relaunch Studio"), toolbar_block.find("🔄 Reload Build"), toolbar_block.find("▶ Launch Scout")]
-    checks.append(report("toolbar begins with relaunch/reload controls", all(pos >= 0 for pos in order) and order == sorted(order), "Relaunch Studio → Reload Build → Launch Scout"))
+    order = [toolbar_block.find("🔄 Reload Build"), toolbar_block.find("🔁 Relaunch Studio"), toolbar_block.find("▶ Launch Scout")]
+    checks.append(report("toolbar follows approved reload/relaunch sequence", all(pos >= 0 for pos in order) and order == sorted(order), "Reload Build → Relaunch Studio → Launch Scout"))
     checks.append(report("developer tools hidden by default", HIDDEN_TOOL_MARKERS.issubset(set(m for m in HIDDEN_TOOL_MARKERS if m in text)), "developer panel retained but collapsed"))
     dev_block = text[text.index("def _build_developer_panel"):text.index("def _toggle_developer_mode")]
     leaked = sorted(label for label in FORBIDDEN_BUTTON_WALL_ACTIONS if label in dev_block)

@@ -194,6 +194,8 @@ class FantraxProvider(BaseProvider):
             return client.get_transaction_evidence(**kwargs)
         if selected in {"draft_picks", "draft", "draft_assets"}:
             return client.get_draft_picks()
+        if selected in {"standings", "league_standings"}:
+            return client.get_standings(**kwargs)
         if selected == "schedule":
             return client.get_schedule()
         if selected in {"player_stats", "stats"}:

@@ -318,6 +318,11 @@ def _compose_organizational_assets_public(answer: Dict[str, Any], candidate: str
             if not why:
                 why=[_clean_public_text(d.get("significance")) for d in base.get("dimensions",[]) if isinstance(d,dict) and d.get("state") in {"established","supported_inference"} and _clean_public_text(d.get("significance"))]
             lines.append(f"{i}. {_clean_text(x.get('name'))} — " + (" ".join(why[:3]) if why else "current evidence establishes control but does not yet differentiate this asset strongly on significance dimensions"))
+        missing=[x for x in assets.get("unverified_requested_players",[]) if isinstance(x,dict)]
+        if missing:
+            lines.extend(["", "Requested players with unresolved current organizational control:"])
+            for x in missing:
+                lines.append(f"• {_clean_text(x.get('name'))} — NHL identity established by prior organizational evidence; current Toronto control has not been reverified. Not included in the tradeability ranking. Missing current evidence is not proof of a transfer or loss of rights.")
         lines.extend(["", "Athena's ranking is an evidence-backed organizational-value judgment, not a claim about Toronto management's private preferences."])
         return "\n".join(lines)
     if subset=="prospects":

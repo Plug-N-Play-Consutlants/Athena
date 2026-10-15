@@ -9,8 +9,11 @@ installing Streamlit, FastAPI, Node, React, or any other web framework.
 from __future__ import annotations
 
 import json
+import threading
+import uuid
 import os
 import sys
+import traceback
 import time
 import webbrowser
 from datetime import datetime, timezone
@@ -48,6 +51,48 @@ CONFIG_FILE = CONFIGURATION_DIR / "config.json"
 LATEST_OPERATION: Dict[str, Any] = {}
 LATEST_ANSWER: Dict[str, Any] = {}
 SESSION_TRANSCRIPT: list[Dict[str, Any]] = []
+SESSION_LOCK = threading.RLock()
+SESSION_INSTANCE = uuid.uuid4().hex
+SESSION_JOURNAL = PROJECT_ROOT / "Reports" / "scout_session_turns.jsonl"
+
+
+def _journal_event(event: Dict[str, Any]) -> None:
+    """Durable turn recording independent of in-memory HTTP server lifetime."""
+    SESSION_JOURNAL.parent.mkdir(parents=True, exist_ok=True)
+    with SESSION_LOCK:
+        with SESSION_JOURNAL.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(event, ensure_ascii=False, default=str) + "\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+
+
+def _journal_turns() -> list[Dict[str, Any]]:
+    """Reconstruct turns, including rendered text updates, from the persistent journal."""
+    turns: Dict[str, Dict[str, Any]] = {}
+    if SESSION_JOURNAL.is_file():
+        with SESSION_LOCK:
+            with SESSION_JOURNAL.open("r", encoding="utf-8") as stream:
+                for line in stream:
+                    try:
+                        event = json.loads(line)
+                    except (ValueError, TypeError):
+                        continue
+                    if not isinstance(event, dict):
+                        continue
+                    key = str(event.get("id") or "")
+                    if not key:
+                        continue
+                    if event.get("kind") == "turn" and isinstance(event.get("turn"), dict):
+                        turns[key] = event["turn"]
+                    elif event.get("kind") == "visible" and key in turns:
+                        turns[key]["user_visible_text"] = str(event.get("text") or "")
+    # In-memory records are retained as a fallback for legacy or journal failures.
+    for turn in SESSION_TRANSCRIPT:
+        key = str(turn.get("journal_id") or "")
+        if key and key not in turns:
+            turns[key] = turn
+    return list(turns.values())
+
 TEST_LEAGUE_PLACEHOLDERS = {"", "test_league_id_provider_registry", "test_league_id", "test_league_id_drop2", "validation_league_id", "validation-league", "placeholder"}
 
 
@@ -95,39 +140,81 @@ def _session_answer_summary(answer: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _record_session_turn(question: str, mode: str, answer: Dict[str, Any], presentation_mode: str = "normal") -> int:
-    turn_id = len(SESSION_TRANSCRIPT) + 1
-    SESSION_TRANSCRIPT.append({
-        "turn_id": turn_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "mode": mode,
-        "presentation_mode": presentation_mode,
-        "question": question,
-        "answer": _session_answer_summary(answer),
-        "user_visible_text": "",
-    })
-    return turn_id
+    with SESSION_LOCK:
+        turn_id = len(SESSION_TRANSCRIPT) + 1
+        journal_id = f"{SESSION_INSTANCE}:{turn_id}"
+        turn = {
+            "turn_id": turn_id,
+            "journal_id": journal_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "mode": mode,
+            "presentation_mode": presentation_mode,
+            "question": question,
+            "answer": _session_answer_summary(answer),
+            "user_visible_text": "",
+        }
+        _journal_event({"kind": "turn", "id": journal_id, "turn": turn})
+        SESSION_TRANSCRIPT.append(turn)
+        return turn_id
 
 
 def _record_user_visible_turn(turn_id: int, visible_text: str) -> bool:
-    """Attach the browser-rendered text for one Scout answer to its diagnostic turn."""
-    for turn in reversed(SESSION_TRANSCRIPT):
-        if int(turn.get("turn_id") or 0) == int(turn_id):
-            turn["user_visible_text"] = str(visible_text or "").strip()
-            return True
+    """Attach browser-rendered text to both active turn and persistent journal."""
+    with SESSION_LOCK:
+        for turn in reversed(SESSION_TRANSCRIPT):
+            if int(turn.get("turn_id") or 0) == int(turn_id):
+                text = str(visible_text or "").strip()
+                _journal_event({"kind": "visible", "id": turn["journal_id"], "text": text})
+                turn["user_visible_text"] = text
+                return True
     return False
+
+
+def _record_failed_session_turn(question: str, mode: str, stage: str, exc: Exception) -> int:
+    """Preserve failed /api/ask requests in session exports without exposing secrets."""
+    error_type = type(exc).__name__
+    # Capture code locations only: no locals, arguments, tokens or raw provider errors.
+    frames = traceback.extract_tb(exc.__traceback__)
+    origin = []
+    for frame in frames[-12:]:
+        try:
+            relative_file = str(Path(frame.filename).resolve().relative_to(PROJECT_ROOT))
+        except ValueError:
+            relative_file = Path(frame.filename).name
+        origin.append({"file": relative_file, "line": frame.lineno, "function": frame.name})
+    missing_attribute = getattr(exc, "name", None) if isinstance(exc, AttributeError) else None
+    missing_object = getattr(exc, "obj", None) if isinstance(exc, AttributeError) else None
+    diagnostic = {"status": "failed", "stage": stage, "exception_type": error_type,
+                  "frames": origin, "missing_attribute": missing_attribute,
+                  "object_type": type(missing_object).__name__ if missing_object is not None else None}
+    answer = {
+        "title": "Scout request failed",
+        "intent": "request_execution_failure",
+        "confidence": 0,
+        "natural_language_response": "Scout could not complete this request.",
+        "known_limitations": [f"Request failed at {stage}: {error_type}"],
+        "developer": {"request_lifecycle": diagnostic},
+    }
+    return _record_session_turn(question, mode, answer)
 
 
 def _write_session_log() -> Dict[str, Any]:
     """Overwrite the temporary Scout session prompt/response comparison log."""
     reports = PROJECT_ROOT / "Reports"
     reports.mkdir(parents=True, exist_ok=True)
-    txt_path = reports / "scout_session_log.txt"
-    json_path = reports / "scout_session_log.json"
+    export_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    txt_name = f"scout_session_log_{export_id}.txt"
+    json_name = f"scout_session_log_{export_id}.json"
+    txt_path = reports / txt_name
+    json_path = reports / json_name
+    turns = _journal_turns()
+    if not turns:
+        return {"ok": False, "error": "No recorded Scout inquiries are available. Session export was not created.", "turn_count": 0}
     payload = {
         "created": datetime.now(timezone.utc).isoformat(),
         "version": SCOUT_VERSION,
-        "turn_count": len(SESSION_TRANSCRIPT),
-        "turns": SESSION_TRANSCRIPT,
+        "turn_count": len(turns),
+        "turns": turns,
     }
     json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     lines = [
@@ -135,10 +222,10 @@ def _write_session_log() -> Dict[str, Any]:
         "=================================",
         f"Created: {payload['created']}",
         f"Scout: {SCOUT_VERSION}",
-        f"Turns: {len(SESSION_TRANSCRIPT)}",
+        f"Turns: {len(turns)}",
         "",
     ]
-    for idx, turn in enumerate(SESSION_TRANSCRIPT, 1):
+    for idx, turn in enumerate(turns, 1):
         answer = turn.get("answer", {}) if isinstance(turn, dict) else {}
         lines.extend([
             f"--- Turn {idx} ---",
@@ -190,6 +277,15 @@ def _write_session_log() -> Dict[str, Any]:
         if limits:
             lines.append("Known limitations:"); lines.extend(f"  - {item}" for item in limits)
         developer=answer.get("developer") or {}
+        lifecycle=developer.get("request_lifecycle") if isinstance(developer,dict) else None
+        if isinstance(lifecycle,dict):
+            lines.append("Request lifecycle diagnostics:")
+            lines.append(f"  stage: {lifecycle.get('stage')}")
+            lines.append(f"  exception_type: {lifecycle.get('exception_type')}")
+            lines.append(f"  missing_attribute: {lifecycle.get('missing_attribute')}")
+            lines.append(f"  object_type: {lifecycle.get('object_type')}")
+            for frame in lifecycle.get("frames") or []:
+                lines.append(f"  at {frame.get('file')}:{frame.get('line')} in {frame.get('function')}")
         live=developer.get("live_evidence") if isinstance(developer,dict) else None
         if isinstance(live,dict):
             lines.append("Live evidence diagnostics:")
@@ -203,11 +299,11 @@ def _write_session_log() -> Dict[str, Any]:
     txt_path.write_text("\n".join(lines), encoding="utf-8")
     return {
         "ok": True,
-        "turn_count": len(SESSION_TRANSCRIPT),
+        "turn_count": len(turns),
         "text_path": str(txt_path),
         "json_path": str(json_path),
-        "text_download_url": "/api/debug/download?file=scout_session_log.txt",
-        "json_download_url": "/api/debug/download?file=scout_session_log.json",
+        "text_download_url": f"/api/debug/download?file={txt_name}",
+        "json_download_url": f"/api/debug/download?file={json_name}",
     }
 
 def _html_response(handler: BaseHTTPRequestHandler, html: str, status: int = 200) -> None:
@@ -772,7 +868,7 @@ function renderAnswerCopy(text) {
   const headings = new Set([
     'Organizational Significance','Scenario Assessment','Assets on the Table','What Needs Are We Addressing on Both Sides',
     'Proposed Construction','Financial Impact','Rules & Transaction Mechanics','Opportunity Cost','Credible Alternatives',
-    "Athena's Verdict",'Decision Quality vs. Outcome','Controlled Prospects Eligible for Analysis','Rights & Restrictions','Most Reluctant to Move'
+    "The major exchanges","Elsewhere around the league","What remains unresolved","Athena's Verdict",'Decision Quality vs. Outcome','Controlled Prospects Eligible for Analysis','Rights & Restrictions','Most Reluctant to Move'
   ]);
   return String(text || '').split('\n').map(line => headings.has(line.trim())
     ? `<div class="answer-copy-heading">${esc(line.trim())}</div>`
@@ -813,7 +909,7 @@ function renderAnswer(answer, userText=null) {
   const publicLike = !developerActive;
   const publicText = String(answer.public_comment || '').trim();
   const rawCards = Array.isArray(answer.cards) ? answer.cards : [];
-  const answerCards = (developerVisible || normalDetail) ? rawCards : rawCards.filter(card => {
+  const answerCards = (developerVisible || (normalDetail && !answer.editorial_report)) ? rawCards : rawCards.filter(card => {
     const label = String((card && card.label) || '').trim().toLowerCase();
     return label === 'try' || (card && (card.action === 'ask_prompt' || card.prompt));
   });
@@ -831,7 +927,7 @@ function renderAnswer(answer, userText=null) {
   }).join('');
   let diagnosticBlock = '';
   let diagnosticLists = false;
-  if (developerActive || normalDetail) diagnosticLists = true;
+  if (developerActive || (normalDetail && !answer.editorial_report)) diagnosticLists = true;
   const facts = diagnosticLists ? (answer.observed_facts || []).map(item => `<li>${esc(item)}</li>`).join('') : '';
   const limits = diagnosticLists ? (answer.known_limitations || []).map(item => `<li>${esc(item)}</li>`).join('') : '';
   const op = answer.operation_result || (answer.developer && answer.developer.operation_result) || null;
@@ -1106,6 +1202,10 @@ async function exportSessionLog() {
     renderAnswer({title:'Session log failed', confidence:0.1, engine_conclusion:data.error || data.message || 'Session log export failed.', developer:data}, 'Export Session Log');
     return;
   }
+  if (!data.turn_count) {
+    renderAnswer({title:'Session log failed', confidence:0.1, engine_conclusion:'No recorded inquiries were found. Export was not created.'}, 'Export Session Log');
+    return;
+  }
   if (data.text_download_url) window.open(data.text_download_url, '_blank');
   renderAnswer({
     title:'Session log ready',
@@ -1372,7 +1472,10 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
             query = parse_qs(urlparse(self.path).query)
             filename = Path(str((query.get("file") or [""])[0])).name
             valid_debug = filename.startswith("scout_debug_export_") and (filename.endswith(".txt") or filename.endswith(".json"))
-            valid_session = filename in {"scout_session_log.txt", "scout_session_log.json"}
+            valid_session = (filename in {"scout_session_log.txt", "scout_session_log.json"} or
+                             (filename.startswith("scout_session_log_") and
+                              filename.rsplit(".", 1)[-1] in {"txt", "json"} and
+                              filename[len("scout_session_log_"):].rsplit(".", 1)[0].replace("T", "").replace("Z", "").isdigit()))
             if not (valid_debug or valid_session):
                 _json_response(self, {"error": "Invalid debug/session export filename."}, HTTPStatus.BAD_REQUEST)
                 return
@@ -1467,34 +1570,59 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                 _json_response(self, {"ok": ok}, 200 if ok else 404)
                 return
             if path == "/api/ask":
-                body = _read_json_body(self)
-                ctx = load_context()
-                question_text = str(body.get("question") or "")
-                selected_mode = str(body.get("mode") or "fantasy")
-                presentation_mode = "developer" if bool(body.get("developer_mode")) else "normal"
-                answer = Athena.ask(question_text, context=ctx, mode=selected_mode, continuation=body.get("continuation"))
-                # League analysis is a current-state operation. If Scout routes a
-                # fantasy prompt to league analysis, refresh the active workspace
-                # before composing the final answer so stale derived artifacts are
-                # never presented as current league state.
-                if selected_mode.strip().lower() != "public" and answer.get("intent") == "analyze_league":
-                    refresh = Athena.sync(mode="fantasy_league", provider="Fantrax", fetch=True)
-                    answer = Athena.ask(question_text, context=load_context(), mode=selected_mode)
-                    if isinstance(answer.get("developer"), dict):
-                        answer["developer"]["state_refresh"] = {
-                            "ok": bool(refresh.get("ok")),
-                            "partial": bool(refresh.get("partial")),
-                            "warnings": refresh.get("warnings", []),
-                            "summary": refresh.get("summary", {}),
-                        }
-                # Final public composition is authoritative at the API boundary.
-                # Specialists may carry internal narratives, but normal mode may
-                # only receive the registered public presentation contract.
-                answer = compose_answer_payload(answer)
-                LATEST_ANSWER = {"question": question_text, "answer": answer}
-                turn_id = _record_session_turn(question_text, selected_mode, answer, presentation_mode=presentation_mode)
-                _json_response(self, {"answer": answer, "session_turn_id": turn_id})
-                return
+                question_text = ""
+                selected_mode = "unknown"
+                stage = "read_request"
+                try:
+                    body = _read_json_body(self)
+                    question_text = str(body.get("question") or "")
+                    selected_mode = str(body.get("mode") or "fantasy")
+                    stage = "load_context"
+                    ctx = load_context()
+                    presentation_mode = "developer" if bool(body.get("developer_mode")) else "normal"
+                    stage = "athena_ask"
+                    answer = Athena.ask(question_text, context=ctx, mode=selected_mode, continuation=body.get("continuation"))
+                    # League analysis is a current-state operation. If Scout routes a
+                    # fantasy prompt to league analysis, refresh the active workspace
+                    # before composing the final answer so stale derived artifacts are
+                    # never presented as current league state.
+                    if selected_mode.strip().lower() != "public" and answer.get("intent") == "analyze_league":
+                        stage = "fantasy_sync"
+                        refresh = Athena.sync(mode="fantasy_league", provider="Fantrax", fetch=True)
+                        stage = "athena_ask_after_sync"
+                        answer = Athena.ask(question_text, context=load_context(), mode=selected_mode)
+                        if isinstance(answer.get("developer"), dict):
+                            answer["developer"]["state_refresh"] = {
+                                "ok": bool(refresh.get("ok")),
+                                "partial": bool(refresh.get("partial")),
+                                "warnings": refresh.get("warnings", []),
+                                "summary": refresh.get("summary", {}),
+                            }
+                    # Final public composition is authoritative at the API boundary.
+                    # Specialists may carry internal narratives, but normal mode may
+                    # only receive the registered public presentation contract.
+                    stage = "compose_answer"
+                    answer = compose_answer_payload(answer)
+                    LATEST_ANSWER = {"question": question_text, "answer": answer}
+                    stage = "record_turn"
+                    turn_id = _record_session_turn(question_text, selected_mode, answer, presentation_mode=presentation_mode)
+                    stage = "send_response"
+                    _json_response(self, {"answer": answer, "session_turn_id": turn_id})
+                    return
+                except Exception as exc:
+                    # A failed request must remain visible in the exported session.
+                    # Avoid logging provider credentials or raw exception messages.
+                    try:
+                        if stage != "send_response":
+                            _record_failed_session_turn(question_text, selected_mode, stage, exc)
+                    except Exception:
+                        pass
+                    _json_response(self, {
+                        "error": "Scout request failed",
+                        "stage": stage,
+                        "exception_type": type(exc).__name__,
+                    }, HTTPStatus.INTERNAL_SERVER_ERROR)
+                    return
             if path in {"/api/sync", "/api/analyze"}:
                 body = _read_json_body(self)
                 selected_mode = str(body.get("mode") or "fantasy")
@@ -1541,7 +1669,7 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                 return
             if path == "/api/session/export":
                 result = _write_session_log()
-                _json_response(self, result, 200)
+                _json_response(self, result, 200 if result.get("ok") else HTTPStatus.CONFLICT)
                 return
             if path == "/api/debug/export":
                 result = write_debug_export(source="Scout", latest_operation=LATEST_OPERATION, latest_answer=LATEST_ANSWER)

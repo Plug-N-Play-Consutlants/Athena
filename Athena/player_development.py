@@ -29,18 +29,22 @@ def _historical_levels(landing: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def analyze_player_development(player: Dict[str, Any], *, history=None, baselines=None, opportunity=None) -> Dict[str, Any]:
     from Reasoning.Players import build_player_intelligence
+    from Reasoning.Players.development_interpretation import summarize_development
     profile = build_player_intelligence(player, history=history, baselines=baselines, opportunity=opportunity)
     name = str(player.get("name") or "The player")
     age = player.get("age")
     age_phrase = f" at age {age}" if isinstance(age, int) else ""
+    interpreted = profile.get("development_pathway", {}).get("interpretation", {})
+    latest_nhl = interpreted.get("latest_nhl_regular_season") or {}
     gp = player.get("games_played")
+    if not isinstance(gp, (int, float)):
+        gp = latest_nhl.get("games")
     lines = [f"{name}: development pathway and NHL projection",
              f"{name} is identified as {player.get('relationship') or 'a player'}{age_phrase}. "
              "NHL roster attainment and career progression are observable evidence; neither establishes why promotion happened at that time."]
     if history:
         leagues = list(dict.fromkeys(str(x.get("league")) for x in history if x.get("league")))
-        lines.append("Recorded development levels: " + ", ".join(leagues) +
-                     ". These are career observations, not evidence that any particular level caused a delay.")
+        lines.extend(summarize_development(interpreted))
     else:
         lines.append("Longitudinal NCAA/AHL/junior season evidence is not established on this path; Athena cannot reconstruct the full pathway.")
     if isinstance(gp, (int, float)):
@@ -49,6 +53,14 @@ def analyze_player_development(player: Dict[str, Any], *, history=None, baseline
                       if gp < 20 else "Statistical stability still depends on role, conditions and representativeness."))
     else:
         lines.append("Current NHL games-played evidence is unavailable on this acquisition path.")
+    from Reasoning.Players.development_synthesis import synthesize_development
+    synthesis = synthesize_development(interpreted)
+    lines.append("Analytical synthesis: " + " ".join(synthesis["findings"]))
+    lines.append("Decision implication: " + synthesis["decision_implication"])
+    if interpreted.get("within_league_production_changes"):
+        lines.append("Interpretation: Within-league scoring-rate changes are meaningful observed signals; role, teammates, competition, and sample size still limit causal claims. A development judgment can acknowledge those signals without a complete cohort.")
+    else:
+        lines.append("Interpretation: The chronology establishes levels attained, but provides insufficient comparable within-league performance observations to assess scoring progression.")
     lines.append("Comparative baseline: " + (
         "A relevant full-population comparison cohort is available for evaluation."
         if baselines else
@@ -59,6 +71,7 @@ def analyze_player_development(player: Dict[str, Any], *, history=None, baseline
         if opportunity else
         "Depth-chart congestion, coaching fit, waiver/contract constraints and earlier NHL readiness remain competing hypotheses, not established causes."
     ))
+    lines.append("Evidence-based assessment: Reaching the NHL following documented intermediate levels establishes attainment and progression, not proof of a late or early developmental outcome. A current NHL sample, if present, should update the assessment separately from the pre-NHL pathway.")
     lines.append("Projection: " + (
         "The observed NHL evidence can update the historical development profile, but does not yet justify a precise role probability or ceiling."
         if history or isinstance(gp,(int,float)) and gp > 0 else
@@ -80,6 +93,15 @@ def execute_player_development(context: Any, question: str) -> Dict[str, Any]:
         acquisition_errors.extend(org.get("acquisition_errors") or [])
         selected = _named_player(question, list(org.get("roster") or []) + list(org.get("prospects") or []))
         if selected: break
+    # Historical official records can verify identity when the current roster
+    # endpoint omits a player. They never establish current organizational rights.
+    if selected is None:
+        from Knowledge.Organizations.nhl_roster_evidence import acquire_historical_player_identities
+        for team in teams:
+            selected = _named_player(question, acquire_historical_player_identities(team))
+            if selected:
+                acquisition_errors.append("Current roster/prospect relationship not verified; historical NHL identity only.")
+                break
     # A name in the user prompt is not sufficient proof of an NHL identity.
     if selected is None:
         match = resolve_public_player(question)
@@ -107,6 +129,8 @@ def execute_player_development(context: Any, question: str) -> Dict[str, Any]:
                 if isinstance(draft, dict): selected["draft"] = draft
         except Exception as exc:
             acquisition_errors.append(f"player_landing: {type(exc).__name__}: {exc}")
+    if selected.get("relationship") == "historical_identity_only":
+        selected["relationship"] = "historically verified NHL player; current organizational control unverified"
     assessment = analyze_player_development(selected,history=history)
     limitations = list(assessment["profile"].get("uncertainty") or []) + acquisition_errors
     answer = response(intent="public_player_development",

@@ -38,7 +38,24 @@ def main() -> int:
         check(f"required_file:{rel}", (ROOT / rel).exists(), rel, failures)
     router_text = (ROOT / "Scout/conversation/router.py").read_text(encoding="utf-8")
     check("router_imports_orchestration", "scout_orchestrated_answer" in router_text, "Scout/conversation/router.py", failures)
-    check("router_uses_orchestration_before_recent_events", router_text.find("orchestration_plan = scout_intent_plan") < router_text.find("is_recent_event_query(raw_question)"), "orchestration precedes legacy recent-event route", failures)
+    # Check the executable routing boundary rather than a removed legacy local
+    # variable.  The historical text check reported a false failure when both
+    # substrings were absent (-1 < -1), despite Athena owning dispatch.
+    import ast
+    router_ast = ast.parse(router_text)
+    route_functions = [node for node in ast.walk(router_ast)
+                       if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                       and node.name == "route_question"]
+    route_source = ast.get_source_segment(router_text, route_functions[0]) if route_functions else ""
+    athena_import = "from Athena.inquiry_execution import answer as athena_answer"
+    athena_call = "athena_answer(raw_question, ctx, mode=selected_mode)"
+    old_preemption = "if is_recent_event_query(raw_question)"
+    routing_ok = (bool(route_source) and athena_import in route_source
+                  and athena_call in route_source
+                  and (old_preemption not in route_source or
+                       route_source.find(athena_call) < route_source.find(old_preemption)))
+    check("router_uses_orchestration_before_recent_events", routing_ok,
+          "Athena inquiry execution precedes any legacy recent-event preemption", failures)
     diagnostics = orchestration_diagnostics()
     check("diagnostics_routes_available", len(diagnostics.get("routes", [])) >= 10, diagnostics, failures)
     plan = scout_intent_plan("Compare Connor McDavid and Nathan MacKinnon. Which player would you build a franchise around today, and why?", "public")

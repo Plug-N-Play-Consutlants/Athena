@@ -18,10 +18,17 @@ def assess_organizational_significance(asset:Dict[str,Any],*,organization:str=""
     pathway=intelligence.get("development_pathway") or {}
     events=pathway.get("events") or []
     if events:
-        leagues=list(dict.fromkeys(str(e.get("league")) for e in events if isinstance(e,dict) and e.get("league")))
-        if leagues:
-            considerations.append("Observed career pathway includes " + ", ".join(leagues) +
-                "; progression across levels informs the development profile, but does not establish why any promotion was delayed.")
+        from Reasoning.Players.development_interpretation import summarize_development
+        interpreted=pathway.get("interpretation") or {}
+        if interpreted.get("timeline"):
+            from Reasoning.Players.development_synthesis import synthesize_development
+            synthesis=synthesize_development(interpreted)
+            leagues=list(dict.fromkeys(str(e.get("league")) for e in events if isinstance(e,dict) and e.get("league")))
+            if leagues:
+                considerations.append("Observed career pathway includes " + ", ".join(leagues) + "; progression across levels informs the development profile, but does not establish why any promotion was delayed.")
+            considerations.extend(synthesis["findings"][:2])
+            considerations.append("Documented progression contributes attainment evidence; without a validated comparison population it does not establish a superior development rate or future ceiling.")
+            considerations.append(synthesis["decision_implication"])
     elif intelligence.get("uncertainty"):
         considerations.append("Longitudinal pathway evidence is incomplete; development speed and ceiling cannot be inferred from age alone.")
     if competitive_horizon=="unresolved":considerations.append("The organization's verified competitive horizon is unresolved, so Athena does not assume win-now or rebuild intent.")

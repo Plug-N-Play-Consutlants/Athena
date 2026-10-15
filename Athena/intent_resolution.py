@@ -7,6 +7,19 @@ from Athena.execution_registry import SPECIALISTS
 def select_executable_route(question: str, mode: str) -> tuple[str, str]:
     from Athena.intent_planner import plan_capability
 
+    # A named-league player comparison remains an Athena-owned comparison;
+    # its league lens is applied after shared NHL evidence acquisition.
+    if any(name in question.casefold() for name in ("jhlpaa", "fantrax")):
+        candidate = plan_capability(question, "public")
+        if getattr(candidate, "route", "") == "public_player_comparison":
+            return "league_player_comparison", "explicit_league_player_comparison"
+
+    # An explicitly named private fantasy league retains its domain in either
+    # presentation mode. Public RSS is not a substitute for canonical league data.
+    if any(name in question.casefold() for name in ("jhlpaa", "fantrax")) and any(
+        term in question.casefold() for term in ("report", "recap", "standings", "scoring", "league", "week", "trade")
+    ):
+        return "", "explicit_fantasy_league_domain"
     plan = plan_capability(question, mode)
     route = str(getattr(plan, "route", "") or "")
     if mode == "public" and route == "ambiguous_public_entity":

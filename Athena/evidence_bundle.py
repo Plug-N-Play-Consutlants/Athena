@@ -78,7 +78,7 @@ def build_request_evidence(question: str, *, mode: str, route: str | None) -> Di
     if mode != "public":
         return bundle
 
-    if route == "public_player_comparison":
+    if route in {"public_player_comparison", "league_player_comparison"}:
         from Knowledge.Intelligence.Entities.entity_registry import entities_by_type, searchable_names
         matched = []
         for entity in entities_by_type("player"):

@@ -7,6 +7,7 @@ facts remain meaningful contextual evidence.
 from __future__ import annotations
 from typing import Any,Dict,List
 from Reasoning.models.player_intelligence import PlayerIntelligence
+from .development_interpretation import interpret_development
 
 def _known(v): return v is not None and v!="" and v!=[] and v!={}
 
@@ -22,7 +23,8 @@ def build_player_intelligence(player:Dict[str,Any], *, history:List[Dict[str,Any
     evidence={k:player.get(k) for k in ("age","position","games_played","goals","assists","points","avg_toi","relationship") if _known(player.get(k))}
     if draft:evidence["draft"]=draft
     if history:evidence["development_history"]=history
-    pathway={"state":"established" if history else "unresolved","events":history,
+    interpretation=interpret_development(history, age=age, birth_year=player.get("birth_year"))
+    pathway={"interpretation":interpretation,"state":"established" if history else "unresolved","events":history,
              "principle":"Elapsed time is not developmental delay; pathway choices and causes require their own evidence."}
     sample={"statistical_sample":"immature" if gp is not None and gp<20 else "developing" if gp is not None and gp<82 else "established" if gp is not None else "unresolved",
             "contextual_evidence":"available" if any(_known(player.get(k)) for k in ("relationship","avg_toi","position")) or history else "limited"}
@@ -34,7 +36,7 @@ def build_player_intelligence(player:Dict[str,Any], *, history:List[Dict[str,Any
     trajectory_reason="Development trajectory requires longitudinal pathway evidence; age alone is not a trajectory."
     if history:
         trajectory_state="supported_inference"
-        trajectory_reason="Longitudinal level/role evidence is available for trajectory assessment; causal explanations remain separate unless evidenced."
+        trajectory_reason="Chronological level transitions are observed, but scoring rates across leagues, readiness and promotion causes are not interchangeable. See development_pathway.interpretation."
     trajectory={"state":trajectory_state,"reason":trajectory_reason,"age":age,"comparative_baselines":baselines,
                 "causal_explanations":"unresolved" if not opportunity.get("established_causes") else opportunity.get("established_causes")}
     projection={"state":"bounded_inference" if (history or gp) else "unresolved",

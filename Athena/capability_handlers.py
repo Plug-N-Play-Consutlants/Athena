@@ -83,7 +83,12 @@ def _answer_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any
     except Exception:
         player_comparison_answer = None  # type: ignore
     if player_comparison_answer is not None and len(profiles) >= 2:
-        answer = player_comparison_answer(ctx, profiles, question)
+        # Athena's specialist registry owns this route before Scout's legacy
+        # fallback. Preserve an explicitly named league for the shared
+        # comparison's bounded league-specific application.
+        explicit_league = bool(re.search(r"\b(jhlpaa|fantrax)\b", question, re.IGNORECASE))
+        league_profile = getattr(ctx, "league_profile", None) if explicit_league else None
+        answer = player_comparison_answer(ctx, profiles, question, league_profile=league_profile)
         answer.setdefault("developer", {}).setdefault("orchestration", scout_intent_plan(question, "public").to_dict())
         return answer
     if len(subjects) >= 2:
@@ -529,14 +534,8 @@ def _answer_longitudinal_draft(ctx: ScoutContext, question: str) -> Dict[str, An
 
 def scout_orchestrated_answer(ctx: ScoutContext, question: str, mode: str = "public") -> Optional[Dict[str, Any]]:
     """Compatibility entry point; Athena owns the executable handler map."""
-    plan = scout_intent_plan(question, mode)
-    if plan is None:
-        return None
-    if plan.route == "live_event_intelligence":
-        # Existing router calls its live handler before this entry point.
-        return None
-    from Athena.execution_registry import execute_specialist
-    return execute_specialist(plan.route, ctx, question, mode=mode)
+    from Athena.inquiry_execution import answer
+    return answer(question, ctx, mode=mode)
 
 
 def orchestration_diagnostics() -> Dict[str, Any]:
@@ -764,6 +763,19 @@ def _answer_nhl_organizational_assets(ctx: ScoutContext, question: str) -> Dict[
     named_selected=[x for x in selected if str(x.get("name") or "").casefold() in q]
     if len(named_selected)>=2:
         selected=named_selected
+    # Preserve requested names missing from the current provider universe as
+    # explicit unresolved comparisons; never promote historical identity into
+    # current Toronto control or rank it as a tradeable asset.
+    from Knowledge.Organizations.nhl_roster_evidence import acquire_historical_player_identities
+    from Athena.player_development import _named_player
+    historical_matches = []
+    if any(str(x.get("name") or "").casefold() in q for x in players):
+        historical = acquire_historical_player_identities("TOR", max_seasons=3)
+        for candidate in historical:
+            if str(candidate.get("name") or "").casefold() in q and not any(
+                str(x.get("name") or "").casefold() == str(candidate.get("name") or "").casefold()
+                for x in selected):
+                historical_matches.append(candidate)
     asks_reluctance=_has_any(q,["reluctant","reluctance","hardest to move","least willing","would you keep","most protect","significant","significance","differently significant"])
     from Reasoning.Significance import assess_asset_significance, assess_organizational_significance, significance_sort_key
     # Significance must consume the same material player evidence used by deeper
@@ -794,14 +806,18 @@ def _answer_nhl_organizational_assets(ctx: ScoutContext, question: str) -> Dict[
         asset["organizational_significance"]=assess_organizational_significance(asset,organization="Toronto Maple Leafs")
     reluctance=sorted(selected,key=significance_sort_key,reverse=True) if asks_reluctance else []
     facts=[]
+    for candidate in historical_matches:
+        facts.append(f"{candidate['name']}: previously verified NHL identity, but current Toronto control is not established by this acquisition; excluded from tradeability ranking pending current rights evidence.")
     for x in selected[:20]:
         rs=x.get("rights_state") or {}; obj=str(rs.get("transferable_object") or "unknown")
         facts.append(f"{x.get('name')}: {x.get('relationship')}; control {rs.get('control_status')}; transferable object {obj}; transaction state {rs.get('transaction_status')}.")
     natural=(f"NHL organizational evidence currently identifies {len(controlled)} Toronto-controlled player relationships, with {len(eligible)} eligible for transaction analysis subject to exact contract/rights restrictions. "
              "Athena treats playing location and organizational control separately: a player is not a Toronto trade asset merely because he plays for an affiliate, while a controlled prospect can remain a Toronto asset in junior, college or Europe. "
              "The current provider path does not yet establish every player's exact SPC versus unsigned-rights mechanism or a complete Toronto draft-pick inventory, so those distinctions remain explicit rather than invented.")
+    if historical_matches:
+        natural += " Current Toronto rights could not be reverified for: " + ", ".join(x["name"] for x in historical_matches) + ". These players are not ranked as controlled assets until current rights evidence is obtained."
     answer=response(intent="public_nhl_organizational_assets",title="Toronto Maple Leafs: organizational asset rights",engine_conclusion=natural,natural_language_response=natural,observed_facts=facts,known_limitations=["Exact rights expiry, SPC clauses, NMC/NTC and other transfer restrictions require the corresponding contract/CBA evidence.","Draft capital is not yet acquired by this organizational-player path.","NHL provider prospect association establishes current organizational relationship but does not by itself identify every underlying rights mechanism."],confidence=.84,developer=developer_info("public_nhl_organizational_assets",getattr(ctx,"files_loaded",[]),knowledge_used=["nhl_current_roster","nhl_prospects","nhl_player_landing","organizational_rights_state"],intelligence_used=["control_vs_location_classification","transaction_eligibility","player_intelligence","asset_significance","organizational_significance"],missing=["complete_exact_rights_mechanisms","nhl_draft_pick_ownership"]))
-    answer["developer"]["organizational_assets"]={"team":"TOR","controlled_count":len(controlled),"transaction_analysis_count":len(eligible),"query_subset":"prospects" if asks_prospects else "all_controlled_assets","selected_players":selected,"players":controlled,"reluctance_requested":asks_reluctance,"reluctance_ranking":reluctance,"acquisition_errors":org.get("acquisition_errors") or []}
+    answer["developer"]["organizational_assets"]={"team":"TOR","controlled_count":len(controlled),"transaction_analysis_count":len(eligible),"query_subset":"prospects" if asks_prospects else "all_controlled_assets","selected_players":selected,"unverified_requested_players":historical_matches,"players":controlled,"reluctance_requested":asks_reluctance,"reluctance_ranking":reluctance,"acquisition_errors":org.get("acquisition_errors") or []}
     return answer
 
 def _answer_nhl_transaction_scenario(ctx: ScoutContext, question: str) -> Dict[str, Any]:

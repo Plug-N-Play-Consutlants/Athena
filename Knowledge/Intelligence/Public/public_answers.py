@@ -872,7 +872,7 @@ def _comparison_observed_facts(assessment: Any) -> List[str]:
     return [f"{public_labels.get(label, label)}: {_comparison_public_copy(body)}" for label, body in sections if body]
 
 
-def player_comparison_answer(ctx, profiles: List[PublicPlayerProfile], question: str) -> Dict[str, object]:
+def player_comparison_answer(ctx, profiles: List[PublicPlayerProfile], question: str, *, league_profile=None) -> Dict[str, object]:
     if len(profiles) < 2:
         return response(
             intent="public_player_comparison_gap",
@@ -1037,6 +1037,10 @@ def player_comparison_answer(ctx, profiles: List[PublicPlayerProfile], question:
     answer["developer"]["profiles"] = [p.to_dict() for p in profiles]
     if assessment is not None:
         answer["developer"]["comparison_assessment"] = assessment.to_dict()
+    if league_profile is not None:
+        from Reasoning.Boosters.league_player_comparison import apply_league_player_comparison
+        answer = apply_league_player_comparison(answer, league_profile, profiles, recent_series)
+        _set_public_surface(answer, answer.get("natural_language_response", ""))
     return answer
 
 

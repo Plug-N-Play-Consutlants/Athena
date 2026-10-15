@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import Any
 
 from Knowledge.Intelligence.Public.player_evidence import authoritative_statistical_view
+from Athena.historical_stature import stature_evidence
 
 LABELS = ("Franchise Superstar", "Star", "Core Player", "Role Player", "Depth Player")
 
@@ -89,6 +90,7 @@ def assess_player(evidence: dict[str, Any]) -> dict[str, Any]:
         "trend": trend,
         "trend_provisional": len(recent) < 3 or stale or limited_latest,
         "awards": awards,
+        "historical_stature": stature_evidence(evidence, rows, career),
         "limitations": (["Most recent NHL season is too old for a current rating; historical production is retained."] if stale else
                         (["Current tier is a scoring-based estimate; injury, deployment and defensive impact require separate evidence."]
                          if current else []) +
@@ -123,4 +125,11 @@ def assessment_copy(name: str, evidence: dict[str, Any], assessment: dict[str, A
     if awards:
         second += " NHL-recorded honours include " + ", ".join(
             f"{item['trophy']} ({item['count']})" for item in awards[:4]) + "."
+    historical = assessment.get("historical_stature") or {}
+    observations = historical.get("supporting_observations") or []
+    if observations:
+        second += " Historical evidence: " + " ".join(observations[:5])
+    second += (" Historical stature (including any generational judgment) remains an independent "
+               "evaluation requiring era-adjusted peers, two-way impact and relevant health context; "
+               "the current scoring tier is not that judgment.")
     return opening + "\n\n" + second

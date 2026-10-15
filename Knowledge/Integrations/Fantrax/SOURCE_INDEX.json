@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-10-14",
+  "scope": "AthenaEngine Fantrax external research",
+  "status_legend": {
+    "source-reviewed": "Public code or documentation reviewed, not validated in JHLPAA Studio",
+    "studio-verified": "Observed in authenticated Athena Studio execution",
+    "unverified": "Hypothesis or incomplete evidence"
+  },
+  "sources": [
+    {
+      "id": "FAN-001",
+      "name": "meisnate12/FantraxAPI",
+      "url": "https://github.com/meisnate12/FantraxAPI",
+      "topics": "period-calendar,league-model,authenticated-session",
+      "finding": "Community library; scoring period number/start/end and results; authenticated cookie workaround",
+      "status": "source-reviewed",
+      "limitation": "NHL-specific weekly player G+A not demonstrated"
+    },
+    {
+      "id": "FAN-002",
+      "name": "tjoerdie/fantrax-toolkit",
+      "url": "https://github.com/tjoerdie/fantrax-toolkit",
+      "topics": "player-statistics,headers,views,projections,pagination",
+      "finding": "fxpa/req getPlayerStats, STATS view, position-dependent category columns; some pagination caveats",
+      "status": "source-reviewed",
+      "limitation": "EPL implementation; NHL period selectors and complete pagination unverified"
+    },
+    {
+      "id": "FAN-003",
+      "name": "sprx97/FantraxCapfriendly",
+      "url": "https://github.com/sprx97/FantraxCapfriendly/blob/main/fantrax.py",
+      "topics": "csv-export,timeframe,auth",
+      "finding": "fxpa/downloadPlayerStats; seasonOrProjection, timeframeTypeCode, transactionPeriod, timeStartType, scoringCategoryType, view",
+      "status": "source-reviewed",
+      "limitation": "Captured parameters not proof that transactionPeriod equals NHL scoring period"
+    },
+    {
+      "id": "FAN-004",
+      "name": "pmurley/go-fantrax",
+      "url": "https://github.com/pmurley/go-fantrax",
+      "topics": "public-beta,rosters,period,league,draft",
+      "finding": "fxea/general API; NHL supported; getTeamRosters optional period; getStandings lacks individual stats",
+      "status": "source-reviewed",
+      "limitation": "Public beta incomplete; repository README has inconsistent draft-results URL label"
+    },
+    {
+      "id": "FAN-005",
+      "name": "gabrielmeir53/federation-fantasy-dashboard",
+      "url": "https://github.com/gabrielmeir53/federation-fantasy-dashboard",
+      "topics": "nhl,transactions,standings,rate-limits",
+      "finding": "fxpa/req getTransactionDetailsHistory and getStandings view=SCHEDULE; sequential requests and conservative throttle guidance",
+      "status": "source-reviewed",
+      "limitation": "Rate limits anecdotal; public-league visibility may not match JHLPAA"
+    },
+    {
+      "id": "FAN-006",
+      "name": "butterflyskies/fantrax-mcp issue 34",
+      "url": "https://github.com/butterflyskies/fantrax-mcp/issues/34",
+      "topics": "public-api-limitations,category-scoring",
+      "finding": "Public beta standings and rosters lack per-category/player stat details; internal methods discussed",
+      "status": "source-reviewed",
+      "limitation": "Issue discussion not proof of internal method support for NHL"
+    },
+    {
+      "id": "FAN-007",
+      "name": "Abcmsaj/FantraxBot",
+      "url": "https://github.com/Abcmsaj/FantraxBot",
+      "topics": "discord,posting,chatbot",
+      "finding": "Discord bot posts Fantrax standings screenshots and chat responses",
+      "status": "source-reviewed",
+      "limitation": "External Discord integration, not native Fantrax message posting"
+    },
+    {
+      "id": "FAN-008",
+      "name": "maestor/node-fantrax-stats-parser",
+      "url": "https://github.com/maestor/node-fantrax-stats-parser",
+      "topics": "hockey,history,csv,api",
+      "finding": "Hockey-specific import of Fantrax CSV and history into database/API",
+      "status": "source-reviewed",
+      "limitation": "Not evidence of direct weekly authenticated player stats endpoint"
+    },
+    {
+      "id": "FAN-009",
+      "name": "FantraxAPI scoring period source",
+      "url": "https://fantraxapi.metamanager.wiki/en/stable/_modules/fantraxapi/objs/scoring_period.html",
+      "topics": "period-completion,dates",
+      "finding": "ScoringPeriodResult exposes period number/start/end and computed complete/current/future flags",
+      "status": "source-reviewed",
+      "limitation": "Completion is library date logic, not a server-confirmed finalization flag"
+    }
+  ],
+  "studio_observations": [
+    {
+      "id": "ATH-001",
+      "version": "0.7.10.0.39",
+      "status": "studio-verified",
+      "finding": "Authenticated fxpa/req getPlayerStats returned statsTable with 500 rows, 10 header cells, seasonOrProjections 81, pagination pageNumber/maxResultsPerPage; no confirmed weekly attribution; GP only recognized by current parser."
+    },
+    {
+      "id": "ATH-002",
+      "version": "0.7.10.0.39",
+      "status": "studio-verified",
+      "finding": "Session export preserved JHLPAA fantasy inquiry and schema diagnostics; previous zero-turn export corrected."
+    }
+  ],
+  "unresolved": [
+    "NHL-specific getPlayerStats weekly filter request contract",
+    "NHL G and A header identifiers and row-cell normalization",
+    "Pagination beyond first 500 records and completeness",
+    "Mapping scoring-period dates to transactions and finality",
+    "Fantrax native write APIs, message-board integration or embeddable cards not established"
+  ],
+  "safety": [
+    "Never persist session cookies, league secrets or raw authenticated payloads in research index",
+    "Treat public code as evidence, not authorization for automated posting",
+    "Verify terms, permissions, idempotency and opt-in before write integrations"
+  ]
+}

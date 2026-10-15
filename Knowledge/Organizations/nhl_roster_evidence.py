@@ -6,6 +6,8 @@ trade-value score or claiming front-office intent.
 """
 from __future__ import annotations
 from datetime import date
+from pathlib import Path
+import json
 from typing import Any, Dict, Iterable, List
 
 def _name(v:Any)->str:
@@ -56,4 +58,78 @@ def acquire_team_player_evidence(team_abbrev:str, client:Any=None)->Dict[str,Any
         try:payloads[key]=fn(team_abbrev)
         except Exception as exc: errors.append(f"{key}: {type(exc).__name__}: {exc}");payloads[key]={}
     result=normalize_team_player_evidence(team_abbrev,payloads["roster"],payloads["prospects"],payloads["club_stats"]);result["acquisition_errors"]=errors
+    _write_identity_snapshot(team_abbrev, result["roster"] + result["prospects"])
     return result
+
+
+# Identity evidence is durable; organizational control is not. Never restore
+# current-roster status or transferable rights from an older observation.
+def _identity_snapshot_path(team_abbrev: str) -> Path:
+    return Path(__file__).resolve().parents[2] / "Output" / "Knowledge" / "OrganizationalIdentity" / (team_abbrev.upper() + ".json")
+
+
+def _read_identity_snapshot(team_abbrev: str) -> List[Dict[str, Any]]:
+    try:
+        payload = json.loads(_identity_snapshot_path(team_abbrev).read_text(encoding="utf-8"))
+        return [dict(p) for p in payload.get("players", []) if isinstance(p, dict) and p.get("nhl_player_id") and p.get("name")]
+    except (OSError, ValueError, TypeError):
+        return []
+
+
+def _write_identity_snapshot(team_abbrev: str, players: List[Dict[str, Any]]) -> None:
+    path = _identity_snapshot_path(team_abbrev)
+    prior = {str(p["nhl_player_id"]): p for p in _read_identity_snapshot(team_abbrev)}
+    for p in players:
+        pid = str(p.get("nhl_player_id") or "")
+        if pid and p.get("name"):
+            prior[pid] = {"nhl_player_id": pid, "name": p["name"],
+                          "identity_source": "previous_nhl_organizational_observation",
+                          "last_seen": date.today().isoformat()}
+    if not prior:
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps({"team": team_abbrev.upper(), "players": list(prior.values())}, indent=2), encoding="utf-8")
+        temporary.replace(path)
+    except OSError:
+        pass  # Persistence failure must not change the live rights assessment.
+
+
+def acquire_historical_player_identities(team_abbrev: str, client: Any = None, max_seasons: int = 3) -> List[Dict[str, Any]]:
+    """Identity-only fallback from observed historical rosters, never rights evidence."""
+    from Providers.NHL.nhl_client import NHLClient
+    c = client or NHLClient()
+    found = {str(p["nhl_player_id"]): p for p in _read_identity_snapshot(team_abbrev)}
+    if max_seasons <= 0:
+        for value in found.values():
+            value["relationship"] = "historical_identity_only"
+            value["team"] = team_abbrev.upper()
+            value["current_control_verified"] = False
+        return list(found.values())
+    try:
+        raw_seasons = c.get_roster_seasons(team_abbrev)
+        if isinstance(raw_seasons, dict):
+            raw_seasons = raw_seasons.get("seasons") or raw_seasons.get("rosterSeasons") or []
+        season_ids = []
+        for entry in raw_seasons if isinstance(raw_seasons, list) else []:
+            value = entry.get("seasonId") or entry.get("season") if isinstance(entry, dict) else entry
+            if str(value or "").isdigit():
+                season_ids.append(str(value))
+        for season in sorted(set(season_ids), reverse=True)[:max_seasons]:
+            roster = c.get_roster(team_abbrev, season)
+            for row in _rows(roster):
+                pid = str(row.get("id") or row.get("playerId") or "")
+                name = ( _name(row.get("firstName")) + " " + _name(row.get("lastName")) ).strip() or _name(row.get("name"))
+                if pid and name and pid not in found:
+                    found[pid] = {"nhl_player_id": pid, "name": name,
+                                  "relationship": "historical_roster_identity_only",
+                                  "identity_source": "nhl_historical_roster", "observed_season": season}
+    except Exception:
+        # Cached verified identities remain usable if historical acquisition fails.
+        pass
+    for value in found.values():
+        value["relationship"] = "historical_identity_only"
+        value["team"] = team_abbrev.upper()
+        value["current_control_verified"] = False
+    return list(found.values())

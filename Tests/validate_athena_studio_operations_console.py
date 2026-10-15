@@ -31,7 +31,7 @@ REQUIRED_MARKERS = [
     "Athena Studio Core Workflow Console",
     "Core Workflow",
     "Developer Mode",
-    "default path: Relaunch Studio if needed → Reload Build → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs",
+    "default path: Reload Build → Relaunch Studio → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs",
 ]
 DEFAULT_ACTIONS = [
     "🔄 Sync League",
@@ -163,14 +163,14 @@ def main() -> int:
             print("[PASS] Developer Mode hide/reveal implementation present")
         build_ui_toolbar = text[text.index("toolbar = ttk.Frame"):text.index("dev_toggle = ttk.Checkbutton")]
         toolbar_actions = [
-            build_ui_toolbar.find("🔁 Relaunch Studio"),
             build_ui_toolbar.find("🔄 Reload Build"),
+            build_ui_toolbar.find("🔁 Relaunch Studio"),
             build_ui_toolbar.find("▶ Launch Scout"),
         ]
         if any(pos < 0 for pos in toolbar_actions) or toolbar_actions != sorted(toolbar_actions):
-            failures.append("Toolbar order must start with Relaunch Studio, then Reload Build, then Launch Scout")
+            failures.append("Toolbar order must start with Reload Build, then Relaunch Studio, then Launch Scout")
         else:
-            print("[PASS] toolbar starts with Relaunch Studio → Reload Build → Launch Scout")
+            print("[PASS] toolbar starts with Reload Build → Relaunch Studio → Launch Scout")
         if "output_scrollbar" not in text:
             failures.append("Studio output scrollbar was not preserved")
         else:

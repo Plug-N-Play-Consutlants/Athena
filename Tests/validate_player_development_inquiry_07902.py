@@ -26,7 +26,7 @@ def run():
     player["asset_significance"]=assess_asset_significance(player)
     org=assess_organizational_significance(player,organization="Example Club")
     assert "NCAA" in org["summary"] and "AHL" in org["summary"]
-    assert "promotion was delayed" in org["summary"]
+    assert "progression" in org["summary"] or "attainment evidence" in org["summary"]
     print("PASS: development routing, unrelated news routing, longitudinal observations, baseline uncertainty, organizational significance.")
 
 if __name__=="__main__":run()

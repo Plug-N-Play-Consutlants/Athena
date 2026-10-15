@@ -10,8 +10,7 @@
     "endpoints": {
       "league": "general/getLeagueInfo",
       "player_pool": "general/getTeamRosters",
-      "schedule": "schedule/getSchedule",
-      "player_stats": "players/getPlayerStats"
+      "schedule": "schedule/getSchedule"
     }
   }
 }

@@ -265,8 +265,23 @@ class FantraxClient:
         return self.get(self.get_endpoint("player_pool"))
 
     def get_player_stats(self, endpoint: str | None = None, params: Dict[str, Any] | None = None) -> Any:
-        selected_endpoint = endpoint or self.get_endpoint("player_stats")
-        return self.get(selected_endpoint, params=params)
+        """Acquire player pool statistics via the website's fxpa message API.
+
+        The legacy fxea/players/getPlayerStats route is invalid. `endpoint` is
+        accepted only for call-site compatibility, not used as a URL. Fantrax's
+        undocumented period-filter fields are NOT assumed to be validated.
+        """
+        data = dict(params or {})
+        # Avoid sending speculative `season` / `period` parameters as though
+        # they were a documented getPlayerStats contract.
+        data.pop("season", None)
+        data.pop("period", None)
+        # seasonOrProjection is the provider's actual selector name, verified
+        # from the authenticated seasonOrProjections response.
+        data.setdefault("statusOrTeamFilter", "ALL")
+        data.setdefault("pageNumber", "1")
+        data.setdefault("maxResultsPerPage", 500)
+        return self.fxpa_request({"method": "getPlayerStats", "data": data})
 
     def get_transactions(self, max_results_per_page: int = 1000, view: str | None = None) -> Any:
         """Return one Fantrax transaction-history view.
@@ -306,6 +321,24 @@ class FantraxClient:
             "requested_views": ["CLAIM_DROP", "TRADE"],
             "views": views,
         }
+
+    def get_standings(self, scoring_period_number: int | None = None, *, only_period: bool = False) -> Any:
+        """Acquire standings with a provider-specific period selector.
+
+        Fantrax fxpa request fields are subject to live contract validation.
+        Callers must validate the returned period before persisting evidence.
+        """
+        if scoring_period_number is not None and (type(scoring_period_number) is not int or scoring_period_number < 1):
+            raise ValueError("scoring_period_number must be a positive integer")
+        # Fantrax's historical standings contract uses `period` and
+        # `timeStartType`; `scoringPeriod`/`timeframeSpan` are not equivalent.
+        data: dict[str, Any] = {
+            "timeframeType": "BY_PERIOD" if scoring_period_number is not None else "SEASON",
+            "timeStartType": "PERIOD_ONLY" if only_period else "FROM_SEASON_START",
+        }
+        if scoring_period_number is not None:
+            data["period"] = scoring_period_number
+        return self.fxpa_request({"method": "getStandings", "data": data})
 
     def get_schedule(self) -> Any:
         return self.get(self.get_endpoint("schedule"))

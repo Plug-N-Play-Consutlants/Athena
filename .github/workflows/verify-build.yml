@@ -34,6 +34,10 @@ jobs:
           PYTHONPATH=. python Tests/validate_inquiry_completion_071027.py
           PYTHONPATH=. python Tests/validate_architecture_boundaries_0710210.py
           PYTHONPATH=. python Tests/validate_recap_execution_and_completion_0710211.py
+          PYTHONPATH=. python Tests/validate_unified_completion_071030.py
+          PYTHONPATH=. python Tests/validate_evidence_reconciliation_071040.py
+          PYTHONPATH=. python Tests/validate_team_synthesis_071050.py
+          PYTHONPATH=. python Tests/validate_studio_doctor_summary_071060.py
 
       - name: Validate release hygiene
         run: python Tests/validate_release_hygiene.py

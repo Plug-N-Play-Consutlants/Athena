@@ -392,19 +392,17 @@ class AthenaStudio:
         self._record_history("Refresh Studio Status", 0, self._status_line())
 
     def _startup_cleanup_observation(self) -> None:
-        """Observe cleanup readiness on every Studio start; never mutate the repository."""
+        """Report the actual startup Doctor observation without applying cleanup."""
         self.write("\n=== Startup Cleanup Doctor (observation only) ===\n")
         try:
-            # Studio may be launched directly as Tools/athena_studio.py, in
-            # which case Python initially adds Tools/ rather than repo root.
+            # Direct script execution places Tools/ on sys.path, not its parent.
             if str(PROJECT_ROOT) not in sys.path:
                 sys.path.insert(0, str(PROJECT_ROOT))
             from Tools.repository_safe_cleanup import run_cleanup
+            from Tools.studio_doctor_summary import format_doctor_summary
             report = run_cleanup(PROJECT_ROOT, apply=False)
-            safe = [candidate for candidate in report.candidates if candidate.classification == "safe"]
-            review = [candidate for candidate in report.candidates if candidate.classification != "safe"]
-            self.write(f"Doctor observation: {len(safe)} safe, {len(review)} review-only candidates. No files changed.\n")
-            self.write(f"Doctor report: {report.report_path}\n")
+            for line in format_doctor_summary(report):
+                self.write(line + "\n")
             self._record_history("Startup Cleanup Doctor", 0, report.report_path)
         except Exception as exc:
             self.write(f"[FAIL] Startup Cleanup Doctor observation: {exc}\n")
@@ -1040,6 +1038,10 @@ class AthenaStudio:
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
             ("Validate Athena Request Boundary", self._script_command("Tests/validate_athena_request_boundary.py")),
             ("Validate Athena Capability Pathways", self._script_command("Tests/validate_athena_capability_pathways.py")),
+            ("Validate Unified Inquiry Completion", self._script_command("Tests/validate_unified_completion_071030.py")),
+            ("Validate Evidence Reconciliation", self._script_command("Tests/validate_evidence_reconciliation_071040.py")),
+            ("Validate Team Synthesis and Performance", self._script_command("Tests/validate_team_synthesis_071050.py")),
+            ("Validate Studio Startup Doctor Summary", self._script_command("Tests/validate_studio_doctor_summary_071060.py")),
             ("Validate Application Path Trace", self._script_command("Tests/validate_application_path_trace.py")),
             ("Validate Professional Player Pathways", self._script_command("Tests/validate_professional_player_pathways.py")),
             ("Validate Player Assessment Pathways", self._script_command("Tests/validate_player_assessment_pathways.py")),
@@ -1146,6 +1148,10 @@ class AthenaStudio:
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
             ("Validate Athena Request Boundary", self._script_command("Tests/validate_athena_request_boundary.py")),
             ("Validate Athena Capability Pathways", self._script_command("Tests/validate_athena_capability_pathways.py")),
+            ("Validate Unified Inquiry Completion", self._script_command("Tests/validate_unified_completion_071030.py")),
+            ("Validate Evidence Reconciliation", self._script_command("Tests/validate_evidence_reconciliation_071040.py")),
+            ("Validate Team Synthesis and Performance", self._script_command("Tests/validate_team_synthesis_071050.py")),
+            ("Validate Studio Startup Doctor Summary", self._script_command("Tests/validate_studio_doctor_summary_071060.py")),
             ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
             ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
             ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),

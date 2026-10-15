@@ -44,18 +44,8 @@ def _remaining_capabilities(route: str, mode: str) -> list[dict[str, str]]:
 
 
 def _completion(result: Any, status: str) -> dict[str, Any]:
-    """Report *observed* execution, not an unsupported claim of answer completeness."""
-    if status != "executed":
-        return {"state": "not_assessed", "reason": status, "requirements": []}
-    if not isinstance(result, dict):
-        return {"state": "unverified", "reason": "unstructured_specialist_result", "requirements": []}
-    declared = result.get("inquiry_completion")
-    if isinstance(declared, dict) and declared.get("state") in {"complete", "partial", "blocked"}:
-        return {"state": declared["state"], "reason": "specialist_declared",
-                "requirements": declared.get("requirements", []),
-                "unresolved": declared.get("unresolved", [])}
-    return {"state": "unverified", "reason": "specialist_did_not_supply_clause_coverage",
-            "requirements": []}
+    from Athena.completion_assessment import assess_completion
+    return assess_completion(result, status=status)
 
 
 def investigate(question: str, context: Any, *, mode: str = "public") -> dict[str, Any]:

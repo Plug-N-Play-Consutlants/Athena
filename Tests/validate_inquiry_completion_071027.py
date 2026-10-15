@@ -15,7 +15,7 @@ def run():
     assert match and match.entity and match.entity.canonical_name == "William Nylander", match
     assert profile_for_entity(match.entity) is not None
     roster = plan_capability("What are the Maple Leafs' biggest roster needs, and how much flexibility do they have to address them?", "public")
-    assert roster and roster.route == "public_nhl_team_economic_state"
+    assert roster and roster.route == "public_current_season_team_investigation"
     snapshots = [{"period": i, "teams": [{"team_id": "a", "name": "A", "rank": 4-i, "points": 10*i}]} for i in (1,2,3)]
     result = compare_periods(snapshots, requested_period=3, season_to_date=True)
     assert result["baseline_period"] == 1 and result["teams"][0]["rank_change"] == 2

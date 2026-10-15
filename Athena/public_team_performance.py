@@ -5,15 +5,42 @@ Never substitutes seeded team identity for current-season results.
 from __future__ import annotations
 from datetime import date
 from typing import Any
+from time import perf_counter
+
+
+def synthesize_verified_team_trends(evidence: dict[str, Any]) -> dict[str, Any]:
+    """Report only official observed form; never infer positional need or causation."""
+    standings = evidence.get("standings")
+    if not isinstance(standings, dict):
+        return {"statements": [], "signals": [], "source": "unavailable"}
+    statements: list[str] = []
+    signals: list[str] = []
+    last = [standings.get(k) for k in ("last10Wins", "last10Losses", "last10OtLosses")]
+    if all(isinstance(n, int) and not isinstance(n, bool) and n >= 0 for n in last) and sum(last) == 10:
+        statements.append(f"Official last-ten form: {last[0]}-{last[1]}-{last[2]} (W-L-OTL).")
+        signals.append("verified_last_ten")
+    code, count = standings.get("streakCode"), standings.get("streakCount")
+    if isinstance(code, str) and code.upper() in {"W", "L", "OT"} and isinstance(count, int) and not isinstance(count, bool) and count > 0:
+        statements.append(f"Official current streak: {code.upper()}{count}.")
+        signals.append("verified_streak")
+    gp, goals_for, goals_against = (standings.get(k) for k in ("gamesPlayed", "goalFor", "goalAgainst"))
+    if all(isinstance(n, int) and not isinstance(n, bool) for n in (gp, goals_for, goals_against)) and gp > 0 and goals_for >= 0 and goals_against >= 0:
+        differential = goals_for - goals_against
+        statements.append(f"Observed goal differential: {differential:+d} over {gp} games ({differential/gp:+.2f} per game).")
+        signals.append("verified_goal_differential")
+    return {"statements": statements, "signals": signals, "source": "nhl_official_current_standings" if signals else "insufficient_verified_fields"}
 
 
 def assess_team_performance(question: str, abbreviation: str, name: str) -> dict[str, Any]:
     from Providers.NHL.nhl_client import NHLClient
     from Knowledge.Intelligence.Public.player_evidence import _target_season_id
     season = _target_season_id()
-    evidence: dict[str, Any] = {"season": season, "team": abbreviation, "sources": [], "missing": []}
+    evidence: dict[str, Any] = {"season": season, "team": abbreviation, "sources": [], "missing": [], "acquisition_timing_ms": {}}
+    client = NHLClient()
+    acquisition_started = perf_counter()
+    stage_started = perf_counter()
     try:
-        payload = NHLClient().get_club_stats(abbreviation, season)
+        payload = client.get_club_stats(abbreviation, season)
         if not isinstance(payload, dict): raise ValueError("unexpected_club_stats_payload")
         evidence["sources"].append("nhl_club_stats_season")
         skaters = payload.get("skaters") or []
@@ -35,10 +62,12 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     except Exception as exc:
         evidence["missing"].append("verified_current_season_club_stats")
         evidence["acquisition_error"] = type(exc).__name__
+    evidence["acquisition_timing_ms"]["club_stats"] = round((perf_counter() - stage_started) * 1000, 2)
+    stage_started = perf_counter()
     # Team-level results are distinct from individual scoring. Keep each source
     # independent so a failed standings endpoint does not erase verified players.
     try:
-        standings_payload = NHLClient().get_team_standings_now()
+        standings_payload = client.get_team_standings_now()
         rows = standings_payload.get("standings") if isinstance(standings_payload, dict) else None
         if not isinstance(rows, list):
             raise ValueError("standings_rows_missing")
@@ -52,8 +81,10 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     except Exception as exc:
         evidence["missing"].append("verified_current_team_standings")
         evidence["standings_acquisition_error"] = type(exc).__name__
+    evidence["acquisition_timing_ms"]["standings"] = round((perf_counter() - stage_started) * 1000, 2)
+    stage_started = perf_counter()
     try:
-        schedule = NHLClient().get_team_schedule_now(abbreviation)
+        schedule = client.get_team_schedule_now(abbreviation)
         games = schedule.get("games") if isinstance(schedule, dict) else None
         if not isinstance(games, list):
             raise ValueError("schedule_games_missing")
@@ -80,13 +111,15 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     except Exception as exc:
         evidence["missing"].append("verified_recent_completed_games")
         evidence["schedule_acquisition_error"] = type(exc).__name__
+    evidence["acquisition_timing_ms"]["schedule"] = round((perf_counter() - stage_started) * 1000, 2)
+    stage_started = perf_counter()
     # Compose the existing roster and economics capabilities only when the question
     # calls for them. Roster membership does not establish deployment or need.
     wants_roster = any(term in question.casefold() for term in
         ("roster", "lineup", "depth", "need", "weakness", "trade", "cap", "salary", "improv"))
     if wants_roster:
         try:
-            roster = NHLClient().get_current_roster(abbreviation)
+            roster = client.get_current_roster(abbreviation)
             if not isinstance(roster, dict):
                 raise ValueError("unexpected_roster_payload")
             groups = ("forwards", "defensemen", "goalies")
@@ -129,6 +162,8 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
         evidence["missing"].append("verified_roster_deployment_and_needs")
     else:
         evidence["missing"].append("verified_roster_deployment_and_cap_state")
+    evidence["acquisition_timing_ms"]["roster_economics"] = round((perf_counter() - stage_started) * 1000, 2) if wants_roster else 0.0
+    evidence["acquisition_timing_ms"]["total"] = round((perf_counter() - acquisition_started) * 1000, 2)
     if evidence.get("leaders"):
         text = f"Official NHL {season} team player production for {name}: " + "; ".join(f"{r['name']} ({r['points']} points in {r['gp']} games)" for r in evidence["leaders"] if isinstance(r.get("points"),(int,float))) + "."
         text += " These are scoring contributors, not proof of overall team strength, weakness or causation. Standings, game trends, deployment and cap context remain necessary for a complete assessment."
@@ -141,6 +176,9 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
         text += f" Official standings: {standings.get('wins', '?')}-{standings.get('losses', '?')}-{standings.get('otLosses', '?')} in {standings.get('gamesPlayed', '?')} games, {standings.get('points', '?')} standings points."
         if isinstance(standings.get("goalFor"), int) and isinstance(standings.get("goalAgainst"), int):
             text += f" Goals for/against: {standings['goalFor']}/{standings['goalAgainst']}."
+    trend = synthesize_verified_team_trends(evidence)
+    if trend["statements"]:
+        text += " " + " ".join(trend["statements"])
     recent = evidence.get("recent_games") or []
     if recent:
         wins = sum(g["for"] > g["against"] for g in recent)
@@ -157,6 +195,7 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
             if not economic["aggregate_permitted"]:
                 text += f" Canonical contract coverage includes {economic['contract_coverage']} contracts, not a complete club ledger; team cap usage and available space cannot be calculated reliably."
         text += " A specific roster need or acquisition recommendation requires verified deployment, health, performance and transaction context."
+    evidence["analytical_synthesis"] = trend
     return {"conclusion": text, "evidence": evidence, "confidence": confidence}
 
 

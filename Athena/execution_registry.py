@@ -51,6 +51,7 @@ for _route in ("fantasy_keeper_pool_context", "fantasy_draft_capital_context", "
     SPECIALISTS[_route] = Specialist(_route, _ORCHESTRATION, "_answer_pre_draft_branch", "fantasy")
 SPECIALISTS["live_event_intelligence"] = Specialist("live_event_intelligence", _LIVE, "_live_events_answer", "public")
 SPECIALISTS["public_current_season_team_investigation"] = Specialist("public_current_season_team_investigation", "Athena.public_team_performance", "execute_team_investigation", "public")
+SPECIALISTS["public_player_historical_stature"] = Specialist("public_player_historical_stature", "Athena.historical_stature_specialist", "execute_historical_stature", "public")
 SPECIALISTS["public_player_identity"] = Specialist("public_player_identity", "Athena.public_identity", "execute_public_player", "public")
 SPECIALISTS["public_player_development"] = Specialist("public_player_development", "Athena.player_development", "execute_player_development", "public")
 SPECIALISTS["public_player_investigation"] = Specialist("public_player_investigation", "Athena.public_identity", "execute_public_player_investigation", "public")

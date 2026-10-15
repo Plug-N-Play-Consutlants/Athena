@@ -157,6 +157,10 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     if not isinstance(developer, dict):
         developer = {}
         answer["developer"] = developer
+    # Reconcile verified fallback acquisitions before calculating completion and
+    # publishing readiness. Preserve independent missing requirements.
+    from Athena.evidence_reconciliation import reconcile_evidence
+    evidence_reconciliation = reconcile_evidence(request_evidence, answer)
     developer["athena_request"] = {
         "version": ATHENA_VERSION,
         "boundary": "Athena.ask",
@@ -176,25 +180,12 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     # "invoked" are deliberately distinct from "registered" and "used".
     evidence_sources = request_evidence.get("sources") if isinstance(request_evidence, dict) else []
     evidence_missing = request_evidence.get("missing") if isinstance(request_evidence, dict) else []
-    # Execution is not completion. Surface unresolved evidence without claiming
-    # that a handler response has satisfied every requirement of the inquiry.
-    limitations = answer.get("known_limitations") or answer.get("limitations") or []
-    if isinstance(limitations, str):
-        limitations = [limitations]
-    elif not isinstance(limitations, (list, tuple)):
-        limitations = []
-    missing_requirements = [str(item) for item in evidence_missing if str(item).strip()] if isinstance(evidence_missing, list) else []
-    for item in limitations:
-        if str(item).strip() and str(item) not in missing_requirements:
-            missing_requirements.append(str(item))
-    completion_state = "partial" if missing_requirements else "unverified"
-    developer["inquiry_completion"] = {
-        "state": completion_state,
-        "handler_executed": True,
-        "inquiry_answered_verified": False,
-        "unresolved_requirements": missing_requirements,
-        "reason": "Evidence requirements unresolved" if missing_requirements else "No verified inquiry-completion assessment",
-    }
+    # Shared completion assessment also powers inquiry_execution.investigate.
+    from Athena.completion_assessment import assess_completion
+    completion = assess_completion(answer, evidence=request_evidence)
+    completion_state = completion["state"]
+    missing_requirements = completion["unresolved_requirements"]
+    developer["inquiry_completion"] = completion
     developer["inquiry_execution_trace"] = {
         "schema": "athena.inquiry_trace.v1",
         "version": ATHENA_VERSION,
@@ -209,7 +200,8 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                      "sources": list(evidence_sources) if isinstance(evidence_sources, list) else [],
                      "missing": list(evidence_missing) if isinstance(evidence_missing, list) else [],
                      "attached_to_context": evidence_attached,
-                     "acquisition_duration_ms": evidence_ms},
+                     "acquisition_duration_ms": evidence_ms,
+                     "reconciliation": evidence_reconciliation},
         "result": {"intent": str(answer.get("intent") or ""),
                    "confidence": answer.get("confidence") if isinstance(answer.get("confidence"), (int, float)) else None,
                    "public_fields_present": [key for key in (
@@ -218,7 +210,7 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                    "limitations_present": bool(answer.get("limitations") or answer.get("known_limitations")),
                    "completion_state": completion_state,
                    "unresolved_requirement_count": len(missing_requirements),
-                   "inquiry_completeness_verified": False,
+                   "inquiry_completeness_verified": completion["inquiry_answered_verified"],
                    "evidence_consumption_verified": False},
         "continuation": continuation_status,
         "total_duration_ms": round((perf_counter() - started) * 1000, 2),

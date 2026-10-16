@@ -66,7 +66,7 @@ def main() -> int:
         return 1
     print("[PASS] decision lock tool writes JSON/Markdown/auditor brief")
     print("[PASS] shim decisions and duplicate decisions complete")
-    print("[PASS] Studio action and Verify Build wiring present")
+    print("[PASS] Studio action and extended workflow wiring present")
     print("Overall status: PASS")
     return 0
 

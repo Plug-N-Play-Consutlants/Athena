@@ -11,7 +11,6 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -19,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from Core.version import ATHENA_BUILD, ATHENA_VERSION, SCOUT_VERSION  # noqa: E402
 from Scout.conversation.router import route_question  # noqa: E402
+from Tools.athena_studio import BUILD_VALIDATION_REGISTRY  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -311,14 +311,11 @@ def main() -> int:
     }
     report.check(required_categories.issubset(category_counts), "required_categories_present", ", ".join(sorted(category_counts)))
 
-    studio_text = (PROJECT_ROOT / "Tools" / "athena_studio.py").read_text(encoding="utf-8")
-    report.check("Validate Epic 4 Acceptance" in studio_text, "studio_acceptance_validator_registered")
-    report.check("Doctor Epic 4 Acceptance" in studio_text, "studio_acceptance_doctor_registered")
-    report.check("validate_epic4_acceptance_suite.py" in studio_text, "studio_validate_everything_includes_acceptance")
-    report.check("doctor_epic4_acceptance_suite.py" in studio_text, "studio_doctor_everything_includes_acceptance")
-
-    doctor = PROJECT_ROOT / "Tools" / "doctor_epic4_acceptance_suite.py"
-    report.check(doctor.exists(), "acceptance_doctor_exists", str(doctor.relative_to(PROJECT_ROOT)))
+    registered_paths = {entry[2] for entry in BUILD_VALIDATION_REGISTRY}
+    report.check(
+        "Tests/validate_epic4_acceptance_suite.py" in registered_paths,
+        "epic4_acceptance_in_release_build_registry",
+    )
     return report.emit()
 
 

@@ -9,6 +9,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from Core.version import ATHENA_BUILD, ATHENA_VERSION, RELEASE_NAME, SCOUT_VERSION, VERSION_SCHEMA  # noqa: E402
+from Tools.athena_studio import BUILD_VALIDATION_REGISTRY  # noqa: E402
 from Tools.doctor_release_hygiene import build_report  # noqa: E402
 
 
@@ -39,7 +40,11 @@ def main() -> int:
     check("Athena __version__ unified", "__version__ = ATHENA_VERSION" in _read(PROJECT_ROOT / "Athena" / "__init__.py"), "Athena/__init__.py")
     check("legacy doctor uses Core version", "VERSION = ATHENA_VERSION" in _read(PROJECT_ROOT / "Tools" / "doctor.py"), "Tools/doctor.py")
     check("Studio release hygiene action", "show_release_hygiene" in _read(studio) and "Release Hygiene" in _read(studio), "Tools/athena_studio.py")
-    check("Verify Build includes release hygiene", "Tools/doctor_release_hygiene.py" in _read(studio) and "Tests/validate_release_hygiene.py" in _read(studio), "Tools/athena_studio.py")
+    check(
+        "Verify Build includes release hygiene",
+        any(entry[2] == "Tests/validate_release_hygiene.py" for entry in BUILD_VALIDATION_REGISTRY),
+        "release-critical validation registry",
+    )
 
     report = build_report()
     check("doctor report not failing", report.get("status") in {"pass", "warn"}, str(report.get("summary")))

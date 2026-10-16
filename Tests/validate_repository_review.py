@@ -80,7 +80,7 @@ def main() -> int:
     print("[PASS] review tool loads and writes reports")
     print("[PASS] shim inventory classifications complete")
     print("[PASS] duplicate basename classifications complete")
-    print("[PASS] Studio action and Verify Build wiring present")
+    print("[PASS] Studio action and extended workflow wiring present")
     print("Overall status: PASS")
     return 0
 

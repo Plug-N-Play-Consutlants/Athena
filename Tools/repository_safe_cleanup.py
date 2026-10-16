@@ -141,6 +141,19 @@ def discover_cleanup_candidates(root: Path) -> list[CleanupCandidate]:
             candidates.append(CleanupCandidate(path.name, "root_change_manifest", "Historical change manifest; archive to canonical change-manifest history."))
         elif path.is_file() and path.suffix.lower() == ".md" and path.name.startswith(("RELEASE_NOTES_", "CLEANUP_REPORT_", "README_")):
             candidates.append(CleanupCandidate(path.name, "root_history", "Historical documentation; review archival.", "review"))
+    for rel in (
+        "Tools/doctor_epic4_acceptance_suite.py",
+        "Tools/doctor_scout_runtime_acceptance_hotfix.py",
+    ):
+        if (root / rel).is_file():
+            candidates.append(
+                CleanupCandidate(
+                    rel,
+                    "legacy_validation_wrapper",
+                    "Acceptance doctor wrapper is no longer registered in bulk workflows; retain for manual compatibility review.",
+                    "review",
+                )
+            )
     return sorted(set(candidates), key=lambda c: c.path)
 
 

@@ -51,6 +51,27 @@ def _command_summary(label: str, code: int, output: str, log_path: Path) -> list
     return lines
 
 
+BUILD_VALIDATION_REGISTRY: tuple[tuple[str, str, str, str], ...] = (
+    ("release-critical", "Release hygiene", "Tests/validate_release_hygiene.py", "Version alignment, packaging, CI, and release readiness."),
+    ("release-critical", "Athena request boundary", "Tests/validate_athena_request_boundary.py", "Request ownership, registered execution, evidence adaptation, and response preservation."),
+    ("release-critical", "Athena capability routing", "Tests/validate_athena_capability_pathways.py", "Planner ownership, specialist registration, and Public/Fantasy route separation."),
+    ("release-critical", "Inquiry completion", "Tests/validate_inquiry_completion_071027.py", "Current request completion and evidence-bounded response behavior."),
+    ("release-critical", "Epic 4 Public acceptance", "Tests/validate_epic4_acceptance_suite.py", "Public NHL identity, profiles, comparisons, economics, and event routing."),
+    ("release-critical", "Scout runtime acceptance", "Tests/validate_scout_runtime_acceptance_hotfix.py", "Scout response preservation, diagnostic routing, event output, and trace provenance."),
+    ("targeted-regression", "Team investigation execution", "unittest:-m unittest Tests.test_team_investigation_path", "Public/Fantasy comparisons, current-season investigation, and single-acquisition behavior."),
+    ("targeted-regression", "Fantasy composition and routing", "Tests/validate_scout_fantasy_composition_contextual_routing_hotfix.py", "Fantasy inquiry routing, answer composition, and contextual follow-ups."),
+    ("targeted-regression", "Fantasy evidence semantics", "Tests/validate_fantasy_evidence_semantics_draft_pool_intelligence_hotfix.py", "Draft-pool evidence, roster/keeper distinctions, and uncertainty."),
+    ("targeted-regression", "Professional player pathways", "Tests/validate_professional_player_pathways.py", "Canonical public identity, statistical evidence, lifecycle, and professional presentation."),
+    ("targeted-regression", "Historical Scout routing", "Tests/validate_historical_scout_routing.py", "Athena-owned longitudinal routing and evidence-derived historical limitations."),
+    ("targeted-regression", "Historical comparison", "Tests/validate_historical_comparison_engine.py", "Canonical historical comparison behavior."),
+    ("targeted-regression", "Player development inquiry", "Tests/validate_player_development_inquiry_07902.py", "Development-path analysis, significance, and baseline uncertainty."),
+    ("targeted-regression", "Live event source integration", "Tests/validate_live_event_source_integration.py", "Feed provenance, event filtering, and deterministic source fixtures."),
+    ("targeted-regression", "Multi-sport Scout routing", "Tests/validate_multi_sport_scout_routing.py", "Cross-sport identity and event routing without Public/Fantasy leakage."),
+    ("targeted-regression", "Studio operations console", "Tests/validate_athena_studio_operations_console.py", "Current Studio interface, Developer Mode, and default workflow actions."),
+    ("targeted-regression", "Studio reload workflow", "Tests/validate_studio_reload_workflow.py", "Supported Studio reload/relaunch behavior."),
+)
+
+
 def _read_version_metadata() -> dict[str, str]:
     version_file = PROJECT_ROOT / "Core" / "version.py"
     defaults = {
@@ -248,7 +269,7 @@ class AthenaStudio:
 
         self._button_group(body, "Core Workflow", [
             ("🔄 Sync League", self.sync_league, "Refresh the active league through Athena's canonical sync pipeline."),
-            ("🧪 Verify Build", self.verify_build, "Run Doctor Everything followed by Validate Everything in one operation."),
+            ("🧪 Verify Build", self.verify_build, "Run release-critical checks and supported-capability regressions."),
             ("🔎 Repository Audit", self.show_repository_audit, "Run the Phase 3 read-only repository audit and write a report."),
             ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the Phase 4B shim and duplicate basename review reports."),
             ("🔐 Lock Repo Decisions", self.show_repository_decision_lock, "Lock the no-mutation shim and duplicate decisions for external audit."),
@@ -318,7 +339,7 @@ class AthenaStudio:
         right = ttk.Frame(parent, style="Studio.TFrame")
         right.pack(side=LEFT, fill="x", expand=True, padx=(6, 0))
         self._button_group(left, "Developer Validation", [
-            ("🧪 Verify Build", self.verify_build, "Run the full build gate."),
+            ("🧪 Verify Build", self.verify_build, "Run release-critical checks and supported-capability regressions."),
             ("✅ Validate Everything", self.validate_everything, "Run all registered validators."),
             ("✅ Studio Validate", self.validate_studio, "Run Studio validation suites."),
             ("🧱 Release Hygiene", self.show_release_hygiene, "Run packaging, version, CI, and false-green checks."),
@@ -600,7 +621,8 @@ class AthenaStudio:
         failures = 0
         for name, command in commands:
             if command is None:
-                self.write(f"[SKIP] {name}: script not found\n")
+                self.write(f"[FAIL] {name}: registered validation target is missing\n")
+                failures += 1
                 continue
             failures += 0 if self._run_command(name, command) == 0 else 1
         self.write(f"\n[{label}] {'PASS' if failures == 0 else 'FAIL'} | failures={failures}\n")
@@ -957,7 +979,7 @@ class AthenaStudio:
         self._run_threaded("Validate Runtime", self._script_command("Tests/validate_runtime_cleanup.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_runtime_cleanup.py')"])
 
     def validate_pif(self) -> None:
-        command = self._script_command("Tests/validate_pif1_build004.py") or self._script_command("Tests/validate_pif1_build003.py") or self._script_command("Tests/validate_pif1_build002.py") or self._script_command("Tests/validate_pif1_build001.py")
+        command = self._script_command("Tests/validate_pif1_build004.py")
         self._run_threaded("Validate PIF-1", command or [self._python(), "-c", "raise SystemExit('Missing PIF validator')"])
 
 
@@ -971,139 +993,27 @@ class AthenaStudio:
         self._run_threaded("Validate Comparison", self._script_command("Tests/validate_comparison_reasoning_engine.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_comparison_reasoning_engine.py')"])
 
     def verify_build(self) -> None:
-        """Run the normal build verification path as one operation.
-
-        This is the default Studio action for Athena's development cadence.
-        It executes the same doctor and validator scripts as the separate
-        legacy buttons, but presents them as one build-level operation.
-        """
-        commands = [
-            ("Doctor Runtime", self._script_command("Tools/doctor_runtime_cleanup.py")),
-            ("Doctor Consensus Repository Cleanup", self._script_command("Tools/doctor_consensus_repository_cleanup.py")),
-            ("Doctor PIF-1", self._script_command("Tools/doctor_pif1_build004.py") or self._script_command("Tools/doctor_pif1_build003.py") or self._script_command("Tools/doctor_pif1_build002.py") or self._script_command("Tools/doctor_pif1_build001.py")),
-            ("Doctor Renderer Cleanup", self._script_command("Tools/doctor_renderer_cleanup.py")),
-            ("Doctor Inquiry Semantic Ownership", self._script_command("Tools/doctor_inquiry_semantic_ownership.py")),
-            ("Doctor Whole-Picture Investigation", self._script_command("Tools/doctor_whole_picture_investigation.py")),
-            ("Doctor Organizational Asset Rights", self._script_command("Tools/doctor_organizational_asset_rights.py")),
-            ("Doctor Analytical Study & Evidence Reconciliation", self._script_command("Tools/doctor_analytical_study_evidence_reconciliation.py")),
-            ("Doctor Team Reasoning", self._script_command("Tools/doctor_team_reasoning_engine.py")),
-            ("Doctor Comparison", self._script_command("Tools/doctor_comparison_reasoning_engine.py")),
-            ("Doctor Event Intelligence", self._script_command("Tools/doctor_event_intelligence_foundation.py")),
-            ("Doctor Cross-Domain Impact", self._script_command("Tools/doctor_cross_domain_event_impact.py")),
-            ("Doctor Event Timeline", self._script_command("Tools/doctor_event_timeline_intelligence.py")),
-            ("Doctor Event Confidence", self._script_command("Tools/doctor_event_confidence_source_corroboration.py")),
-            ("Doctor Event Summary", self._script_command("Tools/doctor_event_summarization_engine.py")),
-            ("Doctor Multi-Sport Connectors", self._script_command("Tools/doctor_multi_sport_provider_connectors.py")),
-            ("Doctor Multi-Sport Scout Routing", self._script_command("Tools/doctor_multi_sport_scout_routing.py")),
-            ("Doctor Multi-Sport Intelligence Foundation", self._script_command("Tools/doctor_multi_sport_intelligence_foundation.py")),
-            ("Doctor Explainable Intelligence Pipeline", self._script_command("Tools/doctor_explainable_intelligence_pipeline.py")),
-            ("Doctor Runtime Orchestration & Observability", self._script_command("Tools/doctor_runtime_orchestration_observability.py")),
-            ("Doctor Capability Registry", self._script_command("Tools/doctor_capability_registry.py")),
-            ("Doctor Execution Trace", self._script_command("Tools/doctor_execution_trace.py")),
-            ("Doctor Capability Audit", self._script_command("Tools/doctor_capability_audit.py")),
-            ("Doctor Evidence Audit", self._script_command("Tools/doctor_evidence_audit.py")),
-            ("Doctor Composition Audit", self._script_command("Tools/doctor_composition_audit.py")),
-            ("Doctor Experience Layer Foundation", self._script_command("Tools/doctor_experience_layer_foundation.py")),
-            ("Doctor Player Experience", self._script_command("Tools/doctor_player_experience.py")),
-            ("Doctor Acceptance Explorer", self._script_command("Tools/doctor_acceptance_explorer.py")),
-            ("Doctor Repository Audit", self._script_command("Tools/doctor_repository_audit.py")),
-            ("Doctor Repository Safe Cleanup", self._script_command("Tools/doctor_repository_safe_cleanup.py")),
-            ("Doctor Repository Review", self._script_command("Tools/doctor_repository_review.py")),
-            ("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py")),
-            ("Doctor Release Hygiene", self._script_command("Tools/doctor_release_hygiene.py")),
-            ("Doctor Scout Intent Orchestration", self._script_command("Tools/doctor_scout_intent_orchestration.py")),
-            ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
-            ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
-            ("Doctor Repository", self._script_command("Tools/doctor_repository.py")),
-            ("Doctor Studio", self._script_command("Tools/doctor_athena_studio_phase2.py") or self._script_command("Tools/doctor_athena_studio_phase1.py") or self._script_command("Tools/doctor_athena_studio_pif_inspector.py")),
-            ("Doctor Studio Reload", self._script_command("Tools/doctor_studio_reload_workflow.py")),
-            ("Doctor Studio Browser Refresh", self._script_command("Tools/doctor_studio_browser_self_refresh.py")),
-            ("Doctor Studio Beta UI", self._script_command("Tools/doctor_athena_studio_beta_ui.py")),
-            ("Doctor Studio Tile UI", self._script_command("Tools/doctor_athena_studio_tile_ui.py")),
-            ("Doctor Studio Toolbar", self._script_command("Tools/doctor_athena_studio_toolbar.py")),
-            ("Doctor Studio Operations Console", self._script_command("Tools/doctor_athena_studio_operations_console.py")),
-            ("Validate Runtime", self._script_command("Tests/validate_runtime_cleanup.py")),
-            ("Validate Consensus Repository Cleanup", self._script_command("Tests/validate_consensus_repository_cleanup.py")),
-            ("Validate PIF-1", self._script_command("Tests/validate_pif1_build004.py") or self._script_command("Tests/validate_pif1_build003.py") or self._script_command("Tests/validate_pif1_build002.py") or self._script_command("Tests/validate_pif1_build001.py")),
-            ("Validate Renderer Cleanup", self._script_command("Tests/validate_renderer_cleanup.py")),
-            ("Validate Team Reasoning", self._script_command("Tests/validate_team_reasoning_engine.py")),
-            ("Validate Comparison", self._script_command("Tests/validate_comparison_reasoning_engine.py")),
-            ("Validate Event Intelligence", self._script_command("Tests/validate_event_intelligence_foundation.py")),
-            ("Validate Cross-Domain Impact", self._script_command("Tests/validate_cross_domain_event_impact.py")),
-            ("Validate Event Timeline", self._script_command("Tests/validate_event_timeline_intelligence.py")),
-            ("Validate Event Confidence", self._script_command("Tests/validate_event_confidence_source_corroboration.py")),
-            ("Validate Event Summary", self._script_command("Tests/validate_event_summarization_engine.py")),
-            ("Validate Multi-Sport Connectors", self._script_command("Tests/validate_multi_sport_provider_connectors.py")),
-            ("Validate Multi-Sport Scout Routing", self._script_command("Tests/validate_multi_sport_scout_routing.py")),
-            ("Validate Multi-Sport Intelligence Foundation", self._script_command("Tests/validate_multi_sport_intelligence_foundation.py")),
-            ("Validate Explainable Intelligence Pipeline", self._script_command("Tests/validate_explainable_intelligence_pipeline.py")),
-            ("Validate Runtime Orchestration & Observability", self._script_command("Tests/validate_runtime_orchestration_observability.py")),
-            ("Validate Capability Registry", self._script_command("Tests/validate_capability_registry.py")),
-            ("Validate Execution Trace", self._script_command("Tests/validate_execution_trace.py")),
-            ("Validate Capability Audit", self._script_command("Tests/validate_capability_audit.py")),
-            ("Validate Evidence Audit", self._script_command("Tests/validate_evidence_audit.py")),
-            ("Validate Composition Audit", self._script_command("Tests/validate_composition_audit.py")),
-            ("Validate Fantrax Transaction Evidence", self._script_command("Tests/validate_fantrax_transaction_evidence_foundation.py")),
-            ("Validate Fantrax League Context & Scout Integration", self._script_command("Tests/validate_fantrax_league_context_scout_integration_hotfix.py")),
-            ("Validate Scout Fantasy Composition & Contextual Routing", self._script_command("Tests/validate_scout_fantasy_composition_contextual_routing_hotfix.py")),
-            ("Validate Contextual Intelligence & Scout UX", self._script_command("Tests/validate_contextual_intelligence_scout_ux_foundation.py")),
-            ("Validate Fantasy Evidence Semantics & Draft-Pool Intelligence", self._script_command("Tests/validate_fantasy_evidence_semantics_draft_pool_intelligence_hotfix.py")),
-            ("Validate Draft Knowledge", self._script_command("Tests/validate_draft_knowledge.py")),
-            ("Validate Historical League Context", self._script_command("Tests/validate_historical_league_context.py")),
-            ("Validate Historical Draft Results Discovery", self._script_command("Tests/validate_historical_draft_results_discovery.py")),
-            ("Validate Historical Identity Resolution", self._script_command("Tests/validate_historical_identity_resolution.py")),
-            ("Validate Historical Draft Intelligence", self._script_command("Tests/validate_historical_draft_intelligence.py")),
-            ("Validate Pre-Draft Context Intelligence", self._script_command("Tests/validate_pre_draft_context_intelligence.py")),
-            ("Validate Public Team News Relevance", self._script_command("Tests/validate_public_team_news_relevance.py")),
-            ("Validate Scout Normal Response Composition", self._script_command("Tests/validate_scout_normal_response_composition.py")),
-            ("Validate Scout Investigative Response", self._script_command("Tests/validate_scout_investigative_response.py")),
-            ("Validate Experience Layer Foundation", self._script_command("Tests/validate_experience_layer_foundation.py")),
-            ("Validate Player Experience", self._script_command("Tests/validate_player_experience.py")),
-            ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
-            ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
-            ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
-            ("Validate Athena Request Boundary", self._script_command("Tests/validate_athena_request_boundary.py")),
-            ("Validate Athena Capability Pathways", self._script_command("Tests/validate_athena_capability_pathways.py")),
-            ("Validate Unified Inquiry Completion", self._script_command("Tests/validate_unified_completion_071030.py")),
-            ("Validate Evidence Reconciliation", self._script_command("Tests/validate_evidence_reconciliation_071040.py")),
-            ("Validate Team Synthesis and Performance", self._script_command("Tests/validate_team_synthesis_071050.py")),
-            ("Validate Studio Startup Doctor Summary", self._script_command("Tests/validate_studio_doctor_summary_071060.py")),
-            ("Validate Application Path Trace", self._script_command("Tests/validate_application_path_trace.py")),
-            ("Validate Professional Player Pathways", self._script_command("Tests/validate_professional_player_pathways.py")),
-            ("Validate Player Assessment Pathways", self._script_command("Tests/validate_player_assessment_pathways.py")),
-            ("Validate Repository Review", self._script_command("Tests/validate_repository_review.py")),
-            ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
-            ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),
-            ("Validate Scout Intent Orchestration", self._script_command("Tests/validate_scout_intent_orchestration.py")),
-            ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
-            ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
-            ("Validate Studio", self._script_command("Tests/validate_athena_studio_phase2.py") or self._script_command("Tests/validate_athena_studio_phase1.py") or self._script_command("Tests/validate_athena_studio_pif_inspector.py")),
-            ("Validate Studio Reload", self._script_command("Tests/validate_studio_reload_workflow.py")),
-            ("Validate Studio Browser Refresh", self._script_command("Tests/validate_studio_browser_self_refresh.py")),
-            ("Validate Studio Beta UI", self._script_command("Tests/validate_athena_studio_beta_ui.py")),
-            ("Validate Studio Tile UI", self._script_command("Tests/validate_athena_studio_tile_ui.py")),
-            ("Validate Studio Toolbar", self._script_command("Tests/validate_athena_studio_toolbar.py")),
-            ("Validate Studio Operations Console", self._script_command("Tests/validate_athena_studio_operations_console.py")),
-        ]
-        commands.extend(self._critical_acceptance_commands())
+        """Run release-critical and supported-capability regressions only."""
+        commands = []
+        for entry in BUILD_VALIDATION_REGISTRY:
+            label, target = entry[1], entry[2]
+            command = (
+                [self._python(), *target[len("unittest:"):].split()]
+                if target.startswith("unittest:")
+                else self._script_command(target)
+            )
+            commands.append((label, command))
         self._run_sequence_threaded("Verify Build", commands)
 
     def _critical_acceptance_commands(
         self,
-        *,
-        doctors: bool = True,
-        validators: bool = True,
     ) -> list[tuple[str, list[str] | None]]:
-        registry = (
-            ("Doctor Epic 4 Acceptance", "Tools/doctor_epic4_acceptance_suite.py", doctors),
-            ("Validate Epic 4 Acceptance", "Tests/validate_epic4_acceptance_suite.py", validators),
-            ("Doctor Scout Acceptance Hotfix", "Tools/doctor_scout_runtime_acceptance_hotfix.py", doctors),
-            ("Validate Scout Acceptance Hotfix", "Tests/validate_scout_runtime_acceptance_hotfix.py", validators),
-        )
         return [
             (label, self._script_command(path))
-            for label, path, enabled in registry
-            if enabled
+            for label, path in (
+                ("Validate Epic 4 Acceptance", "Tests/validate_epic4_acceptance_suite.py"),
+                ("Validate Scout Acceptance Hotfix", "Tests/validate_scout_runtime_acceptance_hotfix.py"),
+            )
         ]
 
     def acquire_historical_leagues(self) -> None:
@@ -1153,14 +1063,13 @@ class AthenaStudio:
         if available:
             self._run_sequence_threaded("Validate Studio", available)
             return
-        command = self._script_command("Tests/validate_athena_studio_phase1.py") or self._script_command("Tests/validate_athena_studio_pif_inspector.py")
-        self._run_threaded("Validate Studio", command or [self._python(), "-c", "raise SystemExit('Missing Studio validator')"])
+        self._run_threaded("Validate Studio", [self._python(), "-c", "raise SystemExit('Missing current Studio validators')"])
 
     def validate_everything(self) -> None:
         commands = [
             ("Validate Runtime", self._script_command("Tests/validate_runtime_cleanup.py")),
             ("Validate Consensus Repository Cleanup", self._script_command("Tests/validate_consensus_repository_cleanup.py")),
-            ("Validate PIF-1", self._script_command("Tests/validate_pif1_build004.py") or self._script_command("Tests/validate_pif1_build003.py") or self._script_command("Tests/validate_pif1_build002.py") or self._script_command("Tests/validate_pif1_build001.py")),
+            ("Validate PIF-1", self._script_command("Tests/validate_pif1_build004.py")),
             ("Validate Renderer Cleanup", self._script_command("Tests/validate_renderer_cleanup.py")),
             ("Validate Team Reasoning", self._script_command("Tests/validate_team_reasoning_engine.py")),
             ("Validate Comparison", self._script_command("Tests/validate_comparison_reasoning_engine.py")),
@@ -1185,8 +1094,19 @@ class AthenaStudio:
             ("Validate Contextual Intelligence & Scout UX", self._script_command("Tests/validate_contextual_intelligence_scout_ux_foundation.py")),
             ("Validate Fantasy Evidence Semantics & Draft-Pool Intelligence", self._script_command("Tests/validate_fantasy_evidence_semantics_draft_pool_intelligence_hotfix.py")),
             ("Validate Draft Knowledge", self._script_command("Tests/validate_draft_knowledge.py")),
+            ("Validate Historical Draft Intelligence", self._script_command("Tests/validate_historical_draft_intelligence.py")),
+            ("Validate Historical Draft Results Discovery", self._script_command("Tests/validate_historical_draft_results_discovery.py")),
+            ("Validate Historical Identity Resolution", self._script_command("Tests/validate_historical_identity_resolution.py")),
+            ("Validate Historical League Context", self._script_command("Tests/validate_historical_league_context.py")),
+            ("Validate Pre-Draft Context Intelligence", self._script_command("Tests/validate_pre_draft_context_intelligence.py")),
             ("Validate Experience Layer Foundation", self._script_command("Tests/validate_experience_layer_foundation.py")),
             ("Validate Player Experience", self._script_command("Tests/validate_player_experience.py")),
+            ("Validate Player Assessment Pathways", self._script_command("Tests/validate_player_assessment_pathways.py")),
+            ("Validate Professional Player Pathways", self._script_command("Tests/validate_professional_player_pathways.py")),
+            ("Validate Public Team News Relevance", self._script_command("Tests/validate_public_team_news_relevance.py")),
+            ("Validate Scout Investigative Response", self._script_command("Tests/validate_scout_investigative_response.py")),
+            ("Validate Scout Normal Response Composition", self._script_command("Tests/validate_scout_normal_response_composition.py")),
+            ("Validate Application Path Trace", self._script_command("Tests/validate_application_path_trace.py")),
             ("Validate Acceptance Explorer", self._script_command("Tests/validate_acceptance_explorer.py")),
             ("Validate Repository Audit", self._script_command("Tests/validate_repository_audit.py")),
             ("Validate Repository Safe Cleanup", self._script_command("Tests/validate_repository_safe_cleanup.py")),
@@ -1202,7 +1122,7 @@ class AthenaStudio:
             ("Validate Scout Intent Orchestration", self._script_command("Tests/validate_scout_intent_orchestration.py")),
             ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
             ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
-            ("Validate Studio", self._script_command("Tests/validate_athena_studio_phase2.py") or self._script_command("Tests/validate_athena_studio_phase1.py") or self._script_command("Tests/validate_athena_studio_pif_inspector.py")),
+            ("Validate Studio", self._script_command("Tests/validate_athena_studio_phase2.py")),
             ("Validate Studio Reload", self._script_command("Tests/validate_studio_reload_workflow.py")),
             ("Validate Studio Browser Refresh", self._script_command("Tests/validate_studio_browser_self_refresh.py")),
             ("Validate Studio Beta UI", self._script_command("Tests/validate_athena_studio_beta_ui.py")),
@@ -1210,14 +1130,14 @@ class AthenaStudio:
             ("Validate Studio Toolbar", self._script_command("Tests/validate_athena_studio_toolbar.py")),
             ("Validate Studio Operations Console", self._script_command("Tests/validate_athena_studio_operations_console.py")),
         ]
-        commands.extend(self._critical_acceptance_commands(doctors=False))
+        commands.extend(self._critical_acceptance_commands())
         self._run_sequence_threaded("Validate Everything", commands)
 
     def doctor_runtime(self) -> None:
         self._run_threaded("Doctor Runtime", self._script_command("Tools/doctor_runtime_cleanup.py") or [self._python(), "-c", "raise SystemExit('Missing Tools/doctor_runtime_cleanup.py')"])
 
     def doctor_pif(self) -> None:
-        command = self._script_command("Tools/doctor_pif1_build004.py") or self._script_command("Tools/doctor_pif1_build003.py") or self._script_command("Tools/doctor_pif1_build002.py") or self._script_command("Tools/doctor_pif1_build001.py")
+        command = self._script_command("Tools/doctor_pif1_build004.py")
         self._run_threaded("Doctor PIF-1", command or [self._python(), "-c", "raise SystemExit('Missing PIF doctor')"])
 
 
@@ -1265,14 +1185,13 @@ class AthenaStudio:
         if available:
             self._run_sequence_threaded("Doctor Studio", available)
             return
-        command = self._script_command("Tools/doctor_athena_studio_phase1.py") or self._script_command("Tools/doctor_athena_studio_pif_inspector.py")
-        self._run_threaded("Doctor Studio", command or [self._python(), "-c", "raise SystemExit('Missing Studio doctor')"])
+        self._run_threaded("Doctor Studio", [self._python(), "-c", "raise SystemExit('Missing current Studio doctors')"])
 
     def doctor_everything(self) -> None:
         commands = [
             ("Doctor Runtime", self._script_command("Tools/doctor_runtime_cleanup.py")),
             ("Doctor Consensus Repository Cleanup", self._script_command("Tools/doctor_consensus_repository_cleanup.py")),
-            ("Doctor PIF-1", self._script_command("Tools/doctor_pif1_build004.py") or self._script_command("Tools/doctor_pif1_build003.py") or self._script_command("Tools/doctor_pif1_build002.py") or self._script_command("Tools/doctor_pif1_build001.py")),
+            ("Doctor PIF-1", self._script_command("Tools/doctor_pif1_build004.py")),
             ("Doctor Renderer Cleanup", self._script_command("Tools/doctor_renderer_cleanup.py")),
             ("Doctor Inquiry Semantic Ownership", self._script_command("Tools/doctor_inquiry_semantic_ownership.py")),
             ("Doctor Team Reasoning", self._script_command("Tools/doctor_team_reasoning_engine.py")),
@@ -1292,6 +1211,9 @@ class AthenaStudio:
             ("Doctor Capability Audit", self._script_command("Tools/doctor_capability_audit.py")),
             ("Doctor Evidence Audit", self._script_command("Tools/doctor_evidence_audit.py")),
             ("Doctor Composition Audit", self._script_command("Tools/doctor_composition_audit.py")),
+            ("Doctor Analytical Study Evidence Reconciliation", self._script_command("Tools/doctor_analytical_study_evidence_reconciliation.py")),
+            ("Doctor Organizational Asset Rights", self._script_command("Tools/doctor_organizational_asset_rights.py")),
+            ("Doctor Whole-Picture Investigation", self._script_command("Tools/doctor_whole_picture_investigation.py")),
             ("Doctor Experience Layer Foundation", self._script_command("Tools/doctor_experience_layer_foundation.py")),
             ("Doctor Player Experience", self._script_command("Tools/doctor_player_experience.py")),
             ("Doctor Acceptance Explorer", self._script_command("Tools/doctor_acceptance_explorer.py")),
@@ -1304,7 +1226,7 @@ class AthenaStudio:
             ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
             ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
             ("Doctor Repository", self._script_command("Tools/doctor_repository.py")),
-            ("Doctor Studio", self._script_command("Tools/doctor_athena_studio_phase2.py") or self._script_command("Tools/doctor_athena_studio_phase1.py") or self._script_command("Tools/doctor_athena_studio_pif_inspector.py")),
+            ("Doctor Studio", self._script_command("Tools/doctor_athena_studio_phase2.py")),
             ("Doctor Studio Reload", self._script_command("Tools/doctor_studio_reload_workflow.py")),
             ("Doctor Studio Browser Refresh", self._script_command("Tools/doctor_studio_browser_self_refresh.py")),
             ("Doctor Studio Beta UI", self._script_command("Tools/doctor_athena_studio_beta_ui.py")),
@@ -1312,7 +1234,6 @@ class AthenaStudio:
             ("Doctor Studio Toolbar", self._script_command("Tools/doctor_athena_studio_toolbar.py")),
             ("Doctor Studio Operations Console", self._script_command("Tools/doctor_athena_studio_operations_console.py")),
         ]
-        commands.extend(self._critical_acceptance_commands(validators=False))
         self._run_sequence_threaded("Doctor Everything", commands)
 
     def inspect_pif_prompt(self) -> None:

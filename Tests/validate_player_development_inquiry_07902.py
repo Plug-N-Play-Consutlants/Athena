@@ -1,4 +1,11 @@
 """Offline regression for development routing and evidence-bounded analysis."""
+import sys
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from Athena.intent_planner import plan_capability
 from Athena.execution_registry import SPECIALISTS
 from Athena.player_development import analyze_player_development, _historical_levels

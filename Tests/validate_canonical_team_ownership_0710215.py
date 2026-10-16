@@ -33,7 +33,7 @@ def run():
         for prompt in PROMPTS:
             assert team_investigation_target(prompt) == ("TOR", "Toronto Maple Leafs")
             route, source = select_executable_route(prompt, "public")
-            assert (route, source) == ("public_current_season_team_investigation", "athena_intent_plan")
+            assert (route, source) == ("public_current_season_team_investigation", "canonical_nhl_team_investigation")
             context = SimpleNamespace(files_loaded=[])
             direct = execute_request(AthenaRequest(prompt, mode="public", context=context))
             with patch.object(router, "_public_analytical_answer", side_effect=AssertionError("Scout preempted Athena")):

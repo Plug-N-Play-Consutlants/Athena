@@ -7,13 +7,23 @@ from Athena.execution_registry import SPECIALISTS
 def select_executable_route(question: str, mode: str) -> tuple[str, str]:
     from Athena.intent_planner import plan_capability
 
+    from Athena.diagnostic_intent import is_diagnostic_inquiry
+    if is_diagnostic_inquiry(question):
+        return "athena_runtime_diagnostics", "athena_diagnostic_intent"
+
     from Athena.entry_policy import select_entry_route
     entry = select_entry_route(question, mode)
     if entry.route:
-        # Athena decides the objective; Scout remains the explicit presentation
-        # adapter until the legacy reporting contracts are ported.
-        return "", "athena_entry_policy:" + entry.route
+        return entry.route, "athena_entry_policy:" + entry.route
 
+    plan = plan_capability(question, mode)
+    route = str(getattr(plan, "route", "") or "")
+    if (
+        any(name in question.casefold() for name in ("jhlpaa", "fantrax"))
+        and route == "public_player_comparison"
+        and any(term in question.casefold() for term in ("fantasy", "keeper", "roster slot", "scoring"))
+    ):
+        return "league_player_comparison", "explicit_public_to_fantasy_comparison"
     # An explicitly named private fantasy league retains its domain in either
     # presentation mode. Public RSS is not a substitute for canonical league data.
     if any(name in question.casefold() for name in ("jhlpaa", "fantrax")) and any(
@@ -24,8 +34,6 @@ def select_executable_route(question: str, mode: str) -> tuple[str, str]:
         from Athena.public_team_performance import team_investigation_target
         if team_investigation_target(question) is not None:
             return 'public_current_season_team_investigation', 'canonical_nhl_team_investigation'
-    plan = plan_capability(question, mode)
-    route = str(getattr(plan, "route", "") or "")
     if mode == "public" and route == "ambiguous_public_entity":
         from Athena.public_identity import resolve_public_player
         match = resolve_public_player(question)

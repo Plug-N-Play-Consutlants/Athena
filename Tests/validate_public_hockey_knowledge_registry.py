@@ -106,7 +106,7 @@ def main() -> int:
     else:
         r.fail("registry_outputs_written", str(paths))
 
-    if str(ATHENA_VERSION).endswith("drop4a3"):
+    if tuple(map(int, str(ATHENA_VERSION).split("."))) >= (0, 7, 10, 17, 0):
         r.pass_("version_updated", f"Athena={ATHENA_VERSION}")
     else:
         r.fail("version_updated", f"Athena={ATHENA_VERSION}")

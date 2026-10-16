@@ -75,7 +75,7 @@ def build_request_evidence(question: str, *, mode: str, route: str | None) -> Di
         "sources": [],
         "missing": [],
     }
-    if mode != "public":
+    if mode != "public" and route != "league_player_comparison":
         return bundle
 
     if route == "public_current_season_team_investigation":
@@ -95,12 +95,14 @@ def build_request_evidence(question: str, *, mode: str, route: str | None) -> Di
             "status": "partial" if evidence.get("missing") else "ready",
             "team": team[0],
             "team_performance_assessment": assessment,
+            "team_economic_state": assessment.get("economic_state_object"),
+            "league_season_context": assessment.get("league_context_object"),
             "sources": list(evidence.get("sources") or []),
             "missing": list(evidence.get("missing") or []),
         })
         return bundle
 
-    if route == "public_player_comparison":
+    if route in {"public_player_comparison", "league_player_comparison"}:
         from Knowledge.Intelligence.Entities.entity_registry import entities_by_type, searchable_names
         matched = []
         for entity in entities_by_type("player"):

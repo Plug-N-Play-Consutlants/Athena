@@ -194,10 +194,6 @@ except Exception:  # pragma: no cover - live intelligence remains optional durin
     live_intelligence_diagnostics = None  # type: ignore
 
 try:
-    from Intelligence.Runtime import run_runtime_trace
-except Exception:  # pragma: no cover - runtime diagnostics are additive
-    run_runtime_trace = None  # type: ignore
-try:
     from Intelligence.Player.player_intelligence import evaluate_player
 except Exception:  # pragma: no cover - player intelligence is optional during partial installs
     evaluate_player = None  # type: ignore
@@ -1198,69 +1194,6 @@ def help_response(ctx: ScoutContext, question: str = "") -> Dict[str, Any]:
 
 
 
-def _diagnostic_runtime_answer(ctx: ScoutContext, question: str, selected_mode: str) -> Dict[str, Any]:
-    """Answer Scout self-diagnostic prompts using runtime/debug data."""
-    q = (question or "").lower()
-    trace_payload: Dict[str, Any] = {}
-    stages: List[Dict[str, Any]] = []
-    ledger: List[Dict[str, Any]] = []
-    limitations: List[str] = []
-    if run_runtime_trace is not None:
-        sample_question = "Who is Auston Matthews?" if "module" in q else (question or "What can Athena currently answer?")
-        try:
-            trace = run_runtime_trace(sample_question, mode=selected_mode or "public")
-            trace_payload = trace.to_dict() if hasattr(trace, "to_dict") else {}
-            stages = trace_payload.get("stages", []) if isinstance(trace_payload.get("stages"), list) else []
-            ledger = trace_payload.get("evidence_ledger", []) if isinstance(trace_payload.get("evidence_ledger"), list) else []
-            limitations = list(trace_payload.get("limitations") or [])
-        except Exception as exc:  # noqa: BLE001
-            limitations.append(f"Runtime trace failed: {type(exc).__name__}: {exc}")
-    else:
-        limitations.append("Runtime orchestration layer is unavailable.")
-
-    module_names = [str(stage.get("name")) for stage in stages if isinstance(stage, dict) and stage.get("name")]
-    observed = []
-    if module_names:
-        observed.append("Runtime stages executed: " + ", ".join(module_names) + ".")
-    for stage in stages:
-        if isinstance(stage, dict):
-            observed.append(f"{stage.get('name')}: {stage.get('status')} — {stage.get('detail')}")
-    if ledger:
-        observed.append("Evidence ledger: " + "; ".join(f"{item.get('source')}={item.get('evidence_count')}" for item in ledger if isinstance(item, dict)) + ".")
-    if not observed:
-        observed = ["Scout diagnostic routing executed, but no runtime stages were returned."]
-    title = "Scout runtime diagnostics"
-    if "evidence" in q:
-        title = "Scout evidence trace"
-    elif "module" in q:
-        title = "Scout modules executed"
-    elif "pipeline" in q or "trace" in q:
-        title = "Scout pipeline trace"
-    cards = [
-        {"label": "Stages", "value": len(stages)},
-        {"label": "Status", "value": trace_payload.get("status", "unknown") if trace_payload else "unknown"},
-        {"label": "Evidence", "value": len(ledger)},
-    ]
-    return response(
-        intent="scout_runtime_diagnostics",
-        title=title,
-        engine_conclusion="Scout routed this as a runtime diagnostic request and returned the available pipeline trace instead of asking for clarification.",
-        observed_facts=observed[:12],
-        known_limitations=limitations or ["Runtime diagnostics are observational; they do not change the underlying answer path."],
-        confidence=0.86 if stages else 0.45,
-        cards=cards,
-        developer=developer_info(
-            "scout_runtime_diagnostics",
-            ctx.files_loaded,
-            knowledge_used=["runtime_trace", "evidence_ledger"],
-            intelligence_used=["runtime_orchestration", "scout_acceptance_hotfix"],
-            files_read=["Intelligence/Runtime/orchestrator.py"],
-            missing=[] if stages else ["runtime_trace_output"],
-        ) | {"runtime_trace": trace_payload},
-    )
-
-
-
 def _normalize_public_query_text(question: str) -> str:
     """Normalize common fan shorthand before deterministic public routing.
 
@@ -1922,17 +1855,6 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     raw_question = (question or "").strip()
     q = raw_question.lower()
     selected_mode = (mode or "fantasy").strip().lower()
-    # Athena owns precedence classification; Scout retains only compatibility
-    # response adapters while their presentation contracts are migrated.
-    from Athena.entry_policy import select_entry_route
-    entry = select_entry_route(raw_question, selected_mode)
-    explicit_league = any(t in q for t in ('jhlpaa', 'fantrax'))
-    if entry.route == 'league_period_standings':
-        return _league_standings_inquiry(ctx, raw_question)
-    if entry.route == 'league_recap' or (entry.route == '' and _conversational_league_recap(raw_question, selected_mode)):
-        return analyze_league(ctx, raw_question)
-    if entry.route == 'fantasy_trade_investigation':
-        return _fantasy_trade_investigation(ctx, raw_question)
     # Prompt semantics must outrank stale UI/provider state. Public NHL prompts
     # cannot inherit fantasy mode just because the previous request used Fantrax.
     if _looks_like_public_sports_context(raw_question):
@@ -1941,12 +1863,7 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if not q:
         return help_response(ctx, question)
 
-    diagnostic_terms = ["what intelligence modules executed", "what modules executed", "what evidence did you use", "show pipeline trace", "pipeline trace", "runtime trace", "explain your reasoning"]
-    if any(term in q for term in diagnostic_terms):
-        return _diagnostic_runtime_answer(ctx, raw_question, selected_mode)
-
-    # Athena is the authoritative registered-specialist executor. Scout does
-    # not preempt it with its own live-news priority or handler selection.
+    # Athena owns registered route selection and request-scoped evidence.
     from Athena.inquiry_execution import answer as athena_answer
     orchestrated = athena_answer(raw_question, ctx, mode=selected_mode)
     if orchestrated is not None:

@@ -1,7 +1,7 @@
-"""Temporary port for existing specialists during Athena pathway migration.
+"""Explicit compatibility adapter for inquiries not yet registered in Athena.
 
-This is deliberately explicit: Scout's router still owns specialist selection
-in this build. The adapter is retired as Athena-owned executors are registered.
+Athena owns route selection. Existing Scout handlers remain available only as
+the bounded implementation for routes that have not yet been ported.
 """
 from __future__ import annotations
 

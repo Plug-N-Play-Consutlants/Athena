@@ -58,6 +58,7 @@ def reconcile_evidence(bundle: dict[str, Any], answer: dict[str, Any]) -> dict[s
     team = developer.get('team_performance_evidence')
     if isinstance(team, dict) and isinstance(team.get('team'), str) and team.get('team'):
         allowed = {'nhl_club_stats_season', 'nhl_official_current_standings',
+                   'nhl_official_standings_league_benchmark', 'nhl_official_goalie_summary',
                    'nhl_official_completed_games', 'nhl_current_roster',
                    'canonical_team_economic_state', 'canonical_league_season_context'}
         for source in _unique(team.get('sources')):
@@ -71,7 +72,11 @@ def reconcile_evidence(bundle: dict[str, Any], answer: dict[str, Any]) -> dict[s
             'sources': [s for s in _unique(team.get('sources')) if s in allowed],
             'missing': _unique(team.get('missing')),
             'season': team.get('season'),
-            'consumption': 'specialist_structured_evidence_reported',
+            'consumption': developer.get('team_evidence_consumption', {
+                'owner': 'unknown',
+                'consumed': False,
+                'fallback_used': False,
+            }),
         }
     bundle['missing'] = original_missing
     bundle['sources'] = original_sources

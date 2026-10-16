@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, asdict
 from typing import Any
 
-from Athena.execution_registry import SPECIALISTS, execute_specialist
+from Athena.execution_registry import SPECIALISTS
 from Athena.intent_resolution import select_executable_route
 
 
@@ -49,12 +49,7 @@ def _completion(result: Any, status: str, question: str = "") -> dict[str, Any]:
 
 
 def investigate(question: str, context: Any, *, mode: str = "public") -> dict[str, Any]:
-    """Execute one selected specialist; expose eligibility, failures and completion.
-
-    Legacy fallback remains explicit until its handlers are migrated. Exceptions
-    are not silently converted to an empty answer, and the compatibility caller
-    may still propagate them while diagnostic consumers can inspect the outcome.
-    """
+    """Expose the outcome of the same request-owned execution used by Scout."""
     from Athena.inquiry_objectives import decompose_inquiry
     from Athena.capability_coordination import coordinate_capabilities
     objectives = decompose_inquiry(question)
@@ -71,7 +66,9 @@ def investigate(question: str, context: Any, *, mode: str = "public") -> dict[st
         first = _record(route, "gated", "fantasy_mode_required", "skipped")
     else:
         try:
-            result = execute_specialist(route, context, question, mode=selected)
+            from Athena.request_execution import AthenaRequest, execute_request
+
+            result = execute_request(AthenaRequest(question=question, mode=selected, context=context))
         except Exception as exc:
             status = "failed"
             first = _record(route, "eligible", "handler_raised_" + type(exc).__name__, "failed")
@@ -80,12 +77,19 @@ def investigate(question: str, context: Any, *, mode: str = "public") -> dict[st
                     "completion": _completion(None, status, question), "error_type": type(exc).__name__}
         status = "executed" if result is not None else "no_result"
         first = _record(route, "eligible", selection_reason, status)
-    return {"status": status, "result": result, "selection_reason": selection_reason, "inquiry_objectives": objectives, "capability_coordination": coordinate_capabilities(objectives, route, selected),
+    developer = result.get("developer") if isinstance(result, dict) and isinstance(result.get("developer"), dict) else {}
+    coordination = developer.get("capability_coordination")
+    if not isinstance(coordination, dict):
+        coordination = coordinate_capabilities(objectives, route, selected)
+    completion = developer.get("inquiry_completion")
+    if not isinstance(completion, dict):
+        completion = _completion(result, status, question)
+    return {"status": status, "result": result, "selection_reason": selection_reason, "inquiry_objectives": objectives, "capability_coordination": coordination,
             "capability_ledger": [first] + _remaining_capabilities(route, selected),
-            "completion": _completion(result, status, question)}
+            "completion": completion}
 
 
 def answer(question: str, context: Any, *, mode: str = "public") -> dict[str, Any] | None:
-    """Legacy Scout response shape; never mistake unverified for complete."""
+    """Execute registered inquiries through Athena's request-owned evidence path."""
     outcome = investigate(question, context, mode=mode)
     return outcome["result"]

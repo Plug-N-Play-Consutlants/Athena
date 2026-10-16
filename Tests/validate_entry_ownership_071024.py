@@ -5,6 +5,8 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from Athena.entry_policy import select_entry_route
+from Athena.execution_registry import SPECIALISTS
+from Athena.intent_resolution import select_executable_route
 from Athena.Investigation.league_standings_inquiry import investigate_period_standings
 from types import SimpleNamespace
 
@@ -25,8 +27,11 @@ standings = router.split('def _league_standings_inquiry(',1)[1].split('def route
 assert 'FantraxClient' not in standings
 assert 'ensure_period_snapshots' not in standings
 assert 'investigate_period_standings(ctx, question)' in standings
-assert 'select_entry_route(raw_question, selected_mode)' in router
-assert 'league_standings =' not in router.split('def route_question(',1)[1].split('    # Prompt semantics',1)[0]
+assert 'from Athena.inquiry_execution import answer as athena_answer' in router
+for question, mode, expected in cases[:4]:
+    route, _ = select_executable_route(question, mode)
+    assert route == expected and route in SPECIALISTS, (question, route, expected)
+assert all(route in SPECIALISTS for route in ('league_recap', 'league_period_standings', 'fantasy_trade_investigation'))
 ctx = SimpleNamespace(standings_archive={}, league_profile={})
 with patch('Athena.Investigation.standings_acquisition.resolve_league_context', side_effect=ValueError('missing context')):
     outcome = investigate_period_standings(ctx, 'JHLPAA standings weeks 1-3')

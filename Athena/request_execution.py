@@ -17,6 +17,19 @@ class AthenaRequest:
     continuation: Any = None
 
 
+class _RequestEvidenceContext:
+    """Read-through adapter for immutable legacy contexts."""
+
+    __slots__ = ("_context", "request_evidence")
+
+    def __init__(self, context: Any, request_evidence: Dict[str, Any]) -> None:
+        self._context = context
+        self.request_evidence = request_evidence
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._context, name)
+
+
 def _continued_question(question: str, mode: str, continuation: Any) -> tuple[str, str]:
     """Use an advisory subject hint; specialists still acquire their own evidence."""
     if mode != "public" or not isinstance(continuation, dict):
@@ -118,17 +131,20 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     request_evidence = build_request_evidence(effective_question, mode=effective_mode, route=route)
     evidence_ms = round((perf_counter() - evidence_started) * 1000, 2)
     evidence_attached = False
+    evidence_transport = "none"
+    execution_context = context
     try:
         setattr(context, "request_evidence", request_evidence)
         evidence_attached = True
+        evidence_transport = "context_attribute"
     except (AttributeError, TypeError):
-        # Minimal immutable test/adaptor contexts may not accept runtime fields.
-        # Real ScoutContext instances do; specialists remain compatible with
-        # contexts that predate the request-evidence handoff.
-        pass
+        if route:
+            execution_context = _RequestEvidenceContext(context, request_evidence)
+            evidence_attached = True
+            evidence_transport = "read_through_context_adapter"
     specialist_started = perf_counter()
     if route:
-        answer = execute_specialist(route, context, effective_question, mode=effective_mode)
+        answer = execute_specialist(route, execution_context, effective_question, mode=effective_mode)
         if answer is None:
             raise RuntimeError(f"Registered Athena specialist could not execute: {route}")
         owner = "athena_registered_specialist"
@@ -163,6 +179,7 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     # publishing readiness. Preserve independent missing requirements.
     from Athena.evidence_reconciliation import reconcile_evidence
     evidence_reconciliation = reconcile_evidence(request_evidence, answer)
+    team_consumption = developer.get("team_evidence_consumption")
     developer["athena_request"] = {
         "version": ATHENA_VERSION,
         "boundary": "Athena.ask",
@@ -185,15 +202,15 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     # Shared completion assessment also powers inquiry_execution.investigate.
     from Athena.completion_assessment import assess_completion
     from Athena.capability_coordination import execute_compatible_support
-    capability_coordination = execute_compatible_support(inquiry_plan, route, effective_mode, effective_question, context, answer)
+    capability_coordination = execute_compatible_support(inquiry_plan, route, effective_mode, effective_question, execution_context, answer)
     from Athena.capability_coordination import synthesize_supporting_findings
     synthesis = synthesize_supporting_findings(answer, capability_coordination, effective_question)
     developer["supporting_synthesis"] = synthesis
+    developer["capability_coordination"] = capability_coordination
     objective_coverage = assess_objective_coverage(inquiry_plan, request_evidence, answer)
     completion = assess_completion(answer, evidence=request_evidence, question=effective_question)
     developer["inquiry_objectives"] = inquiry_plan
     developer["inquiry_objective_coverage"] = objective_coverage
-    developer["capability_coordination"] = capability_coordination
     completion_state = completion["state"]
     missing_requirements = completion["unresolved_requirements"]
     developer["inquiry_completion"] = completion
@@ -211,7 +228,9 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                      "sources": list(evidence_sources) if isinstance(evidence_sources, list) else [],
                      "missing": list(evidence_missing) if isinstance(evidence_missing, list) else [],
                      "attached_to_context": evidence_attached,
+                     "transport": evidence_transport,
                      "acquisition_duration_ms": evidence_ms,
+                     "specialist_evidence": request_evidence.get("specialist_evidence"),
                      "reconciliation": evidence_reconciliation},
         "objectives": {"count": len(inquiry_plan["objectives"]), "ids": [o["id"] for o in inquiry_plan["objectives"]], "independently_verified": False},
         "capability_coordination": capability_coordination,
@@ -225,7 +244,12 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                    "completion_state": completion_state,
                    "unresolved_requirement_count": len(missing_requirements),
                    "inquiry_completeness_verified": completion["inquiry_answered_verified"],
-                   "evidence_consumption_verified": False,
+                   "evidence_consumption_verified": bool(
+                       isinstance(team_consumption, dict)
+                       and team_consumption.get("consumed") is True
+                       and team_consumption.get("owner") == "Athena.request_execution"
+                   ),
+                   "evidence_consumption": team_consumption if isinstance(team_consumption, dict) else None,
                    "specialist_evidence_reported": bool(request_evidence.get("specialist_evidence"))},
         "continuation": continuation_status,
         "total_duration_ms": round((perf_counter() - started) * 1000, 2),

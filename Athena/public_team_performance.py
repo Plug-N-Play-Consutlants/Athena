@@ -83,6 +83,8 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     from Knowledge.Intelligence.Public.player_evidence import _target_season_id
     season = _target_season_id()
     evidence: dict[str, Any] = {"season": season, "team": abbreviation, "sources": [], "missing": [], "acquisition_timing_ms": {}}
+    economic_state = None
+    league_context = None
     client = NHLClient()
     acquisition_started = perf_counter()
     stage_started = perf_counter()
@@ -270,6 +272,8 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
             from Knowledge.Economics.league_season_context import resolve_league_season_context
             state = resolve_team_economic_state(abbreviation=abbreviation)
             context = resolve_league_season_context()
+            economic_state = state
+            league_context = context
             evidence["economics"] = {
                 "league_year": context.league_year,
                 "upper_limit": context.upper_limit,
@@ -327,7 +331,13 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     evidence["comparative_evaluation"] = comparative
     text += " " + narrative(comparative)
     evidence["analytical_synthesis"] = trend
-    return {"conclusion": text, "evidence": evidence, "confidence": confidence}
+    return {
+        "conclusion": text,
+        "evidence": evidence,
+        "confidence": confidence,
+        "economic_state_object": economic_state,
+        "league_context_object": league_context,
+    }
 
 
 def official_team_player_row(player_name: str, team_name: str) -> dict[str, Any] | None:
@@ -434,15 +444,42 @@ def execute_team_investigation(ctx: Any, question: str) -> dict[str, Any]:
                         engine_conclusion="The team and investigation objective could not be established.",
                         known_limitations=["verified_team_investigation_subject"], confidence=0.2)
     request_evidence = getattr(ctx, "request_evidence", None)
+    request_bundle_applies = (
+        isinstance(request_evidence, dict)
+        and request_evidence.get("route") == "public_current_season_team_investigation"
+        and request_evidence.get("team") == team[0]
+    )
     assessment = (
         request_evidence.get("team_performance_assessment")
-        if isinstance(request_evidence, dict)
-        and request_evidence.get("team") == team[0]
+        if request_bundle_applies
         and isinstance(request_evidence.get("team_performance_assessment"), dict)
         else None
     )
-    if assessment is None:
+    if assessment is None and not request_bundle_applies:
         assessment = assess_team_performance(question, *team)
+    if assessment is None:
+        evidence = request_evidence.get("team_performance_assessment", {}).get("evidence", {}) if isinstance(request_evidence, dict) else {}
+        missing = list(request_evidence.get("missing") or ["structured_team_performance_evidence"]) if isinstance(request_evidence, dict) else ["request_owned_team_evidence"]
+        return response(
+            intent="public_current_season_team_investigation",
+            title=f"{team[1]}: evidence unavailable",
+            engine_conclusion="Athena's request evidence bundle did not contain a structured team assessment. The specialist did not start a second acquisition path.",
+            observed_facts=[],
+            known_limitations=missing,
+            confidence=0.2,
+            developer={**developer_info(
+                "public_current_season_team_investigation",
+                getattr(ctx, "files_loaded", []),
+                missing=missing,
+            ), "team_performance_evidence": evidence,
+                "team_evidence_consumption": {
+                    "owner": "Athena.request_execution",
+                    "consumed": False,
+                    "acquisition_count": 1,
+                    "fallback_used": False,
+                    "reason": "request_bundle_missing_structured_assessment",
+                }},
+        )
     evidence = assessment["evidence"]
     facts = [f"Official NHL season: {evidence['season']}"]
     facts.extend(f"{row['name']}: {row['points']} points in {row['gp']} games"
@@ -454,5 +491,13 @@ def execute_team_investigation(ctx: Any, question: str) -> dict[str, Any]:
         developer={**developer_info("public_current_season_team_investigation",
                                    getattr(ctx, "files_loaded", []), knowledge_used=evidence["sources"],
                                    intelligence_used=["nhl_team_performance_investigation"], missing=evidence["missing"]),
-                   "team_performance_evidence": evidence},
+                   "team_performance_evidence": evidence,
+                   "team_evidence_consumption": {
+                       "owner": "Athena.request_execution" if request_bundle_applies else "compatibility_specialist",
+                       "consumed": True,
+                       "acquisition_count": 1 if request_bundle_applies else 1,
+                       "fallback_used": not request_bundle_applies,
+                       "sources": list(evidence.get("sources") or []),
+                       "missing": list(evidence.get("missing") or []),
+                   }},
     )

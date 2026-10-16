@@ -150,6 +150,12 @@ def narrative(evaluation: dict[str, Any]) -> str:
             f"league-wide across {goalie_comparison['league_shots_against']} shots. "
             "This result does not adjust for shot quality or establish goaltender causation."
         )
+    else:
+        qualifier += (
+            " A league-wide goalie save-percentage benchmark was not acquired, so the team cannot "
+            "be ranked against league goaltending; scoring and goal-prevention comparisons above "
+            "remain supported independently."
+        )
     goalies = evaluation.get('goalie_observations') or []
     if goalies:
         qualifier += ' Verified goalie season observations: ' + '; '.join(

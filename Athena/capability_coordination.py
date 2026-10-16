@@ -1,19 +1,10 @@
-"""Bounded inquiry capability coordination, without speculative execution.
-
-A capability candidate is not a claim that evidence was acquired or used.
-Only the primary route executes until specialists declare compatible evidence
-contracts; this ledger exposes possible supporting routes for future orchestration.
-"""
+"""Execute only subject-matched supporting capabilities with shared evidence."""
 from __future__ import annotations
 from typing import Any
 from Athena.execution_registry import SPECIALISTS
 
 SUPPORTING_ROUTES = {
-    "economics": ("public_nhl_team_economic_state", "public_nhl_cap_reasoning"),
-    "feasibility": ("public_nhl_transaction_scenario", "public_nhl_organizational_plausibility"),
-    "assessment": ("public_current_season_team_investigation",),
-    "change": ("public_team_window",),
-    "comparison": ("public_player_comparison",),
+    "economics": ("public_nhl_cap_reasoning",),
 }
 
 def coordinate_capabilities(plan: dict[str, Any], primary_route: str | None, mode: str) -> dict[str, Any]:
@@ -23,7 +14,11 @@ def coordinate_capabilities(plan: dict[str, Any], primary_route: str | None, mod
     objectives = [item.get("id") for item in plan.get("objectives", []) if isinstance(item, dict)]
     candidates: list[dict[str, str]] = []
     seen = {primary}
-    for objective in objectives:
+    compatible_primary = (
+        selected_mode == "public"
+        and primary == "public_current_season_team_investigation"
+    )
+    for objective in (objectives if compatible_primary else ()):
         for route in SUPPORTING_ROUTES.get(objective, ()):
             if route in seen or route not in SPECIALISTS:
                 continue
@@ -31,18 +26,20 @@ def coordinate_capabilities(plan: dict[str, Any], primary_route: str | None, mod
             spec = SPECIALISTS[route]
             eligibility = "gated" if spec.mode == "fantasy" and selected_mode != "fantasy" else "candidate_only"
             candidates.append({"route": route, "objective": objective, "eligibility": eligibility,
-                               "execution": "not_invoked", "reason": "no_shared_subject_and_evidence_contract"})
+                               "execution": "not_invoked", "reason": "awaiting_subject_and_evidence_validation"})
     return {"schema": "athena.capability_coordination.v1", "primary_route": primary,
             "primary_execution": "handled_by_request_boundary", "objectives": objectives,
             "supporting_candidates": candidates, "supporting_executed": 0,
+            "non_executable_objectives": [
+                {"objective": objective, "state": "kept_in_primary_analysis",
+                 "reason": "no_subject_and_evidence_compatible_secondary_contract"}
+                for objective in objectives
+                if objective != "economics" or not compatible_primary
+            ],
             "multi_capability_synthesis_verified": False,
             "policy": "never_execute_secondary_specialists_without_compatible_subject_and_evidence_contract"}
 
 
-# Operational secondary execution is deliberately narrower than candidate discovery.
-# At present only the Toronto canonical cap determination has a reviewed
-# subject-specific contract. Never execute the transaction-scenario specialist
-# on a broad improvement question: it requires a named target and can assume one.
 def execute_compatible_support(plan: dict[str, Any], primary_route: str | None,
                                mode: str, question: str, context: Any,
                                primary_answer: dict[str, Any],
@@ -52,29 +49,53 @@ def execute_compatible_support(plan: dict[str, Any], primary_route: str | None,
     Returns diagnostic evidence, not an alternate user-facing answer. An
     exception or missing canonical inputs must never replace the primary answer.
     """
-    import re
     from Athena.execution_registry import execute_specialist
     report = coordinate_capabilities(plan, primary_route, mode)
     report['schema'] = 'athena.capability_coordination.v2'
     report['supporting_results'] = []
     if mode != 'public' or primary_route != 'public_current_season_team_investigation':
-        report['execution_policy'] = 'no_reviewed_primary_contract'
+        report['execution_policy'] = 'no_compatible_primary_contract'
         return report
     ids = set(report['objectives'])
     if 'economics' not in ids:
         report['execution_policy'] = 'economic_objective_not_requested'
         return report
-    # Do not infer a team from the specialist route, question continuation,
-    # or an untrusted answer paragraph. Require matching structured identity.
     detail = primary_answer.get('developer') if isinstance(primary_answer.get('developer'), dict) else {}
     team = detail.get('team_performance_evidence') if isinstance(detail.get('team_performance_evidence'), dict) else {}
-    if team.get('team') != 'TOR' or not re.search(r'\b(?:Toronto|Maple Leafs|Leafs)\b', question, re.I):
+    from Athena.public_team_performance import resolve_nhl_team_subject
+    subject = resolve_nhl_team_subject(question)
+    if subject is None or team.get('team') != subject[0]:
         report['execution_policy'] = 'subject_contract_not_verified'
         return report
     route = 'public_nhl_cap_reasoning'
     candidate = next((c for c in report['supporting_candidates'] if c['route'] == route), None)
     if candidate is None:
         report['execution_policy'] = 'capability_not_selected'
+        return report
+    request_evidence = getattr(context, "request_evidence", None)
+    state = request_evidence.get("team_economic_state") if isinstance(request_evidence, dict) else None
+    league_context = request_evidence.get("league_season_context") if isinstance(request_evidence, dict) else None
+    if (
+        not isinstance(request_evidence, dict)
+        or request_evidence.get("team") != subject[0]
+        or request_evidence.get("route") != primary_route
+        or getattr(state, "team_id", None) != "nhl.team." + subject[0].lower()
+        or getattr(league_context, "league_year", None) != getattr(state, "league_year", None)
+    ):
+        candidate.update({
+            "eligibility": "evidence_missing",
+            "execution": "blocked",
+            "reason": "matching_shared_canonical_economic_state_unavailable",
+        })
+        report['supporting_results'].append({
+            "route": route,
+            "objective": "economics",
+            "state": "blocked",
+            "subject": subject[0],
+            "missing": ["matching_shared_canonical_economic_state"],
+            "presentation_merged": False,
+        })
+        report['execution_policy'] = 'support_blocked_by_missing_evidence'
         return report
     if executor is None:
         executor = execute_specialist
@@ -83,15 +104,19 @@ def execute_compatible_support(plan: dict[str, Any], primary_route: str | None,
         if not isinstance(result, dict):
             raise TypeError('unstructured_support_result')
         developer = result.get('developer') if isinstance(result.get('developer'), dict) else {}
-        state = developer.get('team_economic_state')
+        state_result = developer.get('team_economic_state')
         determination = developer.get('cap_determination')
-        # A successful handler invocation is not proof of usable evidence.
-        validated = isinstance(state, dict) and isinstance(determination, dict)
+        validated = (
+            isinstance(state_result, dict)
+            and isinstance(determination, dict)
+            and state_result.get("team_id") == "nhl.team." + subject[0].lower()
+            and determination.get("team_id") == "nhl.team." + subject[0].lower()
+        )
         report['supporting_results'].append({
             'route': route, 'objective': 'economics',
             'state': 'evidence_available' if validated else 'insufficient_evidence',
             'evidence_contract': 'canonical_team_economic_state_and_cap_determination',
-            'subject': 'TOR',
+            'subject': subject[0],
             'determination_status': str(determination.get('status', 'unknown')) if validated else None,
             'missing': list(developer.get('missing') or []) if isinstance(developer.get('missing'), list) else [],
             'provenance': ['canonical_team_economic_state', 'league_season_context'] if validated else [],
@@ -102,21 +127,19 @@ def execute_compatible_support(plan: dict[str, Any], primary_route: str | None,
                 'explanation': determination.get('explanation'),
                 'headroom': determination.get('headroom'),
                 'unresolved_inputs': list(determination.get('unresolved_inputs') or []),
-            } if validated and determination.get('team_id') == 'nhl.team.tor'
+            } if validated
                 and isinstance(determination.get('explanation'), str) else None,
         })
-        candidate['execution'] = 'invoked'
-        candidate['eligibility'] = 'reviewed_subject_contract'
-        candidate['reason'] = 'explicit_toronto_subject_and_economic_objective'
-        report['supporting_executed'] = 1
+        candidate['execution'] = 'executed' if validated else 'insufficient_evidence'
+        candidate['eligibility'] = 'shared_subject_evidence_contract'
+        candidate['reason'] = 'explicit_subject_and_economic_objective'
+        report['supporting_executed'] = int(validated)
         report['execution_policy'] = 'bounded_supporting_execution'
     except Exception as exc:
         report['supporting_results'].append({'route': route, 'objective': 'economics',
             'state': 'failed', 'error_type': type(exc).__name__, 'presentation_merged': False})
         candidate['execution'] = 'failed'
         report['execution_policy'] = 'support_failure_isolated'
-    # Evidence gathering is not verified multi-capability synthesis.
-    report['multi_capability_synthesis_verified'] = False
     return report
 
 
@@ -209,7 +232,9 @@ def synthesize_supporting_findings(answer: dict[str, Any], report: dict[str, Any
         note = 'Exact cap space and transaction feasibility remain unverified until the complete payroll and adjustment ledger is available.'
         if note not in limitations:
             limitations.append(note)
-    report['multi_capability_synthesis_verified'] = False
+    report['multi_capability_synthesis_verified'] = bool(
+        finding and eligible[0].get('presentation_merged')
+    )
     return {'state': 'bounded_coordinated_interpretation', 'merged': True,
             'source_provenance': provenance, 'conditional': bool(mechanisms),
             'unresolved': unresolved, 'completion_verified': False}

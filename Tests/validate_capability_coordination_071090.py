@@ -9,9 +9,12 @@ def run():
     assert ledger["primary_route"] == "public_current_season_team_investigation"
     assert ledger["supporting_executed"] == 0
     assert not ledger["multi_capability_synthesis_verified"]
-    assert {"public_nhl_cap_reasoning", "public_nhl_transaction_scenario"} <= {x["route"] for x in ledger["supporting_candidates"]}
+    assert {x["route"] for x in ledger["supporting_candidates"]} == {"public_nhl_cap_reasoning"}
     for item in ledger["supporting_candidates"]:
         assert item["execution"] == "not_invoked"
+    unrelated = coordinate_capabilities(plan, "public_player_comparison", "public")
+    assert unrelated["supporting_candidates"] == []
+    assert all(item["state"] == "kept_in_primary_analysis" for item in unrelated["non_executable_objectives"])
     for name in ("request_execution.py", "inquiry_execution.py", "completion_assessment.py"):
         source = (Path(__file__).resolve().parents[1] / "Athena" / name).read_text()
         assert '"inquiry_objectives": objectives, "inquiry_objectives": objectives' not in source

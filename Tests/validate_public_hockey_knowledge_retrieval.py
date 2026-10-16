@@ -103,7 +103,7 @@ def main() -> int:
     else:
         r.fail("unsupported_query_bounded", json.dumps(no_match, indent=2)[:1200])
 
-    if ATHENA_VERSION == "0.5.0-drop4a5":
+    if tuple(map(int, str(ATHENA_VERSION).split("."))) >= (0, 7, 10, 17, 0):
         r.pass_("version_updated", f"Athena={ATHENA_VERSION}")
     else:
         r.fail("version_updated", f"Athena={ATHENA_VERSION}")

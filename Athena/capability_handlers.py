@@ -72,7 +72,7 @@ def _answer_player_temporal_comparison(ctx: ScoutContext, question: str) -> Dict
     return answer
 
 
-def _answer_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+def _answer_player_comparison(ctx: ScoutContext, question: str, *, league_profile=None) -> Dict[str, Any]:
     subjects = _public_player_subjects_for(question)
     profiles = [item.get("profile") for item in subjects if item.get("kind") == "profile" and item.get("profile") is not None]
     if not subjects:
@@ -83,7 +83,9 @@ def _answer_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any
     except Exception:
         player_comparison_answer = None  # type: ignore
     if player_comparison_answer is not None and len(profiles) >= 2:
-        answer = player_comparison_answer(ctx, profiles, question)
+        if league_profile is None and any(term in question.casefold() for term in ("jhlpaa", "fantrax")):
+            league_profile = getattr(ctx, "league_profile", None)
+        answer = player_comparison_answer(ctx, profiles, question, league_profile=league_profile)
         answer.setdefault("developer", {}).setdefault("orchestration", scout_intent_plan(question, "public").to_dict())
         return answer
     if len(subjects) >= 2:
@@ -135,6 +137,15 @@ def _answer_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any
         known_limitations=["Public comparison needs both players in the public identity/profile seed pack."],
         confidence=0.35,
         developer=developer_info("public_player_comparison_gap", ctx.files_loaded, intelligence_used=["scout_intent_orchestration"], missing=["two_public_player_profiles"]),
+    )
+
+
+def _answer_league_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Reuse public player analysis with the explicitly requested league lens."""
+    return _answer_player_comparison(
+        ctx,
+        question,
+        league_profile=getattr(ctx, "league_profile", None),
     )
 
 
@@ -655,12 +666,21 @@ def _answer_nhl_player_contract(ctx: ScoutContext, question: str) -> Dict[str, A
     return answer
 
 
+def _canonical_team_economic_inputs(question: str):
+    from Athena.public_team_performance import resolve_nhl_team_subject
+    from Knowledge.Teams.team_economic_state import resolve_team_economic_state
+
+    subject = resolve_nhl_team_subject(question)
+    if subject is None:
+        raise LookupError("A single canonical NHL team subject is required.")
+    return resolve_team_economic_state(abbreviation=subject[0])
+
+
 def _answer_nhl_team_economic_state(ctx: ScoutContext, question: str) -> Dict[str, Any]:
     """Team-specific economic state; aggregate output is gated by ledger completeness."""
-    from Knowledge.Teams.team_economic_state import resolve_team_economic_state
     from Knowledge.Economics.league_season_context import resolve_league_season_context
     try:
-        team = resolve_team_economic_state(team_id="nhl.team.tor" if _has_any(_text(question), ["maple leafs","leafs","toronto"]) else "")
+        team = _canonical_team_economic_inputs(question)
     except LookupError as exc:
         return response(intent="public_nhl_team_economic_state", title="NHL team economic evidence gap",
             engine_conclusion=str(exc), natural_language_response=str(exc), observed_facts=[],
@@ -698,13 +718,28 @@ def _answer_nhl_cap_reasoning(ctx: ScoutContext, question: str) -> Dict[str, Any
     from Knowledge.Economics.league_season_context import resolve_league_season_context
     from Reasoning.Cap.cap_reasoning import evaluate_team_cap_state
     try:
-        team = resolve_team_economic_state(team_id="nhl.team.tor" if _has_any(_text(question), ["maple leafs","leafs","toronto"]) else "")
+        from Athena.public_team_performance import resolve_nhl_team_subject
+        subject = resolve_nhl_team_subject(question)
+        if subject is None:
+            raise LookupError("A single canonical NHL team subject is required.")
+        request_evidence = getattr(ctx, "request_evidence", None)
+        if (
+            isinstance(request_evidence, dict)
+            and request_evidence.get("team") == subject[0]
+            and request_evidence.get("route") == "public_current_season_team_investigation"
+            and request_evidence.get("team_economic_state") is not None
+            and request_evidence.get("league_season_context") is not None
+        ):
+            team = request_evidence["team_economic_state"]
+            economic = request_evidence["league_season_context"]
+        else:
+            team = resolve_team_economic_state(abbreviation=subject[0])
+            economic = resolve_league_season_context(league_year=team.league_year)
     except LookupError as exc:
         return response(intent="public_nhl_cap_reasoning", title="NHL cap reasoning evidence gap",
             engine_conclusion=str(exc), natural_language_response=str(exc), observed_facts=[],
             known_limitations=["Executable cap reasoning requires a canonical team state."], confidence=0.35,
             developer=developer_info("public_nhl_cap_reasoning", getattr(ctx,"files_loaded",[]), missing=["canonical_team_economic_state"]))
-    economic = resolve_league_season_context(league_year=team.league_year)
     determination = evaluate_team_cap_state(team, economic)
     covered = team.covered_contracts()
     covered_names = ", ".join(c.player_name for c in covered) or "none"

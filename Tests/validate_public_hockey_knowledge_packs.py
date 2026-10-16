@@ -112,7 +112,7 @@ def main() -> int:
     else:
         r.fail("doctor_ready_pack_status", json.dumps(status, indent=2))
 
-    if str(ATHENA_VERSION).endswith("drop4a4"):
+    if tuple(map(int, str(ATHENA_VERSION).split("."))) >= (0, 7, 10, 17, 0):
         r.pass_("version_updated", f"Athena={ATHENA_VERSION}")
     else:
         r.fail("version_updated", f"Athena={ATHENA_VERSION}")

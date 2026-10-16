@@ -29,7 +29,7 @@ questions = [
 for question, mode, expected in questions:
     route, _ = select_executable_route(question, mode)
     assert route == expected, (question, route, expected)
-    with patch("Athena.inquiry_execution.execute_specialist", return_value={"intent": expected}) as executor:
+    with patch("Athena.request_execution.execute_request", return_value={"intent": expected, "developer": {}}) as executor:
         outcome = investigate(question, object(), mode=mode)
         assert outcome["result"]["intent"] == expected
         assert outcome["capability_ledger"][0]["state"] == "executed"

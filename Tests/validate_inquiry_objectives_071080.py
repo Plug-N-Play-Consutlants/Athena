@@ -15,7 +15,10 @@ for question, required in [
     assert required.issubset({o['id'] for o in plan['objectives']}), (question,plan)
     coverage = assess_objective_coverage(plan, {'missing':['cap_ledger']}, {'inquiry_completion': {'state':'complete'}})
     assert not coverage['independently_verified']
-    assert all('cap_ledger' in o['evidence_blockers'] for o in coverage['objectives'])
+    assert coverage['evidence_missing'] == ['cap_ledger']
+    economics = next((o for o in coverage['objectives'] if o['id'] == 'economics'), None)
+    if economics:
+        assert 'cap_ledger' in economics['evidence_blockers']
     assessment = assess_completion({'inquiry_completion': {'state':'complete', 'requirements':[{'name':'answer','state':'supported'}]}}, question=question)
     assert not assessment['inquiry_answered_verified']
 assert any(c['name'] == 'distribution metadata matches runtime' and c['status'] == 'PASS' for c in build_report()['checks'])

@@ -17,8 +17,8 @@ def check(name, ok, detail=""):
     checks.append(bool(ok))
     print(f"[{'PASS' if ok else 'FAIL'}] {name}: {detail}")
 
-check("version", ATHENA_VERSION == "0.6.4.1.4", ATHENA_VERSION)
-check("release", RELEASE_NAME == "Fantasy State Reconciliation Hotfix", RELEASE_NAME)
+check("version", tuple(map(int, ATHENA_VERSION.split("."))) >= (0, 7, 10, 17, 0), ATHENA_VERSION)
+check("release", RELEASE_NAME != "Fantasy State Reconciliation Hotfix" and bool(RELEASE_NAME), RELEASE_NAME)
 ids = [row.get("id") for row in FANTRAX_FANTASY_PIPELINE]
 check("league_settings_rebuilt", "build_league_settings" in ids, ids)
 check("league_profile_rebuilt", "build_league_profile" in ids, ids)

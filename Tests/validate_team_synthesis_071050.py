@@ -37,5 +37,5 @@ with patch("Providers.NHL.nhl_client.NHLClient", Client), patch("Knowledge.Intel
 check(Client.instances == 1, "one_client_per_investigation")
 check("Official last-ten form" in result["conclusion"], "trend_in_answer")
 check("verified_recent_completed_games" in result["evidence"]["missing"], "failed_schedule_retained")
-check(set(result["evidence"]["acquisition_timing_ms"]) == {"club_stats", "standings", "schedule", "roster_economics", "total"}, "bounded_stage_latency_observable")
+check(set(result["evidence"]["acquisition_timing_ms"]) == {"club_stats", "standings", "goalie_benchmark", "schedule", "roster_economics", "total"}, "bounded_stage_latency_observable")
 print("Overall status: PASS")

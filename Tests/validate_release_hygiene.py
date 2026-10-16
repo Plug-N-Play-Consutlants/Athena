@@ -35,6 +35,7 @@ def main() -> int:
     check("requirements present", requirements.exists(), "requirements.txt")
     check("workflow present", workflow.exists(), ".github/workflows/verify-build.yml")
     check("requests declared", "requests" in _read(pyproject) and "requests" in _read(requirements), "requests")
+    check("custom build metadata unified", f'build = "{ATHENA_BUILD}"' in _read(pyproject), ATHENA_BUILD)
     check("Athena __version__ unified", "__version__ = ATHENA_VERSION" in _read(PROJECT_ROOT / "Athena" / "__init__.py"), "Athena/__init__.py")
     check("legacy doctor uses Core version", "VERSION = ATHENA_VERSION" in _read(PROJECT_ROOT / "Tools" / "doctor.py"), "Tools/doctor.py")
     check("Studio release hygiene action", "show_release_hygiene" in _read(studio) and "Release Hygiene" in _read(studio), "Tools/athena_studio.py")

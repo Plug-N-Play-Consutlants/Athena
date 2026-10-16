@@ -8,6 +8,53 @@ from typing import Any
 from time import perf_counter
 
 
+def _complete_league_team_benchmark(rows: list[Any], season: str) -> dict[str, Any] | None:
+    """Build rates only from a complete, deduplicated canonical NHL snapshot."""
+    from Knowledge.Identity.registry import SEED_IDENTITY_ENTITIES
+
+    expected = {
+        entity.entity_id.rsplit(".", 1)[-1].upper()
+        for entity in SEED_IDENTITY_ENTITIES
+        if entity.entity_type == "team" and entity.league == "NHL"
+    }
+    if not expected:
+        return None
+
+    teams: dict[str, dict[str, float]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        abbreviation = row.get("teamAbbrev")
+        if isinstance(abbreviation, dict):
+            abbreviation = abbreviation.get("default")
+        abbreviation = str(abbreviation or "").upper()
+        games, goals_for, goals_against = (
+            row.get("gamesPlayed"), row.get("goalFor"), row.get("goalAgainst")
+        )
+        if (
+            abbreviation in expected
+            and abbreviation not in teams
+            and all(type(value) is int and value >= 0 for value in (games, goals_for, goals_against))
+            and games > 0
+        ):
+            teams[abbreviation] = {
+                "games": float(games),
+                "goals_for": float(goals_for),
+                "goals_against": float(goals_against),
+                "gfpg": goals_for / games,
+                "gapg": goals_against / games,
+            }
+    if set(teams) != expected:
+        return None
+    return {
+        "teams": len(teams),
+        "gfpg": round(sum(team["goals_for"] for team in teams.values()) / sum(team["games"] for team in teams.values()), 3),
+        "gapg": round(sum(team["goals_against"] for team in teams.values()) / sum(team["games"] for team in teams.values()), 3),
+        "source": "nhl_official_current_standings",
+        "season": season,
+    }
+
+
 def synthesize_verified_team_trends(evidence: dict[str, Any]) -> dict[str, Any]:
     """Report only official observed form; never infer positional need or causation."""
     standings = evidence.get("standings")
@@ -74,6 +121,22 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
                     record[key] = value
             goalie_observations.append(record)
         evidence["goalie_observations"] = goalie_observations
+        goalie_totals = [
+            (
+                g["saves"],
+                g.get("shotsAgainst", g.get("saves", 0) + g.get("goalsAgainst", 0)),
+            )
+            for g in goalie_observations
+            if "saves" in g and ("shotsAgainst" in g or "goalsAgainst" in g)
+        ]
+        team_saves = sum(saves for saves, _ in goalie_totals)
+        team_shots = sum(shots for _, shots in goalie_totals)
+        if goalie_totals and team_shots > 0 and team_saves <= team_shots:
+            evidence["team_goalie_save_percentage"] = {
+                "saves": team_saves,
+                "shots_against": team_shots,
+                "save_percentage": team_saves / team_shots,
+            }
     except Exception as exc:
         evidence["missing"].append("verified_current_season_club_stats")
         evidence["acquisition_error"] = type(exc).__name__
@@ -95,20 +158,53 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
         evidence["sources"].append("nhl_official_current_standings")
         # The same official standings snapshot supports an actual league-relative
         # benchmark, rather than treating the team's GF/GA as a league ranking.
-        peers = []
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-            games, gf, ga = (row.get(k) for k in ("gamesPlayed", "goalFor", "goalAgainst"))
-            if all(type(v) is int and v >= 0 for v in (games, gf, ga)) and games > 0:
-                peers.append({"gfpg": gf/games, "gapg": ga/games, "games": games})
-        if len(peers) >= 20:
-            evidence["league_benchmark"] = {"teams": len(peers), "gfpg": round(sum(r["gfpg"] for r in peers)/len(peers), 3), "gapg": round(sum(r["gapg"] for r in peers)/len(peers), 3), "source": "nhl_official_current_standings", "season": season}
+        benchmark = _complete_league_team_benchmark(rows, season)
+        if benchmark is not None:
+            evidence["league_benchmark"] = benchmark
             evidence["sources"].append("nhl_official_standings_league_benchmark")
+        else:
+            evidence["missing"].append("complete_current_nhl_standings_benchmark")
     except Exception as exc:
         evidence["missing"].append("verified_current_team_standings")
         evidence["standings_acquisition_error"] = type(exc).__name__
     evidence["acquisition_timing_ms"]["standings"] = round((perf_counter() - stage_started) * 1000, 2)
+    stage_started = perf_counter()
+    try:
+        goalie_payload = client.get_goalie_summary(season)
+        goalie_rows = goalie_payload.get("data") if isinstance(goalie_payload, dict) else None
+        if not isinstance(goalie_rows, list):
+            raise ValueError("goalie_summary_rows_missing")
+        saves = 0
+        shots_against = 0
+        qualified_goalies = 0
+        for row in goalie_rows:
+            if not isinstance(row, dict):
+                continue
+            row_saves = row.get("saves")
+            row_shots = row.get("shotsAgainst")
+            if (
+                type(row_saves) is int and row_saves >= 0
+                and type(row_shots) is int and row_shots > 0
+                and row_saves <= row_shots
+            ):
+                saves += row_saves
+                shots_against += row_shots
+                qualified_goalies += 1
+        if qualified_goalies < 50 or shots_against <= 0:
+            raise ValueError("goalie_summary_coverage_insufficient")
+        evidence["league_goalie_benchmark"] = {
+            "qualified_goalies": qualified_goalies,
+            "saves": saves,
+            "shots_against": shots_against,
+            "save_percentage": saves / shots_against,
+            "source": "nhl_official_goalie_summary",
+            "season": season,
+        }
+        evidence["sources"].append("nhl_official_goalie_summary")
+    except Exception as exc:
+        evidence["missing"].append("league_goalie_comparison")
+        evidence["goalie_benchmark_acquisition_error"] = type(exc).__name__
+    evidence["acquisition_timing_ms"]["goalie_benchmark"] = round((perf_counter() - stage_started) * 1000, 2)
     stage_started = perf_counter()
     try:
         schedule = client.get_team_schedule_now(abbreviation)
@@ -312,6 +408,21 @@ def team_investigation_target(question: str) -> tuple[str, str] | None:
     primary = primary or bool(re.search(r"\b(how|where|ways?|could|should)\b.{0,85}\b(improve|upgrade|strengthen|address)\b", text))
     primary = primary or bool(re.search(r"\b(improve|upgrade|strengthen)\b.{0,55}\b(roster|lineup|team)\b", text))
     primary = primary or bool(re.search(r"\b(biggest|major|main)\b.{0,35}\b(weaknesses|concerns|needs)\b", text))
+    performance = bool(re.search(
+        r"\b(scoring|goals?\s+for|offens(?:e|ive)|goal\s+prevention|goals?\s+against|"
+        r"defens(?:e|ive)|goaltending|goalies?|save\s+percentage|team\s+performance)\b",
+        text,
+    ))
+    comparative = bool(re.search(
+        r"\b(compare|compares|compared|comparison|against|versus|vs\.?|league\s+average|"
+        r"league-wide|rest\s+of\s+the\s+nhl)\b",
+        text,
+    ))
+    current_season = bool(re.search(
+        r"\b(this|current|present|season.to.date)\s+season\b|\bso\s+far\s+this\s+season\b",
+        text,
+    ))
+    primary = primary or (performance and (comparative or current_season))
     return subject if primary else None
 
 
@@ -322,7 +433,16 @@ def execute_team_investigation(ctx: Any, question: str) -> dict[str, Any]:
         return response(intent="public_current_season_team_investigation", title="Team subject unresolved",
                         engine_conclusion="The team and investigation objective could not be established.",
                         known_limitations=["verified_team_investigation_subject"], confidence=0.2)
-    assessment = assess_team_performance(question, *team)
+    request_evidence = getattr(ctx, "request_evidence", None)
+    assessment = (
+        request_evidence.get("team_performance_assessment")
+        if isinstance(request_evidence, dict)
+        and request_evidence.get("team") == team[0]
+        and isinstance(request_evidence.get("team_performance_assessment"), dict)
+        else None
+    )
+    if assessment is None:
+        assessment = assess_team_performance(question, *team)
     evidence = assessment["evidence"]
     facts = [f"Official NHL season: {evidence['season']}"]
     facts.extend(f"{row['name']}: {row['points']} points in {row['gp']} games"

@@ -78,6 +78,28 @@ def build_request_evidence(question: str, *, mode: str, route: str | None) -> Di
     if mode != "public":
         return bundle
 
+    if route == "public_current_season_team_investigation":
+        from Athena.public_team_performance import assess_team_performance, team_investigation_target
+
+        team = team_investigation_target(question)
+        if team is None:
+            bundle.update({"status": "unavailable", "missing": ["verified_team_investigation_subject"]})
+            return bundle
+        assessment = assess_team_performance(question, *team)
+        evidence = assessment.get("evidence") if isinstance(assessment, dict) else None
+        if not isinstance(evidence, dict):
+            bundle.update({"status": "unavailable", "team": team[0],
+                           "missing": ["structured_team_performance_evidence"]})
+            return bundle
+        bundle.update({
+            "status": "partial" if evidence.get("missing") else "ready",
+            "team": team[0],
+            "team_performance_assessment": assessment,
+            "sources": list(evidence.get("sources") or []),
+            "missing": list(evidence.get("missing") or []),
+        })
+        return bundle
+
     if route == "public_player_comparison":
         from Knowledge.Intelligence.Entities.entity_registry import entities_by_type, searchable_names
         matched = []

@@ -71,6 +71,11 @@ def build_report() -> Dict[str, Any]:
     package_version = package_match.group(1) if package_match else ""
     check("distribution metadata matches runtime", package_version == ATHENA_VERSION,
           f"pyproject={package_version or 'missing'}; runtime={ATHENA_VERSION}")
+    tool_section = re.search(r'(?ms)^\[tool\.athena\]\s*$(.*?)(?=^\[|\Z)', pyproject_text)
+    build_match = re.search(r'(?m)^\s*build\s*=\s*["\']([^"\']+)["\']', tool_section.group(1)) if tool_section else None
+    custom_build = build_match.group(1) if build_match else ""
+    check("Athena custom build metadata matches runtime", custom_build == ATHENA_BUILD,
+          f"tool.athena.build={custom_build or 'missing'}; runtime={ATHENA_BUILD}")
     check("version schema locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA)
     check("Athena/Scout build aligned", SCOUT_VERSION == f"v{ATHENA_VERSION}" and ATHENA_BUILD == ATHENA_VERSION, f"Athena={ATHENA_VERSION}; Scout={SCOUT_VERSION}; Build={ATHENA_BUILD}")
     check("Athena package version unified", _version_from_init(PROJECT_ROOT / "Athena" / "__init__.py") == ATHENA_VERSION, _version_from_init(PROJECT_ROOT / "Athena" / "__init__.py") or "missing")

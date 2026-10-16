@@ -53,6 +53,26 @@ def reconcile_evidence(bundle: dict[str, Any], answer: dict[str, Any]) -> dict[s
         if player.get('club_stats_fallback_error'):
             failures.append({'source': 'official_nhl_club_stats',
                              'error_type': str(player['club_stats_fallback_error'])})
+    # Team evidence is acquired by the specialist today. Reconcile only the
+    # structured acquisition record it actually returns; prose is not proof.
+    team = developer.get('team_performance_evidence')
+    if isinstance(team, dict) and isinstance(team.get('team'), str) and team.get('team'):
+        allowed = {'nhl_club_stats_season', 'nhl_official_current_standings',
+                   'nhl_official_completed_games', 'nhl_current_roster',
+                   'canonical_team_economic_state', 'canonical_league_season_context'}
+        for source in _unique(team.get('sources')):
+            if source in allowed and source not in original_sources:
+                original_sources.append(source)
+        for missing in _unique(team.get('missing')):
+            if missing not in original_missing:
+                original_missing.append(missing)
+        bundle['specialist_evidence'] = {
+            'domain': 'team', 'team': team['team'],
+            'sources': [s for s in _unique(team.get('sources')) if s in allowed],
+            'missing': _unique(team.get('missing')),
+            'season': team.get('season'),
+            'consumption': 'specialist_structured_evidence_reported',
+        }
     bundle['missing'] = original_missing
     bundle['sources'] = original_sources
     if resolved:
@@ -61,7 +81,7 @@ def reconcile_evidence(bundle: dict[str, Any], answer: dict[str, Any]) -> dict[s
         bundle['acquisition_failures'] = failures
     if resolved and not original_missing:
         bundle['status'] = 'ready'
-    elif original_missing and bundle.get('status') == 'ready':
+    elif original_missing and bundle.get('status') in {'ready', 'not_required'}:
         bundle['status'] = 'partial'
     return {'status': bundle.get('status', 'unknown'), 'sources': list(original_sources),
             'missing': list(original_missing), 'resolved': resolved, 'acquisition_failures': failures}

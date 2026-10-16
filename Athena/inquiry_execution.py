@@ -43,9 +43,9 @@ def _remaining_capabilities(route: str, mode: str) -> list[dict[str, str]]:
     ]
 
 
-def _completion(result: Any, status: str) -> dict[str, Any]:
+def _completion(result: Any, status: str, question: str = "") -> dict[str, Any]:
     from Athena.completion_assessment import assess_completion
-    return assess_completion(result, status=status)
+    return assess_completion(result, status=status, question=question)
 
 
 def investigate(question: str, context: Any, *, mode: str = "public") -> dict[str, Any]:
@@ -55,13 +55,16 @@ def investigate(question: str, context: Any, *, mode: str = "public") -> dict[st
     are not silently converted to an empty answer, and the compatibility caller
     may still propagate them while diagnostic consumers can inspect the outcome.
     """
+    from Athena.inquiry_objectives import decompose_inquiry
+    from Athena.capability_coordination import coordinate_capabilities
+    objectives = decompose_inquiry(question)
     selected = (mode or "public").strip().lower()
     route, selection_reason = select_executable_route(question, selected)
     if not route or route not in SPECIALISTS:
         status = "legacy_fallback" if not route else "unregistered"
-        return {"status": status, "result": None, "selection_reason": selection_reason,
+        return {"status": status, "result": None, "selection_reason": selection_reason, "inquiry_objectives": objectives, "capability_coordination": coordinate_capabilities(objectives, route, selected),
                 "capability_ledger": _remaining_capabilities("", selected),
-                "completion": _completion(None, status)}
+                "completion": _completion(None, status, question)}
     spec = SPECIALISTS[route]
     if spec.mode == "fantasy" and selected != "fantasy":
         status, result = "gated", None
@@ -72,14 +75,14 @@ def investigate(question: str, context: Any, *, mode: str = "public") -> dict[st
         except Exception as exc:
             status = "failed"
             first = _record(route, "eligible", "handler_raised_" + type(exc).__name__, "failed")
-            return {"status": status, "result": None, "selection_reason": selection_reason,
+            return {"status": status, "result": None, "selection_reason": selection_reason, "inquiry_objectives": objectives, "capability_coordination": coordinate_capabilities(objectives, route, selected),
                     "capability_ledger": [first] + _remaining_capabilities(route, selected),
-                    "completion": _completion(None, status), "error_type": type(exc).__name__}
+                    "completion": _completion(None, status, question), "error_type": type(exc).__name__}
         status = "executed" if result is not None else "no_result"
         first = _record(route, "eligible", selection_reason, status)
-    return {"status": status, "result": result, "selection_reason": selection_reason,
+    return {"status": status, "result": result, "selection_reason": selection_reason, "inquiry_objectives": objectives, "capability_coordination": coordinate_capabilities(objectives, route, selected),
             "capability_ledger": [first] + _remaining_capabilities(route, selected),
-            "completion": _completion(result, status)}
+            "completion": _completion(result, status, question)}
 
 
 def answer(question: str, context: Any, *, mode: str = "public") -> dict[str, Any] | None:

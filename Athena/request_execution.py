@@ -81,6 +81,8 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     sections = tuple(str(section).strip() for section in (request.sections or ()) if str(section).strip())
     effective_question, continuation_status = _continued_question(question, mode, request.continuation)
 
+    from Athena.inquiry_objectives import decompose_inquiry, assess_objective_coverage
+    inquiry_plan = decompose_inquiry(effective_question)
     from Athena.intent_resolution import select_executable_route
     from Athena.execution_registry import SPECIALISTS, execute_specialist
 
@@ -182,7 +184,16 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     evidence_missing = request_evidence.get("missing") if isinstance(request_evidence, dict) else []
     # Shared completion assessment also powers inquiry_execution.investigate.
     from Athena.completion_assessment import assess_completion
-    completion = assess_completion(answer, evidence=request_evidence)
+    objective_coverage = assess_objective_coverage(inquiry_plan, request_evidence, answer)
+    from Athena.capability_coordination import execute_compatible_support
+    capability_coordination = execute_compatible_support(inquiry_plan, route, effective_mode, effective_question, context, answer)
+    from Athena.capability_coordination import synthesize_supporting_findings
+    synthesis = synthesize_supporting_findings(answer, capability_coordination)
+    developer["supporting_synthesis"] = synthesis
+    completion = assess_completion(answer, evidence=request_evidence, question=effective_question)
+    developer["inquiry_objectives"] = inquiry_plan
+    developer["inquiry_objective_coverage"] = objective_coverage
+    developer["capability_coordination"] = capability_coordination
     completion_state = completion["state"]
     missing_requirements = completion["unresolved_requirements"]
     developer["inquiry_completion"] = completion
@@ -202,6 +213,9 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                      "attached_to_context": evidence_attached,
                      "acquisition_duration_ms": evidence_ms,
                      "reconciliation": evidence_reconciliation},
+        "objectives": {"count": len(inquiry_plan["objectives"]), "ids": [o["id"] for o in inquiry_plan["objectives"]], "independently_verified": False},
+        "capability_coordination": capability_coordination,
+        "supporting_synthesis": synthesis,
         "result": {"intent": str(answer.get("intent") or ""),
                    "confidence": answer.get("confidence") if isinstance(answer.get("confidence"), (int, float)) else None,
                    "public_fields_present": [key for key in (
@@ -211,7 +225,8 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                    "completion_state": completion_state,
                    "unresolved_requirement_count": len(missing_requirements),
                    "inquiry_completeness_verified": completion["inquiry_answered_verified"],
-                   "evidence_consumption_verified": False},
+                   "evidence_consumption_verified": False,
+                   "specialist_evidence_reported": bool(request_evidence.get("specialist_evidence"))},
         "continuation": continuation_status,
         "total_duration_ms": round((perf_counter() - started) * 1000, 2),
     }

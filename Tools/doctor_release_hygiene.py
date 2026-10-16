@@ -67,6 +67,10 @@ def build_report() -> Dict[str, Any]:
     check("requirements.txt present", requirements.exists(), str(requirements.relative_to(PROJECT_ROOT)) if requirements.exists() else "missing")
     check("GitHub workflow present", workflow.exists(), str(workflow.relative_to(PROJECT_ROOT)) if workflow.exists() else "missing")
     check("requests dependency declared", "requests" in pyproject_text and "requests" in requirements_text, "requests declared in pyproject and requirements")
+    package_match = re.search(r'(?m)^version\s*=\s*["\']([^"\']+)["\']', pyproject_text)
+    package_version = package_match.group(1) if package_match else ""
+    check("distribution metadata matches runtime", package_version == ATHENA_VERSION,
+          f"pyproject={package_version or 'missing'}; runtime={ATHENA_VERSION}")
     check("version schema locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA)
     check("Athena/Scout build aligned", SCOUT_VERSION == f"v{ATHENA_VERSION}" and ATHENA_BUILD == ATHENA_VERSION, f"Athena={ATHENA_VERSION}; Scout={SCOUT_VERSION}; Build={ATHENA_BUILD}")
     check("Athena package version unified", _version_from_init(PROJECT_ROOT / "Athena" / "__init__.py") == ATHENA_VERSION, _version_from_init(PROJECT_ROOT / "Athena" / "__init__.py") or "missing")

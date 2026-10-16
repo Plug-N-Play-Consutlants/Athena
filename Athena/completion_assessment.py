@@ -16,7 +16,7 @@ def _items(value: Any) -> list[Any]:
     return [value] if isinstance(value, str) and value.strip() else []
 
 
-def assess_completion(result: Any, *, status: str = 'executed', evidence: Any = None) -> dict[str, Any]:
+def assess_completion(result: Any, *, status: str = 'executed', evidence: Any = None, question: str = '') -> dict[str, Any]:
     if status != 'executed':
         return {'state': 'not_assessed', 'reason': status, 'requirements': [],
                 'unresolved': [], 'unresolved_requirements': [],
@@ -59,10 +59,21 @@ def assess_completion(result: Any, *, status: str = 'executed', evidence: Any = 
         reason = 'specialist_declared'
     else:
         reason = 'specialist_did_not_supply_clause_coverage'
-    verified = state == 'complete' and not gaps and bool(requirements) and all(
+    from Athena.inquiry_objectives import decompose_inquiry
+    inquiry_plan = decompose_inquiry(question)
+    # A specialist's own requirement labels cannot independently verify the
+    # user's original clauses or evidence consumption. Retain its declaration
+    # but never promote it to independently verified completion.
+    verified = False
+    specialist_supported = state == 'complete' and not gaps and bool(requirements) and all(
         isinstance(r, dict) and r.get('state') in {'supported', 'satisfied', 'complete', 'verified'} for r in requirements
     )
     return {'state': state, 'reason': reason, 'requirements': requirements,
             'unresolved': unresolved, 'unresolved_requirements': gaps,
             'inquiry_answered_verified': verified, 'handler_executed': True,
-            'declared_state': declared.get('state') if declared.get('state') in STATES else None}
+            'declared_state': declared.get('state') if declared.get('state') in STATES else None,
+            'specialist_requirements_supported': specialist_supported,
+            'original_question_assessed': bool(question.strip()),
+            'objective_count': len(inquiry_plan['objectives']),
+            'objective_ids': [objective['id'] for objective in inquiry_plan['objectives']],
+            'independent_evidence_consumption_verified': False}

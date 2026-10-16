@@ -596,14 +596,16 @@ def _answer_nhl_economic_context(ctx: ScoutContext, question: str) -> Dict[str, 
     lower = economic.lower_limit / 1_000_000
     midpoint = economic.midpoint / 1_000_000
     natural = (
-        f"For the {economic.league_year} NHL League Year, the canonical Team Payroll Range is "
-        f"${lower:.1f}M lower limit, ${midpoint:.1f}M midpoint and ${upper:.1f}M upper limit. "
+        f"For the {economic.league_year} NHL League Year, the salary cap is the Team Payroll Range's "
+        f"${upper:.1f}M upper limit. The range is ${lower:.1f}M at the lower limit, "
+        f"${midpoint:.1f}M at the midpoint and ${upper:.1f}M at the upper limit. "
         f"The rules environment resolved for {economic.as_of} is {economic.cba_label}.\n\n"
-        "This is league-wide economic context, not a team cap calculation. Athena does not yet have the "
+        "The lower limit functions as the team payroll floor, while the upper limit is the league-wide "
+        "team salary cap. This is not a team cap calculation. Athena does not yet have the "
         "canonical club contract/adjustment ledger required to state a team's actual cap usage from this capability."
     )
     answer = response(
-        intent="public_nhl_economic_context", title=f"NHL economic context: {economic.league_year}",
+        intent="public_nhl_economic_context", title=f"NHL salary cap and payroll range: {economic.league_year}",
         engine_conclusion=natural, natural_language_response=natural,
         observed_facts=[
             f"Upper Limit: ${upper:.1f}M.", f"Midpoint: ${midpoint:.1f}M.", f"Lower Limit: ${lower:.1f}M.",

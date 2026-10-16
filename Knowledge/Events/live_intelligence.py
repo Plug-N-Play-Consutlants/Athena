@@ -32,7 +32,7 @@ LIVE_INTELLIGENCE_CONSUMPTION_VERSION = "0.6.4.11.1"
 
 RECENT_EVENT_TERMS = {
     "recent", "latest", "today", "tonight", "yesterday", "news", "events",
-    "injury", "injuries", "trade", "trades", "signing", "signings", "suspension",
+    "injury", "injuries", "trade", "trades", "traded", "signing", "signings", "suspension",
     "rumor", "rumour", "transaction", "transactions", "update", "updates",
 }
 
@@ -95,10 +95,11 @@ def _requested_team_entities(question: str) -> set[str]:
 
 EVENT_TYPE_QUERY_TERMS = {
     "trade": {"trade", "trades", "traded", "acquire", "acquired", "deal", "dealt", "swap"},
-    "injury": {"injury", "injuries", "injured", "day", "day-to-day", "hurt"},
-    "signing": {"signing", "signings", "signed", "contract"},
+    "injury": {"injury", "injuries", "injured", "day-to-day", "hurt"},
+    "signing": {"signing", "signings", "signed", "contract", "agency", "agent", "agents"},
     "suspension": {"suspension", "suspended"},
     "transaction": {"transaction", "transactions", "waiver", "waivers", "claim", "claimed", "moved", "movement"},
+    "game_schedule": {"game", "games", "schedule", "scheduled", "matchup", "matchups"},
 }
 
 CONFIRMED_TRADE_VERBS = {"acquire", "acquires", "acquired", "land", "lands", "landed", "trade", "trades", "traded", "send", "sends", "sent", "deal", "deals", "dealt"}
@@ -134,6 +135,8 @@ def _event_matches_filters(event: Mapping[str, Any], team_terms: set[str], type_
     title = str(event.get("title") or "").lower()
     text = " ".join(str(event.get(k, "")) for k in ("title", "summary", "subject", "source_id")).lower()
     event_type = str(event.get("event_type") or "news").lower()
+    if "game_schedule" in type_terms and event_type != "game_schedule":
+        reasons.append("schedule_data_unavailable")
     matching_terms = {term for term in team_terms if _name_in_text(term, text)}
     if team_terms and not matching_terms:
         reasons.append("entity_mismatch")
@@ -172,7 +175,7 @@ def is_recent_event_query(question: str) -> bool:
     team_words = bool(_requested_team_records(question)) or any(term in text for term in ("nhl", "hockey", "mcdavid", "matthews"))
     if event_words and team_words:
         return True
-    if token_set & {"events", "news", "injuries", "trades", "transactions", "updates"}:
+    if token_set & {"events", "news", "injuries", "trades", "traded", "transactions", "updates", "agency", "agents", "games", "schedule", "matchups"}:
         return True
     if "last" in token_set and token_set & {"trade", "trades", "transaction", "transactions", "signing", "injury"}:
         return True

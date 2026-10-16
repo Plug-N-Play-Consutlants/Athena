@@ -3,10 +3,11 @@
 This suite is the Epic 4 exit gate. It is intentionally broad and deterministic:
 it verifies that the core public intelligence surface can route and render canonical
 player, team, comparison, rules, ambiguity, fantasy-general, provider-routing and
-event-gap prompts without regressing into provider/fantasy leakage.
+live-event prompts without regressing into provider/fantasy leakage.
 """
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -58,25 +59,25 @@ TEAM_PROMPTS = [
 ]
 
 COMPARISON_PROMPTS = [
-    ("Compare Auston Matthews and Connor McDavid", "public_player_comparison", ("executive comparison", "athena conclusion")),
-    ("Compare Matthews vs McDavid", "public_player_comparison", ("executive comparison", "athena conclusion")),
-    ("Compare Matthews and MacKinnon", "public_player_comparison", ("executive comparison", "athena conclusion")),
-    ("Compare McDavid and Crosby", "public_player_comparison", ("executive comparison", "athena conclusion")),
-    ("Compare Ovechkin and Crosby", "public_player_comparison", ("executive comparison", "athena conclusion")),
+    ("Compare Auston Matthews and Connor McDavid", "public_player_comparison", ()),
+    ("Compare Matthews vs McDavid", "public_player_comparison", ()),
+    ("Compare Matthews and MacKinnon", "public_player_comparison", ()),
+    ("Compare McDavid and Crosby", "public_player_comparison", ()),
+    ("Compare Ovechkin and Crosby", "public_player_comparison", ()),
     ("Compare Bedard and Celebrini", "public_player_comparison", ()),
-    ("Compare Cale Makar and Nathan MacKinnon", "public_player_comparison", ("executive comparison", "athena conclusion")),
+    ("Compare Cale Makar and Nathan MacKinnon", "public_player_comparison", ()),
     ("Compare Mitch Marner and Leon Draisaitl", "public_player_comparison", ()),
-    ("Compare the Leafs and Hurricanes", "public_team_comparison", ("executive comparison", "athena conclusion")),
+    ("Compare the Leafs and Hurricanes", "public_team_comparison", ()),
     ("Compare Toronto and Carolina", "public_team_comparison", ()),
-    ("Compare Oilers and Avalanche", "public_team_comparison", ("executive comparison", "athena conclusion")),
+    ("Compare Oilers and Avalanche", "public_team_comparison", ()),
     ("Compare Blackhawks and Sharks", "public_team_comparison", ()),
-    ("Compare the Avs and Leafs", "public_team_comparison", ("executive comparison", "athena conclusion")),
+    ("Compare the Avs and Leafs", "public_team_comparison", ()),
     ("Compare San Jose and Chicago", "public_team_comparison", ()),
 ]
 
 RULE_PROMPTS = [
     ("What is icing?", ("public_hockey_knowledge",), ("icing",)),
-    ("What is the salary cap?", ("public_hockey_knowledge",), ("salary", "cap")),
+    ("What is the salary cap?", ("public_nhl_economic_context",), ("salary cap", "upper limit")),
     ("How does NHL overtime work?", ("public_hockey_knowledge",), ("overtime",)),
     ("What is LTIR?", ("public_hockey_knowledge",), ("ltir",)),
     ("What are keeper rules?", ("public_hockey_knowledge",), ()),
@@ -84,7 +85,7 @@ RULE_PROMPTS = [
     ("Explain NHL playoff seeding", ("public_hockey_knowledge", "event_intelligence_gap", "clarify_or_help"), ()),
     ("What is a restricted free agent?", ("public_hockey_knowledge", "event_intelligence_gap", "clarify_or_help"), ()),
     ("How do waivers work?", ("public_hockey_knowledge", "event_intelligence_gap", "clarify_or_help"), ()),
-    ("What is the NHL trade deadline?", ("public_hockey_knowledge", "event_intelligence_gap", "clarify_or_help"), ()),
+    ("What is the NHL trade deadline?", ("live_event_intelligence", "public_hockey_knowledge", "event_intelligence_gap", "clarify_or_help"), ("cannot verify",)),
 ]
 
 AMBIGUITY_PROMPTS = [
@@ -93,7 +94,7 @@ AMBIGUITY_PROMPTS = [
     ("Which Sebastian Aho is on Carolina?", "public_player_profile", ()),
     ("Tell me about Finnish Sebastian Aho", "public_player_profile", ()),
     ("Tell me about Swedish Sebastian Aho", "public_player_profile", ()),
-    ("Compare Sebastian Aho Carolina and Sebastian Aho Islanders", "public_player_comparison", ("executive comparison", "athena conclusion")),
+    ("Compare Sebastian Aho Carolina and Sebastian Aho Islanders", "public_player_comparison", ()),
 ]
 
 FANTASY_PROMPTS = [
@@ -108,12 +109,12 @@ FANTASY_PROMPTS = [
 ]
 
 EVENT_PROMPTS = [
-    ("Latest NHL trades", "event_intelligence_gap", ("event", "knowledge")),
-    ("What happened in free agency today?", "event_intelligence_gap", ("event", "knowledge")),
-    ("Give me current injury news", "event_intelligence_gap", ()),
-    ("What are today's NHL games?", "event_intelligence_gap", ("event", "knowledge")),
-    ("Summarize NHL public news", "event_intelligence_gap", ()),
-    ("Who was traded today?", "event_intelligence_gap", ("event", "knowledge")),
+    ("Latest NHL trades", "live_event_intelligence", ()),
+    ("What happened in free agency today?", "live_event_intelligence", ()),
+    ("Give me current injury news", "live_event_intelligence", ()),
+    ("What are today's NHL games?", "live_event_intelligence", ()),
+    ("Summarize NHL public news", "live_event_intelligence", ()),
+    ("Who was traded today?", "live_event_intelligence", ()),
 ]
 
 HISTORICAL_PROMPTS = [
@@ -149,26 +150,36 @@ def _make_cases() -> list[PromptCase]:
         ("Tell me about Colorado", "public_team_profile", ("colorado",)),
         ("Tell me about Chicago", "public_team_profile", ("chicago",)),
         ("Tell me about Carolina", "public_team_profile", ()),
-        ("Compare McDavid vs MacKinnon", "public_player_comparison", ("executive comparison",)),
-        ("Compare Matthews vs Crosby", "public_player_comparison", ("executive comparison",)),
-        ("Compare Makar vs Draisaitl", "public_player_comparison", ("executive comparison",)),
-        ("Compare Leafs vs Oilers", "public_team_comparison", ("executive comparison",)),
-        ("Compare Hurricanes vs Avalanche", "public_team_comparison", ("executive comparison",)),
+        ("Compare McDavid vs MacKinnon", "public_player_comparison", ()),
+        ("Compare Matthews vs Crosby", "public_player_comparison", ()),
+        ("Compare Makar vs Draisaitl", "public_player_comparison", ()),
+        ("Compare Leafs vs Oilers", "public_team_comparison", ()),
+        ("Compare Hurricanes vs Avalanche", "public_team_comparison", ()),
         ("Compare Sharks vs Blackhawks", "public_team_comparison", ()),
         ("What is NHL LTIR?", "public_hockey_knowledge", ("ltir",)),
-        ("Explain salary cap basics", "public_hockey_knowledge", ("salary",)),
+        ("Explain salary cap basics", "public_nhl_economic_context", ("salary",)),
         ("Explain icing in hockey", "public_hockey_knowledge", ("icing",)),
         ("Which Aho plays defense?", "public_player_profile", ()),
         ("Which Aho plays center for Carolina?", "public_player_profile", ()),
-        ("Current NHL injury updates", "event_intelligence_gap", ()),
-        ("Today's hockey news", "event_intelligence_gap", ()),
-        ("NHL trade news today", "event_intelligence_gap", ("event",)),
+        ("Current NHL injury updates", "live_event_intelligence", ()),
+        ("Today's hockey news", "live_event_intelligence", ()),
+        ("NHL trade news today", "live_event_intelligence", ()),
         ("Tell me about Connor McDavid", "public_player_profile", ("mcdavid",)),
         ("Tell me about Sidney Crosby", "public_player_profile", ("crosby",)),
         ("Compare Colorado and Edmonton", "public_team_comparison", ()),
-        ("Compare McDavid and Draisaitl", "public_player_comparison", ("executive comparison",)),
+        ("Compare McDavid and Draisaitl", "public_player_comparison", ()),
     ]
-    cases.extend(PromptCase("canonical_variants", prompt, (intent, "player_analysis", "clarify_or_help", "public_hockey_knowledge", "public_player_profile"), contains) for prompt, intent, contains in extra_pairs)
+    cases.extend(
+        PromptCase(
+            "canonical_variants",
+            prompt,
+            (intent,) if intent in {"public_nhl_economic_context", "live_event_intelligence"} else (
+                intent, "player_analysis", "clarify_or_help", "public_hockey_knowledge", "public_player_profile"
+            ),
+            contains,
+        )
+        for prompt, intent, contains in extra_pairs
+    )
     return cases
 
 
@@ -218,6 +229,7 @@ def _has_provider_leakage(text: str) -> bool:
 
 def main() -> int:
     report = Report()
+    os.environ.setdefault("ATHENA_SCOUT_LIVE_NETWORK", "0")
     report.check(bool(ATHENA_VERSION), "athena_version", ATHENA_VERSION)
     report.check(SCOUT_VERSION == f"v{ATHENA_VERSION}", "scout_version", SCOUT_VERSION)
     report.check(ATHENA_BUILD == ATHENA_VERSION, "athena_build", ATHENA_BUILD)
@@ -241,7 +253,56 @@ def main() -> int:
         if case.no_provider_leakage:
             report.check(not _has_provider_leakage(text), f"{case.category}: no provider leakage: {case.prompt}")
         if "comparison" in intent:
-            report.check("athena conclusion" in text or answer.get("engine_conclusion"), f"{case.category}: comparison conclusion: {case.prompt}")
+            conclusion = str(answer.get("engine_conclusion") or "").strip()
+            natural = str(answer.get("natural_language_response") or "").strip()
+            facts = answer.get("observed_facts") or []
+            report.check(
+                len(conclusion) >= 40 and len(natural) >= 40 and len(facts) >= 2,
+                f"{case.category}: substantive comparison: {case.prompt}",
+                f"conclusion_chars={len(conclusion)}, observed_facts={len(facts)}",
+            )
+        if case.category in {"players", "historical"} and any(name in case.prompt.lower() for name in ("marner", "celebrini")):
+            developer = answer.get("developer") if isinstance(answer.get("developer"), dict) else {}
+            resolution = developer.get("identity_resolution") if isinstance(developer.get("identity_resolution"), dict) else {}
+            entity = resolution.get("entity") if isinstance(resolution.get("entity"), dict) else {}
+            report.check(
+                bool(entity.get("canonical_name")) and bool(answer.get("observed_facts")) and bool(answer.get("known_limitations")),
+                f"{case.category}: resolved identity has bounded canonical evidence: {case.prompt}",
+            )
+        if case.category == "event_routing":
+            developer = answer.get("developer") if isinstance(answer.get("developer"), dict) else {}
+            live = developer.get("live_evidence") if isinstance(developer.get("live_evidence"), dict) else {}
+            report.check(bool(live), f"{case.category}: Athena live evidence execution: {case.prompt}")
+            if live:
+                selected_events = live.get("events") if isinstance(live.get("events"), list) else []
+                report.check(
+                    int(live.get("selected_count") or 0) == len(selected_events),
+                    f"{case.category}: evidence count matches selected events: {case.prompt}",
+                )
+                expected_type = {
+                    "Latest NHL trades": "trade",
+                    "What happened in free agency today?": "signing",
+                    "Give me current injury news": "injury",
+                    "What are today's NHL games?": "game_schedule",
+                    "Who was traded today?": "trade",
+                }.get(case.prompt)
+                if expected_type:
+                    report.check(
+                        expected_type in (live.get("requested_event_types") or []),
+                        f"{case.category}: requested event type {expected_type}: {case.prompt}",
+                    )
+                if case.prompt == "What are today's NHL games?":
+                    report.check(
+                        not selected_events or all(str(event.get("event_type")) == "game_schedule" for event in selected_events),
+                        f"{case.category}: schedule query excludes unrelated headlines",
+                    )
+                if not selected_events:
+                    limitations = " ".join(map(str, answer.get("known_limitations") or [])).lower()
+                    rendered = str(answer.get("natural_language_response") or "").lower()
+                    report.check(
+                        bool(limitations) and ("no" in rendered or "did not provide" in rendered),
+                        f"{case.category}: missing evidence reported honestly: {case.prompt}",
+                    )
         if intent.startswith("public_"):
             report.check(bool(answer.get("natural_language_response") or answer.get("engine_conclusion")), f"{case.category}: rendered response: {case.prompt}")
 

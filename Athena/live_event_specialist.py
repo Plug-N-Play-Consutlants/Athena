@@ -311,8 +311,15 @@ def _live_events_answer(ctx: ScoutContext, question: str, selected_mode: str) ->
     else:
         requested_types = live.get("requested_event_types") or []; requested_teams = live.get("requested_team_terms") or []
         if live.get("status") == "configured_no_matching_events" and (requested_types or requested_teams):
-            team_terms = set(str(x).lower() for x in requested_teams); target = "Maple Leafs" if ({"maple", "leafs"} <= team_terms or "toronto" in team_terms) else "requested team/entity"; event_type = ", ".join(str(x) for x in requested_types) or "event"
-            natural = f"I do not have a confirmed {target} {event_type} item from the configured live sources. I will not substitute an unrelated team or validation sample. If live RSS/network access is enabled and still returns no match, Athena needs a structured transaction/cap feed for exact trade assets and salary-cap impact."
+            team_terms = set(str(x).lower() for x in requested_teams)
+            target = "Maple Leafs" if ({"maple", "leafs"} <= team_terms or "toronto" in team_terms) else "requested team" if team_terms else "NHL"
+            event_type = ", ".join(str(x) for x in requested_types) or "event"
+            if "deadline" in question.lower() and "trade" in question.lower():
+                natural = "I cannot verify the current-season NHL trade deadline from the configured event sources; no authoritative season schedule is connected. I will not infer a date from unrelated transaction headlines."
+            elif "game_schedule" in requested_types:
+                natural = "The configured live-event sources did not provide a verified NHL game schedule for this question. I will not infer today's matchups from unrelated headlines."
+            else:
+                natural = f"I do not have a confirmed {target} {event_type} item from the configured live sources. I will not substitute unrelated headlines or validation samples."
         else: natural = "RSS feeds are configured, but no usable live event evidence was selected for this prompt. I will not fill the gap with unrelated sample events."
         conclusion = natural
     cards = [{"label":"Feeds","value":live.get("feed_count",0)},{"label":"Events","value":live.get("event_count",0)},{"label":"Used","value":live.get("selected_count",0)},{"label":"Network","value":"on" if live.get("network_enabled") else "off"}]

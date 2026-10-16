@@ -20,6 +20,39 @@ def execute_public_player(context: Any, question: str) -> Dict[str, Any]:
         answer = player_profile_answer(context, profile, question)
         answer.setdefault("developer", {})["identity_resolution"] = match.to_dict()
         return answer
+    if match is not None and match.entity is not None:
+        entity = match.entity
+        facts = [f"Canonical public identity: {entity.canonical_name}."]
+        if entity.position:
+            facts.append(f"Registered position: {entity.position}.")
+        if entity.team:
+            facts.append(f"Registered team: {entity.team}.")
+        if entity.nationality:
+            facts.append(f"Registered nationality: {entity.nationality}.")
+        if entity.draft:
+            facts.append(f"Draft record: {entity.draft}.")
+        if entity.summary:
+            facts.append(f"Registry summary: {entity.summary}")
+        conclusion = entity.summary or f"Athena resolved {entity.canonical_name} in the public NHL identity registry."
+        answer = response(
+            intent="public_player_profile",
+            title=f"{entity.canonical_name} — canonical public identity",
+            engine_conclusion=conclusion,
+            natural_language_response=conclusion,
+            observed_facts=facts,
+            known_limitations=[
+                "A richer seeded player profile and verified career/season statistics are not available for this identity."
+            ],
+            confidence=match.confidence,
+            developer=developer_info(
+                "public_player_profile",
+                context.files_loaded,
+                knowledge_used=["public_entity_registry", "public_identity_graph"],
+                missing=["enriched_public_player_profile", "verified_player_statistics"],
+            ),
+        )
+        answer["developer"]["identity_resolution"] = match.to_dict()
+        return answer
     return response(
         intent="public_player_identity_gap", title="Public player identity needs clarification",
         engine_conclusion="The named public player could not be established with the supplied qualifiers.",
@@ -140,4 +173,3 @@ def execute_public_player_investigation(context: Any, question: str) -> Dict[str
     answer["developer"]["public_player_profile"] = profile.to_dict()
     answer["developer"]["request_evidence"] = player_bundle
     return answer
-

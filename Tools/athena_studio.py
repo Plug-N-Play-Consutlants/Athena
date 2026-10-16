@@ -8,6 +8,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -28,6 +29,26 @@ SCOUT_URL = "http://localhost:8765"
 SCOUT_PORT_RANGE = range(8765, 8795)
 HISTORY_FILE = LOG_DIR / "athena_studio_history.jsonl"
 STUDIO_SETTINGS_FILE = LOG_DIR / "athena_studio_settings.json"
+STUDIO_COMMAND_LOG_DIR = LOG_DIR / "athena_studio_commands"
+
+
+def _command_summary(label: str, code: int, output: str, log_path: Path) -> list[str]:
+    status = "PASS" if code == 0 else "FAIL"
+    lines = [f"[{status}] {label} (exit code {code})", f"Full output: {log_path}"]
+    if code == 0:
+        return lines
+    failure_lines = [
+        line.strip()
+        for line in output.splitlines()
+        if re.search(r"\[FAIL\]|\b(?:ERROR|Traceback|Exception|AssertionError)\b", line, re.I)
+    ]
+    if not failure_lines:
+        failure_lines = [line.strip() for line in output.splitlines() if line.strip()][-3:]
+    for line in failure_lines[:5]:
+        lines.append("- " + (line if len(line) <= 240 else line[:237] + "..."))
+    if len(failure_lines) > 5:
+        lines.append(f"- {len(failure_lines) - 5} additional failure details are in the full log.")
+    return lines
 
 
 def _read_version_metadata() -> dict[str, str]:
@@ -552,9 +573,15 @@ class AthenaStudio:
             captured: list[str] = []
             for line in proc.stdout:
                 captured.append(line)
-                self.write(line)
             code = proc.wait()
-            self.write(f"\n[{label}] exit code: {code}\n")
+            STUDIO_COMMAND_LOG_DIR.mkdir(parents=True, exist_ok=True)
+            safe_label = re.sub(r"[^A-Za-z0-9_-]+", "_", label).strip("_").lower() or "command"
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+            log_path = STUDIO_COMMAND_LOG_DIR / f"{stamp}_{safe_label}.txt"
+            output = "".join(captured)
+            log_path.write_text(output, encoding="utf-8")
+            for line in _command_summary(label, code, output, log_path):
+                self.write(line + "\n")
             self.status.set("Ready" if code == 0 else f"{label} failed")
             self._record_history(label, code, "".join(captured[-20:]))
             self.refresh_status()
@@ -985,7 +1012,6 @@ class AthenaStudio:
             ("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py")),
             ("Doctor Release Hygiene", self._script_command("Tools/doctor_release_hygiene.py")),
             ("Doctor Scout Intent Orchestration", self._script_command("Tools/doctor_scout_intent_orchestration.py")),
-            ("Doctor Scout Acceptance Hotfix", self._script_command("Tools/doctor_scout_runtime_acceptance_hotfix.py")),
             ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
             ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
             ("Doctor Repository", self._script_command("Tools/doctor_repository.py")),
@@ -1049,7 +1075,6 @@ class AthenaStudio:
             ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
             ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),
             ("Validate Scout Intent Orchestration", self._script_command("Tests/validate_scout_intent_orchestration.py")),
-            ("Validate Scout Acceptance Hotfix", self._script_command("Tests/validate_scout_runtime_acceptance_hotfix.py")),
             ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
             ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
             ("Validate Studio", self._script_command("Tests/validate_athena_studio_phase2.py") or self._script_command("Tests/validate_athena_studio_phase1.py") or self._script_command("Tests/validate_athena_studio_pif_inspector.py")),
@@ -1060,7 +1085,26 @@ class AthenaStudio:
             ("Validate Studio Toolbar", self._script_command("Tests/validate_athena_studio_toolbar.py")),
             ("Validate Studio Operations Console", self._script_command("Tests/validate_athena_studio_operations_console.py")),
         ]
+        commands.extend(self._critical_acceptance_commands())
         self._run_sequence_threaded("Verify Build", commands)
+
+    def _critical_acceptance_commands(
+        self,
+        *,
+        doctors: bool = True,
+        validators: bool = True,
+    ) -> list[tuple[str, list[str] | None]]:
+        registry = (
+            ("Doctor Epic 4 Acceptance", "Tools/doctor_epic4_acceptance_suite.py", doctors),
+            ("Validate Epic 4 Acceptance", "Tests/validate_epic4_acceptance_suite.py", validators),
+            ("Doctor Scout Acceptance Hotfix", "Tools/doctor_scout_runtime_acceptance_hotfix.py", doctors),
+            ("Validate Scout Acceptance Hotfix", "Tests/validate_scout_runtime_acceptance_hotfix.py", validators),
+        )
+        return [
+            (label, self._script_command(path))
+            for label, path, enabled in registry
+            if enabled
+        ]
 
     def acquire_historical_leagues(self) -> None:
         """Acquire all registered historical leagues without mutating the active workspace."""
@@ -1156,7 +1200,6 @@ class AthenaStudio:
             ("Validate Repository Decision Lock", self._script_command("Tests/validate_repository_decision_lock.py")),
             ("Validate Release Hygiene", self._script_command("Tests/validate_release_hygiene.py")),
             ("Validate Scout Intent Orchestration", self._script_command("Tests/validate_scout_intent_orchestration.py")),
-            ("Validate Scout Acceptance Hotfix", self._script_command("Tests/validate_scout_runtime_acceptance_hotfix.py")),
             ("Validate Live Event Source Integration", self._script_command("Tests/validate_live_event_source_integration.py")),
             ("Validate Cross-Sport Reasoning Engine", self._script_command("Tests/validate_cross_sport_reasoning_engine.py")),
             ("Validate Studio", self._script_command("Tests/validate_athena_studio_phase2.py") or self._script_command("Tests/validate_athena_studio_phase1.py") or self._script_command("Tests/validate_athena_studio_pif_inspector.py")),
@@ -1167,6 +1210,7 @@ class AthenaStudio:
             ("Validate Studio Toolbar", self._script_command("Tests/validate_athena_studio_toolbar.py")),
             ("Validate Studio Operations Console", self._script_command("Tests/validate_athena_studio_operations_console.py")),
         ]
+        commands.extend(self._critical_acceptance_commands(doctors=False))
         self._run_sequence_threaded("Validate Everything", commands)
 
     def doctor_runtime(self) -> None:
@@ -1257,7 +1301,6 @@ class AthenaStudio:
             ("Doctor Repository Decision Lock", self._script_command("Tools/doctor_repository_decision_lock.py")),
             ("Doctor Release Hygiene", self._script_command("Tools/doctor_release_hygiene.py")),
             ("Doctor Scout Intent Orchestration", self._script_command("Tools/doctor_scout_intent_orchestration.py")),
-            ("Doctor Scout Acceptance Hotfix", self._script_command("Tools/doctor_scout_runtime_acceptance_hotfix.py")),
             ("Doctor Live Event Source Integration", self._script_command("Tools/doctor_live_event_source_integration.py")),
             ("Doctor Cross-Sport Reasoning Engine", self._script_command("Tools/doctor_cross_sport_reasoning_engine.py")),
             ("Doctor Repository", self._script_command("Tools/doctor_repository.py")),
@@ -1269,6 +1312,7 @@ class AthenaStudio:
             ("Doctor Studio Toolbar", self._script_command("Tools/doctor_athena_studio_toolbar.py")),
             ("Doctor Studio Operations Console", self._script_command("Tools/doctor_athena_studio_operations_console.py")),
         ]
+        commands.extend(self._critical_acceptance_commands(validators=False))
         self._run_sequence_threaded("Doctor Everything", commands)
 
     def inspect_pif_prompt(self) -> None:

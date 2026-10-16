@@ -48,11 +48,20 @@ def main() -> int:
         "Tools/doctor_epic4_acceptance_suite.py",
         "Tools/athena_studio.py",
         "Core/version.py",
-        "CHANGE_MANIFEST_v0.5.0_drop4e42_epic4_acceptance_suite.md",
     ]
     for rel in required_files:
         path = PROJECT_ROOT / rel
         report.check(path.exists(), f"required_file:{rel}", rel)
+    manifest_name = "CHANGE_MANIFEST_v0.5.0_drop4e42_epic4_acceptance_suite.md"
+    manifest_locations = (
+        PROJECT_ROOT / manifest_name,
+        PROJECT_ROOT / "Archive" / "Documentation" / "ChangeManifests" / manifest_name,
+    )
+    report.check(
+        "acceptance_change_manifest_preserved",
+        any(path.is_file() for path in manifest_locations),
+        " or ".join(str(path.relative_to(PROJECT_ROOT)) for path in manifest_locations),
+    )
 
     validator_text = (PROJECT_ROOT / "Tests" / "validate_epic4_acceptance_suite.py").read_text(encoding="utf-8")
     report.check("canonical_prompt_count" in validator_text and "len(cases) >= 100" in validator_text, "acceptance_suite_100_prompt_gate")

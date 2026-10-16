@@ -53,10 +53,48 @@ def main() -> int:
     record(results, "dashboard_line_mentions_rss", any("RSS feeds configured" in str(line) for line in dashboard.get("lines", [])), str(dashboard.get("lines")))
 
     diagnostic = route_question("What intelligence modules executed?", mode="public")
-    record(results, "diagnostic_not_clarify", diagnostic.get("intent") == "scout_runtime_diagnostics", str(diagnostic))
-    record(results, "diagnostic_trace", bool((diagnostic.get("developer") or {}).get("runtime_trace")), str(diagnostic.get("developer")))
+    diagnostic_developer = diagnostic.get("developer") or {}
+    trace = diagnostic_developer.get("inquiry_execution_trace") or {}
+    trace_evidence = trace.get("evidence") or {}
+    trace_valid = (
+        trace.get("schema") == "athena.inquiry_trace.v1"
+        and (trace.get("selection") or {}).get("route") == "athena_runtime_diagnostics"
+        and (trace.get("invocation") or {}).get("completed") is True
+        and isinstance(trace_evidence.get("sources"), list)
+        and isinstance(trace_evidence.get("missing"), list)
+    )
+    record(results, "diagnostic_not_clarify", diagnostic.get("intent") == "athena_runtime_diagnostics", str(diagnostic.get("intent")))
+    record(results, "diagnostic_trace", trace_valid, str(trace))
+    record(
+        results,
+        "diagnostic_does_not_claim_prior_turn_trace",
+        "prior_turn_execution_trace_unavailable" in diagnostic.get("known_limitations", [])
+        and "cannot verify" in str(diagnostic.get("natural_language_response", "")).lower(),
+        str(diagnostic.get("known_limitations")),
+    )
     evidence_answer = route_question("What evidence did you use?", mode="public")
-    record(results, "evidence_prompt_not_clarify", evidence_answer.get("intent") == "scout_runtime_diagnostics", str(evidence_answer))
+    evidence_developer = evidence_answer.get("developer") or {}
+    evidence_trace = evidence_developer.get("inquiry_execution_trace") or {}
+    evidence_trace_sources = (evidence_trace.get("evidence") or {}).get("sources")
+    evidence_trace_missing = (evidence_trace.get("evidence") or {}).get("missing")
+    record(results, "evidence_prompt_not_clarify", evidence_answer.get("intent") == "athena_runtime_diagnostics", str(evidence_answer.get("intent")))
+    record(
+        results,
+        "evidence_prompt_trace_provenance",
+        evidence_trace.get("schema") == "athena.inquiry_trace.v1"
+        and (evidence_trace.get("selection") or {}).get("route") == "athena_runtime_diagnostics"
+        and isinstance(evidence_trace_sources, list)
+        and isinstance(evidence_trace_missing, list),
+        str(evidence_trace.get("evidence")),
+    )
+    record(
+        results,
+        "evidence_diagnostic_avoids_hockey_rules",
+        "Athena.execution_registry" in evidence_developer.get("knowledge_used", [])
+        and not any("rulebook" in str(source).lower() or "nhlpa" in str(source).lower()
+                    for source in evidence_developer.get("knowledge_used", [])),
+        str(evidence_developer.get("knowledge_used")),
+    )
 
     leafs = route_question("who are the Maple Leafs", mode="public")
     record(results, "team_prompt_continues_past_routing", leafs.get("intent") == "public_team_profile", str(leafs))

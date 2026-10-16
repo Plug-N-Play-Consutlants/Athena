@@ -51,6 +51,8 @@ def main() -> int:
     try:
         from Scout.conversation.router import route_question
         diag_answer = route_question("What intelligence modules executed?", mode="public")
+        diag_trace = (diag_answer.get("developer") or {}).get("inquiry_execution_trace") or {}
+        diag_evidence = diag_trace.get("evidence") or {}
         leafs_answer = route_question("who are the Maple Leafs", mode="public")
         live_answer = route_question("What recent NHL events are available?", mode="public")
         contender_answer = route_question("Who are the best Stanley Cup contenders right now, and why?", mode="public")
@@ -63,7 +65,42 @@ def main() -> int:
         checks.append(check("leafs_trade_no_match_message", "do not have a confirmed" in str(leafs_trade.get("natural_language_response", "")).lower() or "do not have a matching" in str(leafs_trade.get("natural_language_response", "")).lower() or leafs_trade.get("confidence", 1) < 0.6, str(leafs_trade)))
 
         help_answer = route_question("", mode="public")
-        checks.append(check("diagnostic_prompt_routes", diag_answer.get("intent") == "scout_runtime_diagnostics", str(diag_answer)))
+        checks.append(check("diagnostic_prompt_routes", diag_answer.get("intent") == "athena_runtime_diagnostics", str(diag_answer.get("intent"))))
+        checks.append(check(
+            "diagnostic_trace",
+            diag_trace.get("schema") == "athena.inquiry_trace.v1"
+            and (diag_trace.get("selection") or {}).get("route") == "athena_runtime_diagnostics"
+            and (diag_trace.get("invocation") or {}).get("completed") is True
+            and isinstance(diag_evidence.get("sources"), list)
+            and isinstance(diag_evidence.get("missing"), list),
+            str(diag_trace),
+        ))
+        checks.append(check(
+            "diagnostic_prior_turn_trace_not_fabricated",
+            "prior_turn_execution_trace_unavailable" in diag_answer.get("known_limitations", [])
+            and "cannot verify" in str(diag_answer.get("natural_language_response", "")).lower(),
+            str(diag_answer.get("known_limitations")),
+        ))
+        evidence_answer = route_question("What evidence did you use?", mode="public")
+        evidence_developer = evidence_answer.get("developer") or {}
+        evidence_trace = evidence_developer.get("inquiry_execution_trace") or {}
+        evidence_trace_details = evidence_trace.get("evidence") or {}
+        evidence_knowledge = evidence_developer.get("knowledge_used") or []
+        checks.append(check("evidence_prompt_not_clarify", evidence_answer.get("intent") == "athena_runtime_diagnostics", str(evidence_answer.get("intent"))))
+        checks.append(check(
+            "evidence_prompt_trace_provenance",
+            evidence_trace.get("schema") == "athena.inquiry_trace.v1"
+            and (evidence_trace.get("selection") or {}).get("route") == "athena_runtime_diagnostics"
+            and isinstance(evidence_trace_details.get("sources"), list)
+            and isinstance(evidence_trace_details.get("missing"), list),
+            str(evidence_trace_details),
+        ))
+        checks.append(check(
+            "evidence_prompt_uses_diagnostic_knowledge",
+            "Athena.execution_registry" in evidence_knowledge
+            and not any("rulebook" in str(source).lower() or "nhlpa" in str(source).lower() for source in evidence_knowledge),
+            str(evidence_knowledge),
+        ))
         checks.append(check("team_prompt_continues_past_routing", leafs_answer.get("intent") == "public_team_profile" and leafs_answer.get("title") != "Multi-Sport Scout Routing", str(leafs_answer)))
 
         aho = route_question("Who is Sebastian Aho?", mode="public")

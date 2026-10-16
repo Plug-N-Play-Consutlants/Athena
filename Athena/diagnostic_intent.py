@@ -14,11 +14,18 @@ _SELF_REFERENCE = re.compile(
     re.I,
 )
 _ENGINE_NAME = re.compile(r"\b(?:athena|scout)\b", re.I)
+_EXECUTION_TRACE_QUERY = re.compile(
+    r"\b(?:what|which)\s+(?:intelligence\s+)?(?:modules?|capabilities|routes?)\s+"
+    r"(?:were\s+)?(?:executed|used|selected|invoked|run)\b",
+    re.I,
+)
 
 
 def is_diagnostic_inquiry(question: str) -> bool:
     """Match questions/statements about engine behavior, not hockey topics."""
     text = str(question or "").strip()
+    if _EXECUTION_TRACE_QUERY.search(text):
+        return True
     if not text or not _DIAGNOSTIC_TARGET.search(text):
         return False
     if _ENGINE_NAME.search(text):

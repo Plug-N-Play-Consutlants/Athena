@@ -20,12 +20,29 @@ def evaluate_team(evidence: dict[str, Any]) -> dict[str, Any]:
                         'interpretation': ('goals_against_exceed_goals_for' if ga > gf else
                                            'goals_balanced' if ga == gf else 'goals_for_exceed_goals_against'),
                         'sample': 'early_small_sample' if gp < 20 else 'observed_season_sample'})
+    benchmark = evidence.get('league_benchmark') or {}
+    if signals and isinstance(benchmark, dict) and benchmark.get('teams', 0) >= 20 and all(type(benchmark.get(k)) in (int, float) and benchmark[k] >= 0 for k in ('gfpg', 'gapg')):
+        season = signals[0]
+        signals.append({'id': 'league_relative_goal_rates', 'evidence': 'nhl_official_current_standings',
+                        'teams': benchmark['teams'], 'team_gfpg': season['goals_for_per_game'],
+                        'team_gapg': season['goals_against_per_game'], 'league_gfpg': benchmark['gfpg'],
+                        'league_gapg': benchmark['gapg'], 'offense_delta': round(season['goals_for_per_game']-benchmark['gfpg'], 2),
+                        'prevention_delta': round(season['goals_against_per_game']-benchmark['gapg'], 2),
+                        'causal_inference_permitted': False})
     recent = evidence.get('recent_games') or []
     if isinstance(recent, list) and len(recent) >= 3 and all(isinstance(g, dict) and type(g.get('for')) is int and type(g.get('against')) is int for g in recent):
         diff = sum(g['for']-g['against'] for g in recent)
         signals.append({'id': 'recent_goal_balance', 'evidence': 'nhl_official_completed_games',
                         'games': len(recent), 'goal_differential': diff,
                         'interpretation': 'recent_negative' if diff < 0 else 'recent_positive' if diff > 0 else 'recent_even'})
+    # A small number of recent results cannot establish a causal roster weakness.
+    # Surface whether recent form confirms or challenges the season-level signal.
+    if any(s['id'] == 'recent_goal_balance' for s in signals):
+        season_sign = (gf > ga) - (gf < ga)
+        recent_sign = (next(s['goal_differential'] for s in signals if s['id'] == 'recent_goal_balance') > 0) - (next(s['goal_differential'] for s in signals if s['id'] == 'recent_goal_balance') < 0)
+        signals.append({'id': 'sample_consistency', 'evidence': 'comparison_of_observed_results',
+                        'interpretation': 'direction_agrees' if season_sign == recent_sign else 'direction_diverges',
+                        'causal_inference_permitted': False})
     limitations = ['Goals for/against do not isolate goaltending, defensive structure, special teams or shot quality.',
                    'Roster membership and position codes do not establish deployment, injury cover or positional need.']
     if gp and gp < 20:
@@ -44,7 +61,7 @@ def evaluate_team(evidence: dict[str, Any]) -> dict[str, Any]:
             priority = 'investigate_goal_creation_and_prevention'
     return {'signals': signals, 'investigation_priority': priority, 'limitations': limitations,
             'verified_roster_weakness': None, 'verified_transaction_target': None,
-            'conclusion_status': 'provisional_observed_signals_not_causal_diagnosis'}
+            'goalie_observations': evidence.get('goalie_observations', []), 'conclusion_status': 'provisional_observed_signals_not_causal_diagnosis'}
 
 
 def narrative(evaluation: dict[str, Any]) -> str:
@@ -63,4 +80,18 @@ def narrative(evaluation: dict[str, Any]) -> str:
     recent = next((s for s in signals if s['id'] == 'recent_goal_balance'), None)
     if recent:
         qualifier += f" The last {recent['games']} completed games have a {recent['goal_differential']:+d} goal differential; this is context, not proof of a trend."
-    return 'Assessment: ' + conclusion + qualifier + ' Next evidence to reconcile: five-on-five and special-teams performance, shot quality, goaltending, injuries, and deployment.'
+    consistency = next((s for s in signals if s['id'] == 'sample_consistency'), None)
+    if consistency and consistency['interpretation'] == 'direction_diverges':
+        qualifier += ' Recent results differ in direction from the season goal balance; a simple trend extrapolation is unwarranted.'
+    league = next((s for s in signals if s['id'] == 'league_relative_goal_rates'), None)
+    if league:
+        qualifier += (f" Against {league['teams']} teams in the same official standings snapshot, "
+                      f"the club scores {league['team_gfpg']:.2f} goals/game versus {league['league_gfpg']:.2f} league average "
+                      f"and concedes {league['team_gapg']:.2f} versus {league['league_gapg']:.2f}. "
+                      "These are league-relative results, not a diagnosis of roster causation.")
+    goalies = evaluation.get('goalie_observations') or []
+    if goalies:
+        qualifier += ' Verified goalie season observations: ' + '; '.join(
+            f"{g['name']} ({g['games']} GP" + (f", SV% {g['savePctg']:.3f}" if 'savePctg' in g else '') + ')'
+            for g in goalies[:3]) + '. These do not isolate defensive shot quality.'
+    return 'Assessment: ' + conclusion + qualifier + ' Next evidence to reconcile: five-on-five and special-teams performance, shot quality, goaltending, injuries, and deployment.' 

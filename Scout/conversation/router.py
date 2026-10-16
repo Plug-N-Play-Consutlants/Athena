@@ -1375,8 +1375,10 @@ def _public_analytical_answer(ctx: ScoutContext, question: str, selected_mode: s
     q = _normalize_public_query_text(question)
     if _is_team_performance_inquiry(question):
         from Athena.public_team_performance import assess_team_performance
-        targets = {"toronto": ("TOR", "Toronto Maple Leafs"), "leafs": ("TOR", "Toronto Maple Leafs"), "edmonton": ("EDM", "Edmonton Oilers"), "oilers": ("EDM", "Edmonton Oilers"), "carolina": ("CAR", "Carolina Hurricanes"), "colorado": ("COL", "Colorado Avalanche"), "dallas": ("DAL", "Dallas Stars"), "florida": ("FLA", "Florida Panthers")}
-        team = next((v for k, v in targets.items() if k in q), None)
+        # Canonical NHL identity registry, shared with the investigation pathway.
+        # Do not maintain a second, incomplete city/nickname lookup here.
+        from Athena.public_team_performance import resolve_nhl_team_subject
+        team = resolve_nhl_team_subject(question)
         if team is not None:
             assessment = assess_team_performance(question, *team)
             return response(
@@ -1984,6 +1986,14 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
         # public identity layer build the user-facing candidate profiles/cards.
         if multi_sport_card is not None and multi_sport_card.get("intent") == "multi_sport_disambiguation" and analyze_public_request is None:
             return multi_sport_card
+
+        # Explicit single-team current-season performance questions are
+        # evidence-acquisition requests, not static public-knowledge gaps.
+        # Route before generic entity-gap handling, using canonical NHL identity.
+        if _is_team_performance_inquiry(raw_question):
+            from Athena.public_team_performance import resolve_nhl_team_subject
+            if resolve_nhl_team_subject(raw_question) is not None:
+                return _public_analytical_answer(ctx, raw_question, selected_mode)
 
         # PIF Build 003: public intent/entity routing must run before generic
         # player evaluation or rulebook retrieval. This prevents public player,

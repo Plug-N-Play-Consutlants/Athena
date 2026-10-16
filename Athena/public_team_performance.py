@@ -59,6 +59,21 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
         evidence["leaders"] = leaders
         evidence["skaters_observed"] = len(skaters)
         evidence["goalies_observed"] = len(goalies)
+        # Retain verified season-level goalie observations independently of team
+        # goals against. Do not confuse save percentage with team defensive quality.
+        goalie_observations = []
+        for g in goalies:
+            if not isinstance(g, dict) or not isinstance(g.get("gamesPlayed"), (int, float)) or g["gamesPlayed"] <= 0:
+                continue
+            first, last = (g.get("firstName"), g.get("lastName"))
+            label = " ".join(str(v.get("default", "") if isinstance(v, dict) else v or "") for v in (first, last)).strip()
+            record = {"name": label, "games": g["gamesPlayed"]}
+            for key in ("savePctg", "goalsAgainstAverage", "shotsAgainst", "saves", "goalsAgainst"):
+                value = g.get(key)
+                if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+                    record[key] = value
+            goalie_observations.append(record)
+        evidence["goalie_observations"] = goalie_observations
     except Exception as exc:
         evidence["missing"].append("verified_current_season_club_stats")
         evidence["acquisition_error"] = type(exc).__name__
@@ -78,6 +93,18 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
         keys = ("gamesPlayed", "wins", "losses", "otLosses", "points", "pointPctg", "goalFor", "goalAgainst", "streakCode", "streakCount", "last10Wins", "last10Losses", "last10OtLosses")
         evidence["standings"] = {key: match[key] for key in keys if isinstance(match.get(key), (int, float, str))}
         evidence["sources"].append("nhl_official_current_standings")
+        # The same official standings snapshot supports an actual league-relative
+        # benchmark, rather than treating the team's GF/GA as a league ranking.
+        peers = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            games, gf, ga = (row.get(k) for k in ("gamesPlayed", "goalFor", "goalAgainst"))
+            if all(type(v) is int and v >= 0 for v in (games, gf, ga)) and games > 0:
+                peers.append({"gfpg": gf/games, "gapg": ga/games, "games": games})
+        if len(peers) >= 20:
+            evidence["league_benchmark"] = {"teams": len(peers), "gfpg": round(sum(r["gfpg"] for r in peers)/len(peers), 3), "gapg": round(sum(r["gapg"] for r in peers)/len(peers), 3), "source": "nhl_official_current_standings", "season": season}
+            evidence["sources"].append("nhl_official_standings_league_benchmark")
     except Exception as exc:
         evidence["missing"].append("verified_current_team_standings")
         evidence["standings_acquisition_error"] = type(exc).__name__
@@ -195,6 +222,10 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
             if not economic["aggregate_permitted"]:
                 text += f" Canonical contract coverage includes {economic['contract_coverage']} contract(s), not a complete club ledger; team cap usage and available space cannot be calculated reliably."
         text += " A specific roster need or acquisition recommendation requires verified deployment, health, performance and transaction context."
+    from Athena.evidence_sufficiency import audit_team_evidence
+    evidence["evidence_sufficiency"] = audit_team_evidence(evidence, needs_roster=wants_roster)
+    if wants_roster and evidence.get("economics") and not evidence["economics"].get("aggregate_permitted"):
+        text += " Contract coverage is sourced from the canonical effective-dated contract pack, not from the current NHL roster endpoint; the latter cannot establish AAV, retained salary, LTIR, or complete cap accounting."
     from Athena.team_comparative_evaluation import evaluate_team, narrative
     comparative = evaluate_team(evidence)
     evidence["comparative_evaluation"] = comparative

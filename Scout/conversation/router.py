@@ -1855,6 +1855,7 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     raw_question = (question or "").strip()
     q = raw_question.lower()
     selected_mode = (mode or "fantasy").strip().lower()
+    explicit_league = any(term in q for term in ("jhlpaa", "fantrax"))
     # Prompt semantics must outrank stale UI/provider state. Public NHL prompts
     # cannot inherit fantasy mode just because the previous request used Fantrax.
     if _looks_like_public_sports_context(raw_question):

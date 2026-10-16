@@ -13,11 +13,11 @@ assert 'analyze_league' in functions
 assert '_public_analytical_answer' in functions
 assert '_is_team_performance_inquiry' in functions
 route=ast.get_source_segment(router,functions['route_question'])
-for marker in ('analyze_league(ctx, raw_question)', 'player_comparison_answer(ctx, profiles, raw_question)', 'player_profile_answer(ctx, profile, raw_question)', '_public_analytical_answer('):
+for marker in ('analyze_league(ctx, raw_question)', 'player_comparison_answer(', 'player_profile_answer(ctx, profile, raw_question)', '_public_analytical_answer('):
     assert marker in route, f'Lost established route: {marker}'
-assert 'explicit_league = ' in route and 'selected_mode != "public" or explicit_league' in route, 'Explicit league requests must work across lenses'
+assert 'explicit_league = any(' in route and 'league_profile=getattr(ctx, "league_profile", None) if explicit_league else None' in route, 'Scout compatibility fallback must preserve an explicit league lens'
 assert 'selected_mode = "public"' in route, 'Public NHL semantics must not inherit a stale fantasy lens'
-assert route.index('if fantasy_recap') < route.index('if selected_mode == "public":'), 'Explicit fantasy inquiries must outrank public identity fallbacks'
+assert route.index('orchestrated = athena_answer') < route.index('if selected_mode == "public":'), 'Athena registered routing must precede Scout compatibility fallbacks'
 assert '_is_team_performance_inquiry(raw_question)' in route, 'Current-season questions must not fall into static team profiles'
 acq=(root/'Athena/Investigation/period_evidence_acquisition.py').read_text(encoding='utf-8')
 assert 'SEASON_31n_BY_PERIOD' in acq

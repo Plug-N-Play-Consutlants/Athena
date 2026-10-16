@@ -1,4 +1,4 @@
-"""Validate v0.5.0-drop4e42 Epic 4 Public Intelligence Acceptance Suite.
+"""Validate Epic 4 Public Intelligence Acceptance Suite.
 
 This suite is the Epic 4 exit gate. It is intentionally broad and deterministic:
 it verifies that the core public intelligence surface can route and render canonical
@@ -218,9 +218,9 @@ def _has_provider_leakage(text: str) -> bool:
 
 def main() -> int:
     report = Report()
-    report.check(ATHENA_VERSION == "0.5.0-drop4e42", "athena_version", ATHENA_VERSION)
-    report.check(SCOUT_VERSION == "v0.5.0-drop4e42", "scout_version", SCOUT_VERSION)
-    report.check(ATHENA_BUILD == "drop4e42", "athena_build", ATHENA_BUILD)
+    report.check(bool(ATHENA_VERSION), "athena_version", ATHENA_VERSION)
+    report.check(SCOUT_VERSION == f"v{ATHENA_VERSION}", "scout_version", SCOUT_VERSION)
+    report.check(ATHENA_BUILD == ATHENA_VERSION, "athena_build", ATHENA_BUILD)
 
     cases = _make_cases()
     report.check(len(cases) >= 100, "canonical_prompt_count", str(len(cases)))

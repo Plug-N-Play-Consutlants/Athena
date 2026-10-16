@@ -1,4 +1,4 @@
-"""Doctor for v0.5.5.5.26 Consensus Repository Cleanup."""
+"""Check release metadata stays aligned with the active runtime version."""
 from __future__ import annotations
 
 import sys
@@ -38,8 +38,14 @@ def main() -> int:
         checks.append(check("compat_version_alias", VERSION == ATHENA_VERSION, VERSION))
         checks.append(check("schema_locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA))
         checks.append(check("release_name_available", bool(RELEASE_NAME), RELEASE_NAME))
-        checks.append(check("release_metadata_alignment", RELEASE_NAME == "Consensus Repository Cleanup", RELEASE_NAME))
-        checks.append(check("release_fields", (RELEASE_EPIC, RELEASE_SPRINT, RELEASE_PATCH, RELEASE_HOTFIX) == ("5", "5", "5", "26"), f"{RELEASE_EPIC}.{RELEASE_SPRINT}.{RELEASE_PATCH}.{RELEASE_HOTFIX}"))
+        version_parts = _version_tuple(ATHENA_VERSION)
+        release_fields = (RELEASE_EPIC, RELEASE_SPRINT, RELEASE_PATCH, RELEASE_HOTFIX)
+        checks.append(check("release_metadata_alignment", bool(RELEASE_NAME.strip()), RELEASE_NAME))
+        checks.append(check(
+            "release_fields",
+            len(version_parts) == 5 and release_fields == tuple(str(part) for part in version_parts[1:]),
+            f"{'.'.join(release_fields)} / {ATHENA_VERSION}",
+        ))
     except Exception as exc:
         checks.append(check("core_version_import", False, f"{type(exc).__name__}: {exc}"))
 

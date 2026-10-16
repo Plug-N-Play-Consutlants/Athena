@@ -12,5 +12,8 @@ report = compose_period_report(league_name='JHLPAA',period=2,comparison={'status
 for name in ('Bubba','Leeeroy','Grabner','Alien'):
     assert name in report, (name, report)
 assert 'rank 8: Bobby, Urban' in report
-assert 'tie or source discrepancy' in report
+lower_report = report.casefold()
+assert 'shared positions' in lower_report
+assert 'legitimate ties' in lower_report
+assert 'no unsupported tiebreak is applied' in lower_report
 print('PASS: scoring tie completeness and ambiguous standings disclosed')

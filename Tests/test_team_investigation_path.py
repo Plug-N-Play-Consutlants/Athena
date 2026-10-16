@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from Athena.request_execution import AthenaRequest, execute_request
@@ -14,6 +15,87 @@ from Scout.conversation.router import route_question
 
 
 class TeamInvestigationPathTests(unittest.TestCase):
+    def test_athena_routes_player_comparisons_in_public_and_fantasy_contexts(self) -> None:
+        questions = (
+            ("Compare Auston Matthews and Connor McDavid in the NHL.", "public_player_comparison"),
+            ("Compare Auston Matthews and Connor McDavid for JHLPAA scoring.", "league_player_comparison"),
+        )
+        for question, expected_route in questions:
+            for mode in ("public", "fantasy"):
+                with self.subTest(question=question, mode=mode):
+                    with (
+                        patch(
+                            "Athena.evidence_bundle.build_request_evidence",
+                            return_value={"status": "not_required", "sources": [], "missing": []},
+                        ),
+                        patch(
+                            "Athena.execution_registry.execute_specialist",
+                            return_value={"intent": expected_route, "developer": {}},
+                        ) as invoke,
+                    ):
+                        answer = execute_request(
+                            AthenaRequest(question, mode=mode, context=ScoutContext())
+                        )
+
+                    self.assertEqual(
+                        answer["developer"]["athena_request"]["selected_route"],
+                        expected_route,
+                    )
+                    self.assertEqual(
+                        answer["developer"]["athena_request"]["execution_owner"],
+                        "athena_registered_specialist",
+                    )
+                    self.assertEqual(invoke.call_args.args[0], expected_route)
+
+    def test_scout_legacy_comparison_fallback_handles_explicit_league_context(self) -> None:
+        from Scout.conversation import router
+
+        league_profile = {"league_id": "JHLPAA"}
+        context = SimpleNamespace(files_loaded=[], league_profile=league_profile)
+        entities = [
+            SimpleNamespace(entity=SimpleNamespace(entity_id="nhl.player.auston_matthews")),
+            SimpleNamespace(entity=SimpleNamespace(entity_id="nhl.player.connor_mcdavid")),
+        ]
+        public_route = SimpleNamespace(route="player_comparison", entities=entities)
+        questions = (
+            ("Compare Auston Matthews and Connor McDavid in the NHL.", None),
+            ("Compare Auston Matthews and Connor McDavid for JHLPAA scoring.", league_profile),
+        )
+
+        for question, expected_league_profile in questions:
+            with self.subTest(question=question):
+                with (
+                    patch("Athena.inquiry_execution.answer", return_value=None),
+                    patch.object(router, "_multi_sport_route_card", return_value=None),
+                    patch.object(router, "analyze_public_request", return_value=public_route),
+                    patch.object(router, "profile_for_entity", side_effect=lambda entity: entity.entity_id),
+                    patch.object(
+                        router,
+                        "player_comparison_answer",
+                        return_value={"intent": "player_comparison", "developer": {}},
+                    ) as compare,
+                ):
+                    answer = router.route_question(question, ctx=context, mode="public")
+
+                self.assertEqual(answer["intent"], "player_comparison")
+                self.assertEqual(
+                    compare.call_args.kwargs["league_profile"],
+                    expected_league_profile,
+                )
+
+    def test_legacy_historical_comparison_import_reexports_canonical_api(self) -> None:
+        from Knowledge.Historical.comparison_engine import (
+            build_historical_comparisons as canonical_build,
+            comparisons_for_entity as canonical_for_entity,
+        )
+        from Knowledge.comparison_engine import (
+            build_historical_comparisons as compatibility_build,
+            comparisons_for_entity as compatibility_for_entity,
+        )
+
+        self.assertIs(compatibility_build, canonical_build)
+        self.assertIs(compatibility_for_entity, canonical_for_entity)
+
     def test_team_metrics_use_athena_route_and_one_shared_acquisition(self) -> None:
         questions = (
             "How do the Toronto Maple Leafs compare with the rest of the NHL in scoring, "

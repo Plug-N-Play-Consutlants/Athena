@@ -1,4 +1,4 @@
-"""Validation for v0.5.5.5.26 Consensus Repository Cleanup."""
+"""Validate current release metadata and its consumers."""
 from __future__ import annotations
 
 import subprocess
@@ -20,18 +20,28 @@ def run_script(rel: str) -> subprocess.CompletedProcess[str]:
         cwd=str(ROOT),
         text=True,
         capture_output=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=45,
     )
 
 
 def main() -> int:
     rows: list[tuple[str, bool, str]] = []
-    from Core.version import ATHENA_BUILD, ATHENA_VERSION, RELEASE_NAME, SCOUT_VERSION
+    from Core.version import (
+        ATHENA_BUILD, ATHENA_VERSION, RELEASE_EPIC, RELEASE_HOTFIX,
+        RELEASE_NAME, RELEASE_PATCH, RELEASE_SPRINT, SCOUT_VERSION,
+        VERSION_SCHEMA,
+    )
 
-    record(rows, "athena_version", ATHENA_VERSION == "0.5.5.5.26", ATHENA_VERSION)
+    version_parts = tuple(ATHENA_VERSION.split("."))
+    release_fields = (RELEASE_EPIC, RELEASE_SPRINT, RELEASE_PATCH, RELEASE_HOTFIX)
+    record(rows, "numeric_five_part_version", len(version_parts) == 5 and all(part.isdigit() for part in version_parts), ATHENA_VERSION)
     record(rows, "athena_build", ATHENA_BUILD == ATHENA_VERSION, ATHENA_BUILD)
     record(rows, "scout_version", SCOUT_VERSION == f"v{ATHENA_VERSION}", SCOUT_VERSION)
-    record(rows, "release_name", RELEASE_NAME == "Consensus Repository Cleanup", RELEASE_NAME)
+    record(rows, "release_name", bool(RELEASE_NAME.strip()), RELEASE_NAME)
+    record(rows, "version_schema", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA)
+    record(rows, "release_fields_match_version", release_fields == version_parts[1:], ".".join(release_fields))
 
     scripts = [
         "Tools/doctor_release_metadata_alignment.py",

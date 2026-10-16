@@ -54,7 +54,20 @@ def main() -> int:
     registered_answer = {"intent": "fantasy_longitudinal_draft", "public_comment": "10 seasons", "developer": {}}
     with patch("Athena.intent_resolution.select_executable_route", return_value=("fantasy_longitudinal_draft", "scout_intent_plan")), patch("Athena.execution_registry.execute_specialist", return_value=registered_answer) as handler, patch("Athena.specialist_compatibility.execute_existing_specialist") as fallback:
         dispatched = execute_request(AthenaRequest("draft history", mode="fantasy", context=ctx))
-        handler.assert_called_once_with("fantasy_longitudinal_draft", ctx, "draft history", mode="fantasy")
+        handler.assert_called_once()
+        called_context = handler.call_args.args[1]
+        check(
+            "immutable_context_receives_request_evidence_adapter",
+            isinstance(called_context, module._RequestEvidenceContext)
+            and called_context._context is ctx
+            and called_context.request_evidence.get("owner") == "Athena.request_execution",
+        )
+        check(
+            "registered_handler_receives_expected_request",
+            handler.call_args.args[0] == "fantasy_longitudinal_draft"
+            and handler.call_args.args[2] == "draft history"
+            and handler.call_args.kwargs == {"mode": "fantasy"},
+        )
         check("registered_dispatch_without_fallback", not fallback.called and dispatched["developer"]["athena_request"]["execution_owner"] == "athena_registered_specialist")
     from Athena.execution_registry import SPECIALISTS
     check("operational_routes_registered", {"public_player_comparison", "public_player_investigation", "live_event_intelligence", "fantasy_pre_draft_context", "fantasy_longitudinal_draft"}.issubset(SPECIALISTS))

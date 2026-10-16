@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "athenaengine"
-version = "0.7.10.11.0"
+version = "0.7.10.13.0"
 description = "AthenaEngine deterministic sports intelligence platform."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,7 +21,7 @@ include = ["Athena*", "Core*", "Diagnostics*", "Engine*", "Intelligence*", "Know
 namespaces = true
 
 [tool.athena]
-build = "0.7.10.8.0"
-release_name = "Athena Inquiry Objective Ledger"
+build = "0.7.10.13.0"
+release_name = "Athena Coordinated Investigation and Conditional Reasoning"
 version_schema = "major.epic.sprint.patch.hotfix"
 studio_first = true

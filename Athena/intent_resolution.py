@@ -20,6 +20,10 @@ def select_executable_route(question: str, mode: str) -> tuple[str, str]:
         term in question.casefold() for term in ("report", "recap", "standings", "scoring", "league", "week", "trade")
     ):
         return "", "explicit_fantasy_league_domain"
+    if mode == 'public':
+        from Athena.public_team_performance import team_investigation_target
+        if team_investigation_target(question) is not None:
+            return 'public_current_season_team_investigation', 'canonical_nhl_team_investigation'
     plan = plan_capability(question, mode)
     route = str(getattr(plan, "route", "") or "")
     if mode == "public" and route == "ambiguous_public_entity":

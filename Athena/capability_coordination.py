@@ -120,53 +120,96 @@ def execute_compatible_support(plan: dict[str, Any], primary_route: str | None,
     return report
 
 
-def synthesize_supporting_findings(answer: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
-    """Merge only a verified, subject-matched cap determination.
+def _conditional_mechanisms(question: str, objectives: set[str], *, team: str) -> tuple[list[str], list[str]]:
+    """Explicitly hypothetical mechanisms; never a recommendation or verified eligibility."""
+    import re
+    text = question.casefold()
+    clauses: list[str] = []
+    unresolved: list[str] = []
+    if 'waiver' in text and ('trade' in text or 'claim' in text):
+        clauses.append('Transaction mechanisms: A waiver claim, if the player is eligible and available and the club has claim priority, generally adds the claimed SPC without sending another SPC away. A trade can exchange existing SPCs; a two-SPC-out, one-SPC-in trade would reduce the acquiring club’s SPC count by one if all three are qualifying SPCs and no other contracts enter the transaction. This is a conditional count comparison, not evidence that such a trade occurred or that a claim was available.')
+        clauses.append('Roster and cap effects are separate: contract-slot count, active-roster limits, assignment/waiver eligibility, and the net cap-hit change must each be checked. Two outgoing players do not automatically create two active roster openings or a specific amount of cap space.')
+        unresolved.extend(['player waiver status and claim availability', 'actual SPC status of each player', 'verified transaction terms and cap hits', 'club contract count and roster constraints', 'management intent'])
+    elif 'feasibility' in objectives and ('improv' in text or 'option' in text or 'upgrade' in text):
+        clauses.append('Conditional improvement pathways: An internal lineup or deployment adjustment may be explored without acquiring an additional contract, but its effectiveness depends on verified usage and player performance. A salary-neutral exchange could change roster composition without increasing aggregate nominal cap hits, subject to retention, bonuses, buried charges and other accounting. A net salary addition requires verified cap room or a separately validated compliant mechanism. These are mechanisms to investigate, not endorsed targets or confirmed feasible moves.')
+        unresolved.extend(['verified positional/deployment need', 'complete cap ledger and adjustments', 'candidate player availability and transaction terms'])
+    return clauses, unresolved
 
-    The primary specialist retains ownership of its answer. Missing ledger data
-    must never become invented headroom or a claim that roster options are feasible.
+
+def synthesize_supporting_findings(answer: dict[str, Any], report: dict[str, Any],
+                                   question: str = '') -> dict[str, Any]:
+    """Integrate subject-matched specialist findings and bounded alternatives.
+
+    Does not promote objective completion or claim verified feasibility.
     """
     results = report.get('supporting_results', [])
     if not isinstance(results, list):
-        return {'state': 'not_available', 'merged': False}
+        results = []
+    developer = answer.get('developer') if isinstance(answer.get('developer'), dict) else {}
+    team_evidence = developer.get('team_performance_evidence') if isinstance(developer.get('team_performance_evidence'), dict) else {}
+    from Athena.public_team_performance import resolve_nhl_team_subject
+    subject = resolve_nhl_team_subject(question) if question else None
+    if subject is None:
+        return {'state': 'subject_not_verified', 'merged': False, 'completion_verified': False}
+    team, name = subject
+    if team_evidence and team_evidence.get('team') != team:
+        return {'state': 'subject_mismatch', 'merged': False, 'completion_verified': False}
+    # For a cap-led economic answer, no fabricated current-season team evidence
+    # is introduced. The only allowed addition is a qualified mechanism.
     eligible = [r for r in results if isinstance(r, dict)
                 and r.get('route') == 'public_nhl_cap_reasoning'
-                and r.get('objective') == 'economics'
                 and r.get('state') == 'evidence_available'
-                and r.get('subject') == 'TOR'
-                and isinstance(r.get('finding'), dict)]
-    if len(eligible) != 1:
-        return {'state': 'not_available', 'merged': False}
-    item = eligible[0]
-    finding = item['finding']
-    if finding.get('team_id') != 'nhl.team.tor':
-        return {'state': 'subject_mismatch', 'merged': False}
-    explanation = finding.get('explanation')
-    status = finding.get('status')
-    if not isinstance(explanation, str) or not explanation.strip() or not isinstance(status, str):
-        return {'state': 'invalid_finding', 'merged': False}
-    # Numeric claims require a determinate finding, not just a numeric field.
-    if status == 'indeterminate_incomplete_ledger':
-        if finding.get('headroom') is not None:
-            return {'state': 'inconsistent_cap_finding', 'merged': False}
-    elif status not in {'within_team_payroll_range', 'above_upper_limit', 'below_lower_limit'}:
-        return {'state': 'unsupported_cap_status', 'merged': False}
+                and r.get('subject') == team and isinstance(r.get('finding'), dict)]
+    finding = eligible[0]['finding'] if len(eligible) == 1 else None
+    if finding:
+        if finding.get('team_id') != 'nhl.team.' + team.lower():
+            return {'state': 'subject_mismatch', 'merged': False, 'completion_verified': False}
+        if finding.get('status') == 'indeterminate_incomplete_ledger' and finding.get('headroom') is not None:
+            return {'state': 'inconsistent_cap_finding', 'merged': False, 'completion_verified': False}
     base = answer.get('natural_language_response')
     if not isinstance(base, str) or not base.strip():
-        return {'state': 'missing_primary_narrative', 'merged': False}
-    if explanation.strip() in base:
-        return {'state': 'already_present', 'merged': False}
-    answer['natural_language_response'] = base.rstrip() + '\\n\\nSalary-cap assessment: ' + explanation.strip()
+        return {'state': 'missing_primary_narrative', 'merged': False, 'completion_verified': False}
+    from Athena.inquiry_objectives import decompose_inquiry
+    objectives = {o['id'] for o in decompose_inquiry(question)['objectives']}
+    sections: list[str] = []
+    provenance: list[str] = []
+    if finding and isinstance(finding.get('explanation'), str):
+        explanation = finding['explanation'].strip()
+        if explanation and explanation not in base:
+            sections.append('Financial constraints: ' + explanation)
+            provenance.append('canonical_team_economic_state_and_cap_determination')
+            eligible[0]['presentation_merged'] = True
+    mechanisms, unresolved = _conditional_mechanisms(question, objectives, team=team)
+    # The bounded scenario mechanism is useful for the explicit comparison even
+    # if the team specialist returned an economic-state answer.
+    for mechanism in mechanisms:
+        if mechanism not in base:
+            sections.append(mechanism)
+    if mechanisms:
+        provenance.append('general_transaction_mechanism_conditional_not_transaction_evidence')
+    if not sections:
+        return {'state': 'no_new_supported_analysis', 'merged': False, 'completion_verified': False}
+    if unresolved:
+        sections.append('Still requiring verification: ' + '; '.join(unresolved) + '.')
+    # Use genuine newlines. Maintain Scout's parallel narrative fields to avoid
+    # divergence between the browser and internal execution record.
+    unified = base.rstrip() + '\n\n' + '\n\n'.join(sections)
+    answer['natural_language_response'] = unified
+    answer['internal_narrative'] = unified
+    answer['engine_conclusion'] = unified
     limitations = answer.get('known_limitations')
     if not isinstance(limitations, list):
         limitations = []
         answer['known_limitations'] = limitations
-    if status == 'indeterminate_incomplete_ledger':
+    for requirement in unresolved:
+        note = 'Unverified: ' + requirement
+        if note not in limitations:
+            limitations.append(note)
+    if finding and finding.get('status') == 'indeterminate_incomplete_ledger':
         note = 'Exact cap space and transaction feasibility remain unverified until the complete payroll and adjustment ledger is available.'
         if note not in limitations:
             limitations.append(note)
-    item['presentation_merged'] = True
     report['multi_capability_synthesis_verified'] = False
-    return {'state': 'bounded_cap_finding_merged', 'merged': True,
-            'objective': 'economics', 'source_route': item['route'],
-            'completion_verified': False}
+    return {'state': 'bounded_coordinated_interpretation', 'merged': True,
+            'source_provenance': provenance, 'conditional': bool(mechanisms),
+            'unresolved': unresolved, 'completion_verified': False}

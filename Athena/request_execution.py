@@ -184,12 +184,12 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     evidence_missing = request_evidence.get("missing") if isinstance(request_evidence, dict) else []
     # Shared completion assessment also powers inquiry_execution.investigate.
     from Athena.completion_assessment import assess_completion
-    objective_coverage = assess_objective_coverage(inquiry_plan, request_evidence, answer)
     from Athena.capability_coordination import execute_compatible_support
     capability_coordination = execute_compatible_support(inquiry_plan, route, effective_mode, effective_question, context, answer)
     from Athena.capability_coordination import synthesize_supporting_findings
-    synthesis = synthesize_supporting_findings(answer, capability_coordination)
+    synthesis = synthesize_supporting_findings(answer, capability_coordination, effective_question)
     developer["supporting_synthesis"] = synthesis
+    objective_coverage = assess_objective_coverage(inquiry_plan, request_evidence, answer)
     completion = assess_completion(answer, evidence=request_evidence, question=effective_question)
     developer["inquiry_objectives"] = inquiry_plan
     developer["inquiry_objective_coverage"] = objective_coverage

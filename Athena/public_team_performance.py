@@ -165,7 +165,7 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
     evidence["acquisition_timing_ms"]["roster_economics"] = round((perf_counter() - stage_started) * 1000, 2) if wants_roster else 0.0
     evidence["acquisition_timing_ms"]["total"] = round((perf_counter() - acquisition_started) * 1000, 2)
     if evidence.get("leaders"):
-        text = f"Official NHL {season} team player production for {name}: " + "; ".join(f"{r['name']} ({r['points']} points in {r['gp']} games)" for r in evidence["leaders"] if isinstance(r.get("points"),(int,float))) + "."
+        text = f"Official NHL {str(season)[:4]}-{str(season)[4:]} team player production for {name}: " + "; ".join(f"{r['name']} ({r['points']} points in {r['gp']} games)" for r in evidence["leaders"] if isinstance(r.get("points"),(int,float))) + "."
         text += " These are scoring contributors, not proof of overall team strength, weakness or causation. Standings, game trends, deployment and cap context remain necessary for a complete assessment."
         confidence = 0.56
     else:
@@ -188,13 +188,17 @@ def assess_team_performance(question: str, abbreviation: str, name: str) -> dict
         if counts:
             text += " The official current roster lists " + ", ".join(f"{value} {key}" for key, value in counts.items()) + "; these are roster counts, not proof of positional surplus or shortage."
         if evidence.get("roster_positions"):
-            text += " Positional inventory: " + ", ".join(f"{key} {value}" for key, value in sorted(evidence["roster_positions"].items())) + "."
+            text += " Recorded primary-position codes: " + ", ".join(f"{key} {value}" for key, value in sorted(evidence["roster_positions"].items())) + "; these are not depth-chart assignments or a measure of positional quality."
         economic = evidence.get("economics")
         if economic:
             text += f" The {economic['league_year']} NHL upper limit is ${economic['upper_limit']:,}."
             if not economic["aggregate_permitted"]:
-                text += f" Canonical contract coverage includes {economic['contract_coverage']} contracts, not a complete club ledger; team cap usage and available space cannot be calculated reliably."
+                text += f" Canonical contract coverage includes {economic['contract_coverage']} contract(s), not a complete club ledger; team cap usage and available space cannot be calculated reliably."
         text += " A specific roster need or acquisition recommendation requires verified deployment, health, performance and transaction context."
+    from Athena.team_comparative_evaluation import evaluate_team, narrative
+    comparative = evaluate_team(evidence)
+    evidence["comparative_evaluation"] = comparative
+    text += " " + narrative(comparative)
     evidence["analytical_synthesis"] = trend
     return {"conclusion": text, "evidence": evidence, "confidence": confidence}
 
@@ -205,9 +209,9 @@ def official_team_player_row(player_name: str, team_name: str) -> dict[str, Any]
     from Knowledge.Intelligence.Public.player_evidence import _target_season_id
     from Knowledge.Intelligence.Public.public_team_profiles import public_team_profiles
     import re
-    aliases = {"toronto maple leafs": "TOR", "toronto": "TOR", "tor": "TOR"}
     team_key = str(team_name or "").strip().casefold()
-    abbreviation = aliases.get(team_key)
+    resolved = resolve_nhl_team_subject(team_name)
+    abbreviation = resolved[0] if resolved else None
     if abbreviation is None:
         for profile in public_team_profiles() or []:
             if str(getattr(profile, "display_name", "")).casefold() == team_key:
@@ -238,28 +242,45 @@ def official_team_player_row(player_name: str, team_name: str) -> dict[str, Any]
 
 # Canonical objective selection and execution are Athena-owned. This is a
 # bounded team investigation, not a claim of verified positional deficiencies.
-_TEAM_SUBJECTS = (
-    (("leafs", "toronto", "maple leafs"), "TOR", "Toronto Maple Leafs"),
-    (("oilers", "edmonton"), "EDM", "Edmonton Oilers"),
-    (("hurricanes", "carolina"), "CAR", "Carolina Hurricanes"),
-    (("avalanche", "colorado"), "COL", "Colorado Avalanche"),
-    (("stars", "dallas"), "DAL", "Dallas Stars"),
-    (("panthers", "florida"), "FLA", "Florida Panthers"),
-)
+def resolve_nhl_team_subject(question: str) -> tuple[str, str] | None:
+    """Resolve one explicit NHL team using the existing canonical identity registry.
+
+    Do not resolve bare ambiguous city names (e.g. New York), generic nicknames
+    or multi-team comparisons to an arbitrary first match.
+    """
+    import re
+    from Knowledge.Identity.registry import SEED_IDENTITY_ENTITIES
+    normalized = re.sub(r"[^a-z0-9\s]", " ", (question or "").casefold())
+    normalized = " ".join(normalized.split())
+    matches = []
+    for entity in SEED_IDENTITY_ENTITIES:
+        if entity.entity_type != 'team' or entity.league != 'NHL':
+            continue
+        abbreviation = entity.entity_id.rsplit('.', 1)[-1].upper()
+        # Canonical names are preferred; unique nicknames are acceptable when
+        # sufficiently specific. Short city aliases are not assumed unique.
+        aliases = [entity.canonical_name, *entity.aliases]
+        for alias in aliases:
+            key = ' '.join(re.sub(r"[^a-z0-9\s]", " ", alias.casefold()).split())
+            if not key or (len(key) < 4 and key != abbreviation.casefold()):
+                continue
+            if re.search(r"(?<!\w)" + re.escape(key) + r"(?!\w)", normalized):
+                matches.append((abbreviation, entity.canonical_name))
+                break
+    unique = list(dict.fromkeys(matches))
+    return unique[0] if len(unique) == 1 else None
 
 
 def team_investigation_target(question: str) -> tuple[str, str] | None:
     import re
-    text = re.sub(r"[^a-z0-9\s]", " ", (question or "").casefold())
-    text = re.sub(r"\s+", " ", text)
-    subject = next(((abbrev, name) for aliases, abbrev, name in _TEAM_SUBJECTS
-                    if any(re.search(r"\b" + re.escape(alias) + r"\b", text) for alias in aliases)), None)
+    subject = resolve_nhl_team_subject(question)
     if subject is None:
         return None
-    # An explicit team improvement/needs objective, not a generic cap inquiry.
+    text = " ".join(re.sub(r"[^a-z0-9\s]", " ", (question or "").casefold()).split())
     primary = bool(re.search(r"\b(roster|lineup|positional|depth)\s+(needs?|holes?|weakness(?:es)?|improvements?|upgrades?)\b", text))
     primary = primary or bool(re.search(r"\b(how|where|ways?|could|should)\b.{0,85}\b(improve|upgrade|strengthen|address)\b", text))
     primary = primary or bool(re.search(r"\b(improve|upgrade|strengthen)\b.{0,55}\b(roster|lineup|team)\b", text))
+    primary = primary or bool(re.search(r"\b(biggest|major|main)\b.{0,35}\b(weaknesses|concerns|needs)\b", text))
     return subject if primary else None
 
 

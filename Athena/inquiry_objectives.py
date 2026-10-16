@@ -35,9 +35,12 @@ def assess_objective_coverage(plan: dict[str, Any], evidence: Any, result: Any) 
     missing = [str(x) for x in missing] if isinstance(missing, list) else []
     declared = result.get('inquiry_completion') if isinstance(result, dict) else None
     declared = declared if isinstance(declared, dict) else {}
-    return {'schema': 'athena.objective_coverage.v1',
+    synthesis = (result.get('developer') or {}).get('supporting_synthesis') if isinstance(result, dict) and isinstance(result.get('developer'), dict) else None
+    synthesis = synthesis if isinstance(synthesis, dict) else {}
+    return {'schema': 'athena.objective_coverage.v2',
             'objectives': [{**objective, 'evidence_blockers': list(missing),
-                            'specialist_declared_state': declared.get('state', 'unverified')}
+                            'specialist_declared_state': declared.get('state', 'unverified'),
+                            'synthesis_state': 'conditional_mechanism_only' if synthesis.get('conditional') and objective.get('id') in {'mechanism', 'feasibility', 'explanation'} else 'not_independently_verified'}
                            for objective in plan.get('objectives', [])],
             'independently_verified': False,
             'reason': 'no_claim_level_evidence_to_objective_provenance_contract'}

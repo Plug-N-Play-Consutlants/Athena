@@ -1474,6 +1474,9 @@ class AthenaStudio:
             self.write("Findings:\n")
             for finding in data.get("findings", []) or []:
                 self.write(f"  - {finding}\n")
+            from Core.milestone_intelligence import milestone_checklist
+            self.write("\n=== Upcoming Real-World Milestone Check (not a fixture PASS) ===\n")
+            self.write(milestone_checklist("0.7.10.34.0") + "\n")
             self.write("Next actions:\n")
             for action in data.get("next_actions", []) or []:
                 self.write(f"  - {action}\n")

@@ -1,0 +1,10 @@
+v0.7.10.40.0 — Inquiry Routing & Fantasy Period Readiness
+
+Source-first repair of Scout acceptance turns 198-205:
+- Professional NHL exploratory trade, retrospective, injury scenario and two-season contract decision requests now route to a domain-safe Athena decision inquiry rather than plausibility, fantasy contracts, news or generic contender ranking.
+- The explicit first-round-pick/left-wing follow-up is recognized, though full durable multi-turn conversation-state propagation is not yet implemented.
+- Unverified named candidates, trade history, cap totals, and contract expiry claims are not fabricated. These paths return bounded research requirements, not a completed transaction market study.
+- Fantasy recap labels latest available archive as not independently verified complete and flags next-period Fantrax refresh in user-facing report.
+- NHL professional questions cannot fall through to the fantasy expiring-contracts handler.
+
+Validation: 5 route regression cases PASS; four decision response smoke checks PASS; syntax compile PASS. Studio Verify Build and real Fantrax period refresh remain unverified in this environment.

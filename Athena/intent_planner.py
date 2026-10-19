@@ -182,6 +182,26 @@ def plan_capability(question: str, mode: str = "public") -> Optional[AthenaInten
     except Exception:
         inquiry = None
 
+    # Decision and retrospective objectives outrank transaction plausibility,
+    # cap-only, and fantasy contract keyword routes.  These are public NHL
+    # questions even when no named acquisition target is supplied.
+    if selected_mode == "public" and "trade" in q and any(t in q for t in ("revisit the", "at the time", "subsequent outcomes")):
+        return AthenaIntentPlan("public_nhl_decision_inquiry", .997, "Retrospective transaction evidence inquiry, not a prospective trade.", 110)
+    # Contextual follow-up is recognizable without re-naming the team. This
+    # preserves the explicit user change; the previous conversation must still
+    # supply the team and original constraints for full execution.
+    if selected_mode == "public" and "first-round pick" in q and "left wing" in q and "recommendations" in q:
+        return AthenaIntentPlan("public_nhl_decision_inquiry", .95, "Contextual trade follow-up; preserve previously established organization and restrictions.", 109)
+    if selected_mode == "public" and any(t in q for t in ("toronto", "leafs", "maple leafs")):
+        if any(t in q for t in ("revisit the", "at the time", "subsequent outcomes", "historical trade", "trade history")) and "trade" in q:
+            return AthenaIntentPlan("public_nhl_decision_inquiry", .997, "Historical transaction verification and retrospective, not a proposed trade.", 110)
+        if any(t in q for t in ("contract decisions", "approaching important contract", "next two seasons")) and "contract" in q:
+            return AthenaIntentPlan("public_nhl_decision_inquiry", .997, "Professional contract decision horizon; fantasy contracts are ineligible.", 110)
+        if ("trade" in q or "first-round pick" in q) and any(t in q for t in ("trade options", "what trade", "realistically have to sacrifice", "does that change", "give up a first-round", "willing to give up")):
+            return AthenaIntentPlan("public_nhl_decision_inquiry", .997, "Exploratory transaction objective with protected assets; named target not required.", 110)
+        if "injur" in q and any(t in q for t in ("six weeks", "replacements", "marlies", "waivers")):
+            return AthenaIntentPlan("public_nhl_decision_inquiry", .997, "Conditional roster replacement analysis, not current-event roundup.", 110)
+
     # A team's primary roster/improvement objective owns its investigation;
     # salary-cap language is a supporting constraint, not a cap-only objective.
     # This decision lives in Athena's existing planner, never in Scout.

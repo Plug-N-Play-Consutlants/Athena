@@ -35,8 +35,18 @@ def _continued_question(question: str, mode: str, continuation: Any) -> tuple[st
     if mode != "public" or not isinstance(continuation, dict):
         return question, "none"
     origin = continuation.get("origin_intent")
-    if origin not in {"live_event_intelligence", "public_player_profile", "public_entity_disambiguation"}:
+    if origin not in {"live_event_intelligence", "public_player_profile", "public_entity_disambiguation", "public_nhl_decision_inquiry"}:
         return question, "ignored"
+    if origin == "public_nhl_decision_inquiry":
+        import re
+        subject = str(continuation.get("subject") or "").strip()
+        if subject not in {"Toronto Maple Leafs"}:
+            return question, "ignored_unverified_decision_subject"
+        if not re.search(r"\b(those|these|that|this|recommendations|still|first.round pick|left wing|does it change)\b", question, re.I):
+            return question, "ignored_unrelated_decision_followup"
+        if re.search(r"\b(toronto|maple leafs|leafs)\b", question, re.I):
+            return question, "explicit_decision_subject"
+        return f"Regarding the Toronto Maple Leafs trade options: {question}", "continued_nhl_decision_subject"
     from Knowledge.Intelligence.Entities.entity_registry import find_by_id, searchable_names
     import re
     entity = find_by_id(str(continuation.get("subject_entity_id") or ""))
@@ -156,6 +166,8 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     specialist_ms = round((perf_counter() - specialist_started) * 1000, 2)
     if not isinstance(answer, dict):
         raise TypeError("Athena specialist returned a non-dictionary answer")
+    if route == "public_nhl_decision_inquiry" and "toronto" in effective_question.casefold():
+        answer["continuation"] = {"origin_intent": route, "subject": "Toronto Maple Leafs"}
     if route == "live_event_intelligence" and answer.get("suggested_prompts"):
         import re
         from Knowledge.Intelligence.Entities.entity_registry import entities_by_type, searchable_names

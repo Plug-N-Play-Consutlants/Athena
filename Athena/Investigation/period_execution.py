@@ -18,6 +18,11 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         trace("scout.route", "selected", "analyze_league: period recap")
         from Athena.Inquiry.execution import summarize_recent_league_activity
         explicit_week = re.search(r"\bweek\s*(\d+)\b", question, re.IGNORECASE)
+        # Period/roster-effective ownership cannot be inferred from archived
+        # standings alone. The timeline resolver requires verified league rules,
+        # eligible puck-drop schedule and effective period end.
+        trace("athena.period_timeline", "awaiting_verified_boundaries",
+              "Archived week labels are not roster-effective timestamps")
         # Resolve the standings period before transaction selection.  An archived
         # period is available evidence, not proof that its scoring window closed.
         from Athena.Investigation.league_recap import resolve_archived_period, research_period

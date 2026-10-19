@@ -395,6 +395,14 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         investigation_trace = execution["investigation_trace"]
         explicit_week = execution["explicit_week"]
         conclusion = compose_period_report(research=athena_research)
+        # Latest archive is not synonymous with the latest completed scoring period.
+        # Surface the evidence boundary in the editorial text, not only diagnostics.
+        if not explicit_week:
+            period_label = f"Week {standings_period}" if standings_period is not None else "the available archive"
+            conclusion += ("\n\nPeriod coverage\n\nThis report reflects " + period_label +
+                           ", the latest period supported by the available archive. "
+                           "Its completion and any subsequent scoring-period results have not been independently verified. "
+                           "Refresh Fantrax transactions, standings and player-period production before publishing the next weekly edition.")
         investigation_trace.append({"stage": "scout.presentation", "status": "composed", "detail": "Structured Athena research rendered"})
         facts.append("Investigation execution trace: " + " | ".join(
             f"{entry['stage']}={entry['status']}" for entry in investigation_trace) + ".")
@@ -1884,7 +1892,7 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if any(term in q for term in ["league market", "market", "liquidity", "activity"]):
         return league_market(ctx)
 
-    if any(term in q for term in ["expiring", "contract", "contracts"]):
+    if selected_mode != "public" and any(term in q for term in ["expiring", "contract", "contracts"]):
         return expiring_contracts(ctx)
 
     if any(term in q for term in ["limitation", "missing", "gaps", "what don't", "what dont", "what do not"]):

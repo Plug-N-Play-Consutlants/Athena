@@ -24,6 +24,11 @@ def select_executable_route(question: str, mode: str) -> tuple[str, str]:
         and any(term in question.casefold() for term in ("fantasy", "keeper", "roster slot", "scoring"))
     ):
         return "league_player_comparison", "explicit_public_to_fantasy_comparison"
+    # A decision inquiry outranks general current-season evidence acquisition.
+    # The decision specialist may consume team evidence, but the evidence route
+    # must never replace the user's trade/contract objective.
+    if mode == 'public' and route == 'public_nhl_decision_inquiry':
+        return route, 'athena_decision_objective_precedence'
     # An explicitly named private fantasy league retains its domain in either
     # presentation mode. Public RSS is not a substitute for canonical league data.
     if any(name in question.casefold() for name in ("jhlpaa", "fantrax")) and any(

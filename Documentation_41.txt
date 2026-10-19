@@ -1,0 +1,17 @@
+v0.7.10.41.0 — Fantasy Timeline Evidence Contract
+
+Changed/new files only. Extract ZIP into F:\Development so AthenaEngine\ overlays the canonical repository.
+
+New Athena.Investigation.period_timeline:
+- timezone-aware earliest verified eligible puck-drop lock, configurable offset
+- period-effective end separated from last game horn
+- transaction record time, current scoring ownership, upcoming eligibility
+- explicit grey-zone treatment and refusal to infer future effective dates
+- no global assumption that all fantasy leagues follow JHLPAA policy
+
+Existing league period execution now records an explicit unresolved temporal-boundary trace; it does not assert completion or retroactively reassign scoring from archived week labels.
+
+Validated locally: Tests/validate_period_timeline_0710410.py; Tests/validate_inquiry_routing_0710400.py; syntax compilation and overlay integrity.
+
+Not yet implemented: live Fantrax period schedule/rules ingestion, durable multi-turn context propagation, period-effective roster reconciliation, full candidate-driven NHL analysis.
+Studio Verify Build and live Scout acceptance remain pending. Do not lock until verified.

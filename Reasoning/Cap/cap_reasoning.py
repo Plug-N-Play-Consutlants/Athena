@@ -7,6 +7,7 @@ both the applicable provision and the required factual inputs are canonical.
 from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, Tuple
+from .canonical_ledger import LedgerReconciliation
 
 ADJUSTMENT_CLASSES = (
     "long_term_injury_relief",
@@ -39,7 +40,8 @@ class CapDetermination:
 
 
 def evaluate_team_cap_state(team_state: Any, league_context: Any, *, verified_cap_charge_total: int | None = None,
-                            resolved_adjustment_classes: Tuple[str, ...] = ()) -> CapDetermination:
+                            resolved_adjustment_classes: Tuple[str, ...] = (),
+                            canonical_ledger: LedgerReconciliation | None = None) -> CapDetermination:
     """Apply executable cap constraints to canonical team/economic state.
 
     A numeric compliance/headroom result is permitted only when the team state
@@ -47,11 +49,20 @@ def evaluate_team_cap_state(team_state: Any, league_context: Any, *, verified_ca
     `verified_cap_charge_total` is an injected canonical total for future ledger
     implementations; partial contract sums are never substituted for it.
     """
+    if canonical_ledger is not None:
+        if canonical_ledger.team_id != team_state.team_id or canonical_ledger.as_of != team_state.as_of:
+            raise ValueError("Ledger team/date must match evaluated canonical state")
+        verified_cap_charge_total = canonical_ledger.verified_cap_charge_total
+        resolved_adjustment_classes = ADJUSTMENT_CLASSES if canonical_ledger.complete else ()
     unresolved = []
-    if not bool(getattr(team_state, "aggregate_permitted", False)):
+    if not (bool(getattr(team_state, "aggregate_permitted", False)) or (canonical_ledger is not None and canonical_ledger.complete)):
         unresolved.extend(("complete_registered_spc", "complete_current_roster", "verified_team_cap_charge_total"))
     resolved = set(resolved_adjustment_classes or ())
     unresolved.extend(x for x in ADJUSTMENT_CLASSES if x not in resolved)
+    if canonical_ledger is not None:
+        unresolved.extend(canonical_ledger.missing_domains)
+        if not canonical_ledger.roster_verified: unresolved.append("roster_reconciliation")
+        if canonical_ledger.verified_ltir_relief is None: unresolved.append("verified_ltir_relief")
     unresolved = tuple(dict.fromkeys(unresolved))
 
     base_rules = (
@@ -75,6 +86,7 @@ def evaluate_team_cap_state(team_state: Any, league_context: Any, *, verified_ca
             headroom=None, floor_margin=None, rules_applied=base_rules, unresolved_inputs=unresolved, explanation=explanation)
 
     total = int(verified_cap_charge_total)
+    # LTIR relief is not ordinary cap space; do not conflate it with headroom.
     headroom = int(league_context.upper_limit) - total
     floor_margin = total - int(league_context.lower_limit)
     if total > int(league_context.upper_limit):

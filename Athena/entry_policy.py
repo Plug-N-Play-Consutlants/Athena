@@ -19,6 +19,16 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
     explicit = any(term in q for term in ('jhlpaa', 'fantrax'))
     fantasy = (mode != 'public' or explicit) and any(term in q for term in ('jhlpaa', 'fantrax', 'my league', 'around the league'))
     editorial = bool(re.search(r'\b(report|recap|summari[sz]e|analy[sz]e|analize|review|biggest stories|developments)\b', q)) and bool(re.search(r'\b(league|jhlpaa|fantrax|standings|scoring)\b', q))
+    # A schedule, lock or trade-effective-time question is not an editorial
+    # request, even if it asks how a future weekly report should describe it.
+    temporal_rules = fantasy and any(term in q for term in (
+        'when did it lock', 'when does the next', 'current scoring period',
+        'lineup lock', 'lineup-lock', 'receives his points',
+        'receives their points', 'acquiring team can use', 'trade effective',
+        'transaction effective', 'period boundaries', 'scoring period dates',
+    ))
+    if temporal_rules:
+        return EntryDecision('league_period_timing', 'explicit_scoring_period_timing_and_trade_rules')
     standings = explicit and 'standings' in q and any(t in q for t in ('week', 'period', 'season', 'historical', 'movement'))
     if standings and not editorial:
         return EntryDecision('league_period_standings', 'explicit_period_standings')

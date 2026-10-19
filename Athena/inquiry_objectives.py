@@ -15,6 +15,10 @@ OBJECTIVES = (
     ("economics", r"\b(?:cap|salary|payroll|contract|ltir|retention)\b", "economic or contract constraints"),
     ("comparison", r"\b(?:compar\w*|versus|\bvs\b|relative|better|worse)\b", "contextual comparison"),
     ("change", r"\b(?:chang|mov|since|last week|trend|recent)\b", "change over time"),
+    ("roster", r"\b(?:roster|lineup|depth|call[ -]?up|recall|assign(?:ment)?|two[ -]?way|waivers?)\b", "roster roles, assignments and eligibility"),
+    ("market", r"\b(?:free agent|sign(?:ing)?|acqui(?:re|sition)|trade|available players?|market)\b", "player availability and acquisition cost"),
+    ("strategy", r"\b(?:don't trade|do not trade|protect|untouchable|prioriti[sz]|prefer|long[ -]?term|future picks?|gm plan)\b", "decision-maker objectives and organizational impact"),
+    ("historical_intent", r"\b(?:why did|why would|gm's plan|management intent|at the time|hindsight)\b", "contemporaneous evidence versus inferred management intent"),
 )
 
 def decompose_inquiry(question: str) -> dict[str, Any]:
@@ -107,6 +111,14 @@ def assess_objective_coverage(plan: dict[str, Any], evidence: Any, result: Any) 
                 )
                 if not blockers:
                     blockers.append('canonical_team_economic_state')
+        elif objective_id in {'roster', 'market', 'strategy', 'historical_intent'}:
+            # A keyword or conditional explanation is never player-specific proof.
+            blockers.append({
+                'roster': 'verified_player_eligibility_and_roster_state',
+                'market': 'verified_player_market_and_transaction_terms',
+                'strategy': 'stated_objective_and_comparable_scenario_evidence',
+                'historical_intent': 'dated_contemporaneous_decision_evidence',
+            }[objective_id])
         elif objective_id in {'mechanism', 'feasibility'}:
             if synthesis.get('conditional'):
                 refs.append('general_transaction_mechanism_conditional_not_transaction_evidence')

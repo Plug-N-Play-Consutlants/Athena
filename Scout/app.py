@@ -868,7 +868,7 @@ function renderAnswerCopy(text) {
   const headings = new Set([
     'Organizational Significance','Scenario Assessment','Assets on the Table','What Needs Are We Addressing on Both Sides',
     'Proposed Construction','Financial Impact','Rules & Transaction Mechanics','Opportunity Cost','Credible Alternatives',
-    "The major exchanges","Elsewhere around the league","What remains unresolved","Athena's Verdict",'Decision Quality vs. Outcome','Controlled Prospects Eligible for Analysis','Rights & Restrictions','Most Reluctant to Move'
+    "The major exchanges","Elsewhere around the league","What remains unresolved","Athena's Verdict",'Decision Quality vs. Outcome','Controlled Prospects Eligible for Analysis','Rights & Restrictions','Most Reluctant to Move','Summary','Assessment','Strengths','Weaknesses','Outlook','Tradeoffs','What we know','What remains unknown','Recommendations'
   ]);
   return String(text || '').split('\n').map(line => headings.has(line.trim())
     ? `<div class="answer-copy-heading">${esc(line.trim())}</div>`
@@ -878,7 +878,7 @@ function renderAnswerCopy(text) {
 function renderSuggestedPrompts(answer, turnId) {
   const prompts = Array.isArray(answer.suggested_prompts) ? answer.suggested_prompts.filter(Boolean).slice(0,4) : [];
   if (!prompts.length) return '';
-  return `<div class="suggested-prompts">${prompts.map((prompt, idx) => `<button type="button" class="suggested-prompt" onclick="askSuggestedPrompt(${turnId}, ${idx})">${esc(prompt)}</button>`).join('')}</div>`;
+  return `<div class="suggested-prompts"><div class="suggested-prompts-title">Explore further</div>${prompts.map((prompt, idx) => `<button type="button" class="suggested-prompt" onclick="askSuggestedPrompt(${turnId}, ${idx})">${esc(prompt)}</button>`).join('')}</div>`;
 }
 
 function askSuggestedPrompt(turnId, idx) {

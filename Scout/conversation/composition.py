@@ -366,6 +366,74 @@ def _default_followups(answer: Dict[str, Any]) -> List[str]:
         return ["What drives this player's organizational value?", "Compare this asset state to another player", "What evidence is still missing?"]
     return []
 
+def _continuation_options(answer: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Evidence-aware conversation exits, never a claim that research was done."""
+    intent = _clean_text(answer.get("intent")).lower()
+    title = _clean_text(answer.get("title"))
+    facts = _as_list(answer.get("observed_facts"), 24)
+    limits = _as_list(answer.get("known_limitations"), 24)
+    text = " ".join([title, _first_text(answer), *map(str, facts)]).lower()
+    is_fantasy = any(token in intent or token in text for token in ("fantasy", "jhlpaa", "fantrax", "league week"))
+    is_team = "team" in intent or any(x in text for x in ("maple leafs", "toronto", "roster", "defence", "defense"))
+    is_player = "player" in intent or any(x in text for x in ("matthews", "mcdavid", "nylander", "knies"))
+    is_trade = any(x in intent or x in text for x in ("trade", "transaction", "acquisition"))
+    is_cap = any(x in intent or x in text for x in ("salary cap", "cap hit", "ltir", "contract"))
+    options: List[Dict[str, str]] = []
+    def add(kind: str, prompt: str) -> None:
+        if prompt and not any(x["prompt"] == prompt for x in options):
+            options.append({"kind": kind, "prompt": prompt})
+    if limits:
+        if is_fantasy:
+            add("investigate", "Which JHLPAA findings can we verify further, and what evidence remains unavailable?")
+        elif is_cap:
+            add("investigate", "Which contract and roster evidence is still needed to complete this assessment?")
+        elif is_team:
+            add("investigate", "What current-season evidence can we verify to strengthen this team assessment?")
+        elif is_player:
+            add("investigate", "What additional verified evidence would change this player assessment?")
+    if is_trade:
+        add("investigate", "Examine the roster and salary-cap consequences of the trade options we discussed")
+    if is_fantasy:
+        add("adjacent", "Which JHLPAA teams have changed their rosters or trading blocks recently?")
+        add("thematic", "Compare the recent JHLPAA movers and their upcoming schedules")
+    elif is_team:
+        add("adjacent", "Which players and prospects could change this team's outlook?")
+        add("thematic", "How does this team's roster construction compare with similar NHL teams?")
+    elif is_player:
+        add("adjacent", "How does this player fit into their team's current roster plans?")
+        add("thematic", "Compare this player's role and contract with similar NHL players")
+    elif is_cap:
+        add("adjacent", "Explore the roster decisions affected by these contract constraints")
+        add("thematic", "How have similar NHL teams managed these cap constraints?")
+    # No manufactured deeper research for generic or exhausted subjects.
+    if not options and title:
+        add("thematic", "Explore a related NHL team or player")
+    return options[:3]
+
+
+def _readable_public_text(value: str) -> str:
+    """Conservative layout normalization; do not rewrite evidence or editorial prose."""
+    text = _clean_public_text(value)
+    if not text or "\n" in text:
+        return text
+    # Preserve concise answers and abbreviations; only break very long prose
+    # at complete sentences, never manufacture headings or bullet points.
+    if len(text) < 750:
+        return text
+    parts = re.split(r"(?<=[.!?])\s+(?=[A-Z])", text)
+    if len(parts) < 5:
+        return text
+    paragraphs, current = [], []
+    for sentence in parts:
+        current.append(sentence)
+        if len(" ".join(current)) >= 320:
+            paragraphs.append(" ".join(current))
+            current = []
+    if current:
+        paragraphs.append(" ".join(current))
+    return "\n\n".join(paragraphs)
+
+
 PUBLIC_COMPOSERS = {
     "player_analysis": _compose_player_public,
     "public_player_profile": _compose_player_public,
@@ -427,7 +495,7 @@ def compose_answer_payload(answer: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     composed = dict(answer)
-    public_comment = _compose_public_comment(composed)
+    public_comment = _readable_public_text(_compose_public_comment(composed))
     composed["public_comment"] = public_comment
     # Collapse legacy answer aliases onto the public surface so older consumers
     # cannot accidentally render stale diagnostic/fallback prose.
@@ -437,8 +505,20 @@ def compose_answer_payload(answer: Dict[str, Any]) -> Dict[str, Any]:
     composed["diagnostics"] = diagnostics
     composed["display_contract"] = "public_comment_only"
     composed["diagnostic_keys"] = list(DIAGNOSTIC_KEYS)
-    if not composed.get("suggested_prompts"):
-        composed["suggested_prompts"] = _default_followups(composed)
+    # Preserve explicit domain-specific suggestions; enrich sparse paths through
+    # one shared, evidence-aware completion contract.
+    existing = [x for x in _as_list(composed.get("suggested_prompts"), 4) if isinstance(x, str) and x.strip()]
+    if not existing:
+        existing = _default_followups(composed)
+    options = _continuation_options(composed)
+    for item in options:
+        if len(existing) >= 3:
+            break
+        if item["prompt"] not in existing:
+            existing.append(item["prompt"])
+    composed["suggested_prompts"] = existing[:3]
+    composed["continuation_options"] = options
+    composed["presentation_contract"] = {"schema": "scout.presentation.v1", "kind": "editorial" if composed.get("editorial_report") else "analysis", "has_structured_experience": bool(composed.get("experience"))}
     return attach_experience_contract(composed)
 
 

@@ -1,0 +1,13 @@
+AthenaEngine v0.7.10.44.0 — Evidence-to-Decision and Presentation Preservation
+
+Changes:
+- Toronto exploratory trade decision now compares three acquisition structures, left-wing displacement, futures costs, cap constraints and three-year fit instead of displaying an internal instruction.
+- First-round follow-up evaluates what the asset changes and the condition for spending it; does not invent player availability or price.
+- Contract-priority inquiry returns a decision hierarchy rather than an instruction to assemble one.
+- Scout preserves numeric recorded activity facts on applicable fantasy activity questions when question metadata is available.
+
+Validation: Python compilation, prior conversation-integrity regression, and three decision-inquiry smoke tests passed.
+
+Known gaps: live market target acquisition, complete cap ledger, Fantrax period timestamps, and activity rank sourcing are not implemented by this patch. No Studio runtime test has been performed.
+
+Studio: extract overlay into F:\Development; reload Studio; Verify Build; run Toronto trade, first-round follow-up, contracts, and JHLPAA activity tests.

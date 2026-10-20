@@ -1,0 +1,11 @@
+AthenaEngine v0.7.10.45.0 — Period Evidence Diagnostics & Decision Gates
+
+Changes:
+- Player-stat schema inspection limits historical season selector metadata to period selectors.
+- Internal provider schema diagnostics move from user-visible observed facts to bounded investigation trace.
+- Toronto trade analysis states explicit evidence and feasibility gates before recommending targets.
+- Added offline temporal/provider and trade-decision regression checks.
+
+NOT RESOLVED: Fantrax player scoring-period selection, verified scoring boundaries, named trade candidate acquisition, or cap ledger. Do not mark these PASS on the strength of this build.
+
+Studio acceptance: Reload Studio, Verify Build, ask JHLPAA weekly report and Toronto trade/first-round follow-up. Verify no giant season selector dump in observed facts, no invented period production or named targets. Report results before locking.

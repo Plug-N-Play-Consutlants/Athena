@@ -1,0 +1,36 @@
+AthenaEngine v0.7.10.43.0 — Conversation Integrity & Domain-Safe Presentation
+
+Extract overlay rooted AthenaEngine/ into F:\Development, reload Studio, Verify Build.
+
+Source-traced defects:
+- Scout.conversation.composition._continuation_options inferred fantasy domain from
+  incidental words in answer body. A professional contract answer containing a
+  league reference generated JHLPAA follow-ups.
+- Scout.app /api/ask forwarded continuation only for suggested-prompt clicks;
+  manually typed follow-ups did not carry the immediately preceding decision subject.
+- Core/version.py was reporting 0.7.10.42.0 with release patch 41 and release
+  name from v41.
+
+Corrections:
+- Domain-specific follow-ups are determined from Athena's selected execution
+  route and mode, never from incidental source text. Cross-domain suggestions
+  are filtered, including suggestions supplied by older specialists.
+- Narrow same-session, same-mode typed follow-up continuation for an established
+  NHL decision context, with explicit subject changes and fantasy queries excluded.
+- Synchronized Athena/Scout version and patch metadata.
+- New integrated regression covers visible suggestions, cross-domain isolation,
+  typed follow-up hints and version consistency.
+
+Local regression commands used in build environment:
+  Tests/validate_conversation_integrity_0710430.py
+  Tests/validate_question_first_routing_0710420.py
+  Tests/validate_inquiry_routing_0710400.py
+  Tests/validate_period_timeline_0710410.py
+
+Scope limitations:
+- This does not complete Fantrax period-boundary acquisition, historical
+  scoring attribution or evidence-rich NHL trade recommendations.
+- Session continuity is currently in-memory, per Scout server process, and
+  applies only to bounded NHL decision follow-ups. It is not yet a general
+  persistent conversation model.
+- No Studio Verify Build or live Fantrax execution was performed here.

@@ -11,8 +11,13 @@ def _describe(f):
     if kind == "trade_cluster":
         exchanges = []
         for exchange in f.get("exchanges", []):
-            exchanges.append("; ".join(f"{club} acquired {', '.join(assets)}" for club, assets in exchange.get("received", {}).items() if assets))
-        return f"{team} completed {f['trade_count']} separate trades, making it the week's busiest trading team. " + " ".join(exchanges) + ". The exchanges are confirmed; their competitive impact remains to be seen."
+            parts = [f"{club} acquired {', '.join(assets)}" for club, assets in exchange.get("received", {}).items() if assets]
+            if parts:
+                exchanges.append("; ".join(parts))
+        detail = ". ".join(exchanges)
+        return (f"{team} completed {f['trade_count']} separate trades, making it the week's busiest trading team. "
+                + (detail + ". " if detail else "")
+                + "The exchanges are confirmed; their competitive impact remains to be seen.")
     if kind == "trade":
         return f"The league recorded {f['trade_count']} trades this period. Their competitive impact remains to be established."
     if kind == "surge":

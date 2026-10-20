@@ -116,7 +116,7 @@ def main() -> int:
     check("development_followup_uses_question", development.get("intent") == "public_player_investigation" and "development" in development.get("title", "") and "current NHL role" in development.get("public_comment", ""))
     roster = execute_request(AthenaRequest("How does Sebastian Aho fit into the current roster?", mode="public", context=SimpleNamespace(files_loaded=[]), continuation=player_continuation))
     check("roster_followup_uses_question", roster.get("intent") == "public_player_investigation" and "organizational fit" in roster.get("title", ""))
-    check("client_continuation_seam", 'continuation: answer.continuation' in app and 'card.continuation || null' in app and 'continuation=body.get("continuation")' in ask_endpoint)
+    check("client_continuation_seam", 'continuation: answer.continuation' in app and 'card.continuation || null' in app and 'continuation = body.get("continuation")' in ask_endpoint and '_session_continuation(question_text, selected_mode)' in ask_endpoint)
     for module_name in {spec.module for spec in SPECIALISTS.values()}:
         path = ROOT / (module_name.replace(".", "/") + ".py")
         declared = {node.name for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))) if isinstance(node, ast.FunctionDef)}

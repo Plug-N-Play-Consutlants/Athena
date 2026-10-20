@@ -397,7 +397,18 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         conclusion = compose_period_report(research=athena_research)
         # Latest archive is not synonymous with the latest completed scoring period.
         # Surface the evidence boundary in the editorial text, not only diagnostics.
-        if not explicit_week:
+        calendar = execution.get("period_calendar") or {}
+        if calendar.get("status") == "verified_boundary":
+            calendar_kind = "scoring" if ".scoringPeriods" in calendar.get("source", "") else "roster"
+            coverage = (f"Fantrax {calendar_kind} period {calendar['period']} runs from "
+                        f"{calendar['start']} through {calendar['end']}. "
+                        f"Its calendar window {'has ended' if calendar.get('completed') else 'has not ended'}. ")
+            if calendar_kind == "roster":
+                coverage += "Roster-period dates have not been verified as scoring-period dates. "
+            coverage += ("The calendar alone does not establish finalized standings, lineup eligibility, "
+                         "or the latest completed scoring period. Player-period production remains subject to independent verification.")
+            conclusion += "\n\nPeriod coverage\n\n" + coverage
+        elif not explicit_week:
             period_label = f"Week {standings_period}" if standings_period is not None else "the available archive"
             conclusion += ("\n\nPeriod coverage\n\nThis report reflects " + period_label +
                            ", the latest period supported by the available archive. "
@@ -565,23 +576,36 @@ def most_active_managers(ctx: ScoutContext) -> Dict[str, Any]:
     if not observed:
         observed = ["No manager behavior records are available yet."]
 
+    if top:
+        leader = top[0]
+        leader_count = _transaction_count(leader)
+        ranking = "; ".join(f"{row.get('manager_name')}: {_transaction_count(row)}" for row in top)
+        narrative = (f"In the observed transaction-history window, {leader.get('manager_name')} leads with "
+                     f"{leader_count} recorded moves. The five most active teams are {ranking}. "
+                     "These totals count recorded transactions, not negotiations or trading-block interest. "
+                     "Activity indicates willingness to change a roster, but it does not establish a manager's motive, "
+                     "whether a move improved the team, or which club was most active specifically last week.")
+    else:
+        narrative = "No manager transaction records are available for a supported activity comparison."
     return response(
         intent="most_active_managers",
         title="Most active managers",
-        engine_conclusion="The most active managers are the ones with the highest observed transaction counts in the current transaction-history window.",
+        engine_conclusion=narrative,
+        natural_language_response=narrative,
         observed_facts=observed,
-        known_limitations=["This measures observed transaction activity only. It does not yet include trade negotiations, rejected trades, or official finance-page balances."],
+        known_limitations=["Transaction-history window is not independently established as last week or the current scoring period.",
+                           "Counts exclude negotiations, rejected trades and trading-block changes."],
         confidence=0.86 if top else 0.2,
         cards=[{"label": row.get("manager_name"), "value": _transaction_count(row)} for row in top],
         developer=developer_info(
-            "most_active_managers",
-            ctx.files_loaded,
+            "most_active_managers", ctx.files_loaded,
             knowledge_used=["transaction_history"],
             intelligence_used=["manager_behavior"],
             files_read=["Output/manager_behavior.json"],
-            missing=["relationship_graph", "trade_history"],
+            missing=["transaction_window_bounds", "trading_block_history"],
         ),
     )
+
 
 
 def league_market(ctx: ScoutContext) -> Dict[str, Any]:

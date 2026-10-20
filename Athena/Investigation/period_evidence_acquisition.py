@@ -157,6 +157,12 @@ def inspect_player_stats_schema(payload: Any) -> dict:
              if (label := safe_label(item.get(field))) is not None}
             for item in options[:100] if isinstance(item, dict)
         ]
+    # Report only selectors relevant to the requested scoring season. The
+    # full historical selector catalog obscures useful acquisition failures.
+    result["season_option_metadata"] = [
+        item for item in result.get("season_option_metadata", [])
+        if str(item.get("code", "")).endswith("_BY_PERIOD")
+    ][:12]
     page = data.get("paginatedResultSet")
     if isinstance(page, dict):
         result["pagination_values"] = {
@@ -200,6 +206,7 @@ def acquire_player_period_production(*, league_id: str | None, season: Any,
         if selector:
             result["diagnostic"]["requested_season_selector"] = selector
             result["diagnostic"]["period_filter_status"] = "not_verified"
+            result["diagnostic"]["period_filter_reason"] = "BY_PERIOD does not establish an individual scoring-period argument"
         if client.is_error_payload(payload):
             result.update(status="source_error", reason="Fantrax rejected the configured player-stats request",
                               diagnostic=_safe_error(payload))

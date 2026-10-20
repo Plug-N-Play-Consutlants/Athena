@@ -366,49 +366,63 @@ def _default_followups(answer: Dict[str, Any]) -> List[str]:
         return ["What drives this player's organizational value?", "Compare this asset state to another player", "What evidence is still missing?"]
     return []
 
+def _answer_domain(answer: Dict[str, Any]) -> str:
+    """Domain is an execution property, never inferred from quoted evidence."""
+    dev = answer.get("developer") if isinstance(answer.get("developer"), dict) else {}
+    request = dev.get("athena_request") if isinstance(dev.get("athena_request"), dict) else {}
+    route = _clean_text(request.get("selected_route") or answer.get("intent")).lower()
+    mode = _clean_text(request.get("mode") or answer.get("request_mode") or answer.get("mode")).lower()
+    if route.startswith(("league_", "fantasy_")) or route in {"analyze_league", "league_recap"}:
+        return "fantasy"
+    if route.startswith(("public_", "live_event_")):
+        return "public"
+    if mode == "public":
+        return "public"
+    if mode in {"fantasy", "fantasy_league"}:
+        return "fantasy"
+    # Unknown domain must not generate cross-domain suggestions.
+    return "unknown"
+
+
 def _continuation_options(answer: Dict[str, Any]) -> List[Dict[str, str]]:
-    """Evidence-aware conversation exits, never a claim that research was done."""
+    """Offer only suggestions supported by the selected domain and inquiry."""
+    domain = _answer_domain(answer)
     intent = _clean_text(answer.get("intent")).lower()
-    title = _clean_text(answer.get("title"))
-    facts = _as_list(answer.get("observed_facts"), 24)
-    limits = _as_list(answer.get("known_limitations"), 24)
-    text = " ".join([title, _first_text(answer), *map(str, facts)]).lower()
-    is_fantasy = any(token in intent or token in text for token in ("fantasy", "jhlpaa", "fantrax", "league week"))
-    is_team = "team" in intent or any(x in text for x in ("maple leafs", "toronto", "roster", "defence", "defense"))
-    is_player = "player" in intent or any(x in text for x in ("matthews", "mcdavid", "nylander", "knies"))
-    is_trade = any(x in intent or x in text for x in ("trade", "transaction", "acquisition"))
-    is_cap = any(x in intent or x in text for x in ("salary cap", "cap hit", "ltir", "contract"))
+    text = " ".join((_clean_text(answer.get("title")), _first_text(answer))).lower()
     options: List[Dict[str, str]] = []
     def add(kind: str, prompt: str) -> None:
-        if prompt and not any(x["prompt"] == prompt for x in options):
+        if not any(item["prompt"] == prompt for item in options):
             options.append({"kind": kind, "prompt": prompt})
-    if limits:
-        if is_fantasy:
-            add("investigate", "Which JHLPAA findings can we verify further, and what evidence remains unavailable?")
-        elif is_cap:
-            add("investigate", "Which contract and roster evidence is still needed to complete this assessment?")
-        elif is_team:
-            add("investigate", "What current-season evidence can we verify to strengthen this team assessment?")
-        elif is_player:
-            add("investigate", "What additional verified evidence would change this player assessment?")
-    if is_trade:
-        add("investigate", "Examine the roster and salary-cap consequences of the trade options we discussed")
-    if is_fantasy:
-        add("adjacent", "Which JHLPAA teams have changed their rosters or trading blocks recently?")
-        add("thematic", "Compare the recent JHLPAA movers and their upcoming schedules")
-    elif is_team:
-        add("adjacent", "Which players and prospects could change this team's outlook?")
-        add("thematic", "How does this team's roster construction compare with similar NHL teams?")
-    elif is_player:
-        add("adjacent", "How does this player fit into their team's current roster plans?")
-        add("thematic", "Compare this player's role and contract with similar NHL players")
-    elif is_cap:
-        add("adjacent", "Explore the roster decisions affected by these contract constraints")
-        add("thematic", "How have similar NHL teams managed these cap constraints?")
-    # No manufactured deeper research for generic or exhausted subjects.
-    if not options and title:
-        add("thematic", "Explore a related NHL team or player")
+    if domain == "fantasy":
+        if "period_timing" in intent:
+            add("investigate", "Which NHL game sets the next JHLPAA lineup lock?")
+            add("thematic", "How do midweek trades affect this scoring period?")
+        elif "recap" in intent or intent == "analyze_league":
+            add("investigate", "Which JHLPAA roster moves affected this period?")
+            add("thematic", "Which teams moved in the JHLPAA standings this period?")
+        return options
+    if domain != "public":
+        return options
+    if "decision" in intent or "trade" in intent or "trade" in text:
+        add("investigate", "Compare the trade options against Toronto's roster and cap constraints" if "toronto" in text or "leafs" in text else "Compare the trade options against roster and cap constraints")
+        add("thematic", "Which assets would be hardest to replace over three seasons?")
+    elif "contract" in intent or "cap" in intent:
+        add("investigate", "Which contract and cap facts are needed to finish this assessment?")
+        add("thematic", "How would the contract affect roster flexibility?")
+    elif "player" in intent:
+        add("investigate", "What evidence would change this player assessment?")
+    elif "team" in intent:
+        add("investigate", "Which roster and prospect developments could change this team's outlook?")
     return options[:3]
+
+
+def _valid_followup(prompt: str, domain: str) -> bool:
+    low = prompt.casefold()
+    if domain == "public" and any(term in low for term in ("jhlpaa", "fantrax", "fantasy league", "league week")):
+        return False
+    if domain == "fantasy" and any(term in low for term in ("nhl trade market", "nhl contract decisions")):
+        return False
+    return domain != "unknown"
 
 
 def _readable_public_text(value: str) -> str:
@@ -496,6 +510,20 @@ def compose_answer_payload(answer: Dict[str, Any]) -> Dict[str, Any]:
 
     composed = dict(answer)
     public_comment = _readable_public_text(_compose_public_comment(composed))
+    # For transaction-activity questions, preserve verified ranked evidence that
+    # may already be present in Athena's observed facts. Never infer period scope.
+    intent_text = _clean_text(composed.get("intent")).casefold()
+    question_text = _clean_text(composed.get("question") or composed.get("user_question") or "").casefold()
+    if ("fantasy" in _answer_domain(composed) or "league" in intent_text) and any(
+        term in question_text for term in ("active", "activity", "transactions", "managers", "trades")
+    ):
+        ranked = [fact for fact in _facts(composed, 12)
+                  if re.search(r"\b(?:transactions?|moves?|trades?)\b", fact, re.I)
+                  and re.search(r"\b\d+\b", fact)]
+        if ranked and not any(fact in public_comment for fact in ranked[:5]):
+            public_comment = public_comment.rstrip() + "\n\nRecorded activity:\n" + "\n".join(
+                "• " + fact for fact in ranked[:5] if fact not in public_comment
+            )
     composed["public_comment"] = public_comment
     # Collapse legacy answer aliases onto the public surface so older consumers
     # cannot accidentally render stale diagnostic/fallback prose.
@@ -507,9 +535,10 @@ def compose_answer_payload(answer: Dict[str, Any]) -> Dict[str, Any]:
     composed["diagnostic_keys"] = list(DIAGNOSTIC_KEYS)
     # Preserve explicit domain-specific suggestions; enrich sparse paths through
     # one shared, evidence-aware completion contract.
-    existing = [x for x in _as_list(composed.get("suggested_prompts"), 4) if isinstance(x, str) and x.strip()]
+    domain = _answer_domain(composed)
+    existing = [x for x in _as_list(composed.get("suggested_prompts"), 4) if isinstance(x, str) and x.strip() and _valid_followup(x, domain)]
     if not existing:
-        existing = _default_followups(composed)
+        existing = [x for x in _default_followups(composed) if _valid_followup(x, domain)]
     options = _continuation_options(composed)
     for item in options:
         if len(existing) >= 3:
@@ -518,6 +547,7 @@ def compose_answer_payload(answer: Dict[str, Any]) -> Dict[str, Any]:
             existing.append(item["prompt"])
     composed["suggested_prompts"] = existing[:3]
     composed["continuation_options"] = options
+    composed["presentation_domain"] = domain
     composed["presentation_contract"] = {"schema": "scout.presentation.v1", "kind": "editorial" if composed.get("editorial_report") else "analysis", "has_structured_experience": bool(composed.get("experience"))}
     return attach_experience_contract(composed)
 

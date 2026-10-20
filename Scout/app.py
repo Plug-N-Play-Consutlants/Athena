@@ -139,6 +139,35 @@ def _session_answer_summary(answer: Dict[str, Any]) -> Dict[str, Any]:
     return record
 
 
+def _session_continuation(question: str, mode: str) -> Dict[str, Any] | None:
+    """Only resolve an elliptical follow-up against the preceding same-mode turn.
+
+    This is an advisory hint, not permission to reuse stale evidence. New named
+    subjects and explicit league changes are never overwritten by prior state.
+    """
+    import re
+    q = (question or "").strip().casefold()
+    if mode.strip().casefold() != "public" or not q:
+        return None
+    if any(token in q for token in ("jhlpaa", "fantrax", "fantasy league")):
+        return None
+    if re.search(r"\b(toronto|leafs|maple leafs|oilers|canadiens|senators|canucks|flames|jets|bruins|rangers)\b", q):
+        return None
+    if not re.search(r"\b(what if|those|these|that|this|our next|first.round pick|does that|would that|instead|still|which option)\b", q):
+        return None
+    with SESSION_LOCK:
+        if not SESSION_TRANSCRIPT:
+            return None
+        last = SESSION_TRANSCRIPT[-1]
+        if str(last.get("mode") or "").casefold() != "public":
+            return None
+        answer = last.get("answer") if isinstance(last.get("answer"), dict) else {}
+        hint = answer.get("continuation")
+        if not isinstance(hint, dict) or hint.get("origin_intent") != "public_nhl_decision_inquiry":
+            return None
+        return dict(hint)
+
+
 def _record_session_turn(question: str, mode: str, answer: Dict[str, Any], presentation_mode: str = "normal") -> int:
     with SESSION_LOCK:
         turn_id = len(SESSION_TRANSCRIPT) + 1
@@ -1581,7 +1610,10 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                     ctx = load_context()
                     presentation_mode = "developer" if bool(body.get("developer_mode")) else "normal"
                     stage = "athena_ask"
-                    answer = Athena.ask(question_text, context=ctx, mode=selected_mode, continuation=body.get("continuation"))
+                    continuation = body.get("continuation")
+                    if continuation is None:
+                        continuation = _session_continuation(question_text, selected_mode)
+                    answer = Athena.ask(question_text, context=ctx, mode=selected_mode, continuation=continuation)
                     # League analysis is a current-state operation. If Scout routes a
                     # fantasy prompt to league analysis, refresh the active workspace
                     # before composing the final answer so stale derived artifacts are

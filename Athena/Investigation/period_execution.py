@@ -21,8 +21,6 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         # Period/roster-effective ownership cannot be inferred from archived
         # standings alone. The timeline resolver requires verified league rules,
         # eligible puck-drop schedule and effective period end.
-        trace("athena.period_timeline", "awaiting_verified_boundaries",
-              "Archived week labels are not roster-effective timestamps")
         # Resolve the standings period before transaction selection.  An archived
         # period is available evidence, not proof that its scoring window closed.
         from Athena.Investigation.league_recap import resolve_archived_period, research_period
@@ -33,6 +31,15 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         except ValueError:
             archive_league, archive_season = None, None
         selected_period = int(explicit_week.group(1)) if explicit_week else resolve_archived_period(OUTPUT_DIR, archive_league, archive_season)
+        # Official Fantrax league-info contract exposes period date ranges.
+        # A completed calendar window is not proof of finalized standings.
+        from Athena.Investigation.fantrax_period_calendar import acquire_period_calendar
+        period_calendar = acquire_period_calendar(archive_league, archive_season, selected_period)
+        trace("provider.fantrax.period_calendar", period_calendar.get("status", "unavailable"),
+              f"period={selected_period}; source={period_calendar.get('source', 'none')}; "
+              f"completed={period_calendar.get('completed', False)}")
+        trace("athena.period_timeline", "calendar_boundary_verified" if period_calendar.get("status") == "verified_boundary" else "awaiting_verified_boundaries",
+              f"period={selected_period}; source={period_calendar.get('source', 'none')}; scoring_vs_roster={('scoring' if '.scoringPeriods' in period_calendar.get('source', '') else 'roster_only' if '.rosterPeriods' in period_calendar.get('source', '') else 'unknown')}")
         activity = summarize_recent_league_activity(ctx.transaction_history or {}, days=7,
             period=selected_period if selected_period is not None else None)
         highlights = activity.get("highlights") or []
@@ -49,7 +56,15 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
                        "evidence": [h.get("transaction_id")] if h.get("transaction_id") else [],
                        "uncertainty": ["Impact not established without standings and player performance"]}
                       for h in highlights])
-        facts = [
+        facts = []
+        if period_calendar.get("status") == "verified_boundary":
+            facts.append(f"Fantrax {period_calendar['source']} period {selected_period}: "
+                         f"{period_calendar['start']} through {period_calendar['end']}; "
+                         f"calendar window {'ended' if period_calendar['completed'] else 'ongoing'}. "
+                         "Standings finalization and lineup eligibility remain independently unverified.")
+        else:
+            facts.append("Fantrax scoring-period date boundaries not independently verified.")
+        facts += [
             f"Time scope: {inquiry.temporal_scope.label}; " + (f"canonical season week {explicit_week.group(1)}." if explicit_week else "rolling seven calendar days; league-period alignment unverified."),
             f"Canonical transactions in scope: {activity.get('transaction_count', 0)} across {activity.get('team_count', 0)} observed teams.",
         ]
@@ -86,6 +101,17 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
                 # An archive is evidence of availability, not proof a period has closed.
                 standings_period = max(archived) if archived else None
             if standings_period is not None:
+                # Reconcile the calendar when archive fallback changes the period.
+                if standings_period != selected_period:
+                    period_calendar = acquire_period_calendar(archive_league, archive_season, standings_period)
+                    trace("provider.fantrax.period_calendar", period_calendar.get("status", "unavailable"),
+                          f"period={standings_period}; source={period_calendar.get('source', 'none')}; reconciled=true")
+                    trace("athena.period_timeline",
+                          "calendar_boundary_verified" if period_calendar.get("status") == "verified_boundary"
+                          else "awaiting_verified_boundaries", f"period={standings_period}; reconciled=true")
+                    if period_calendar.get("status") == "verified_boundary":
+                        facts.append(f"Reconciled Fantrax {period_calendar['source']} period {standings_period}: "
+                                     f"{period_calendar['start']} through {period_calendar['end']}.")
                 fetcher = None
                 try:
                     from Providers.Fantrax.fantrax_client import FantraxClient
@@ -143,8 +169,11 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         if inspection:
             # Only metadata constructed from fixed allowlisted fields.
             import json as _json
-            facts.append("Player-period response schema inspection: " +
-                         _json.dumps(inspection, sort_keys=True, separators=(",", ":")) + ".")
+            # Diagnostic metadata is for the developer trace, not the league
+            # editorial or the user-facing observed-facts feed. Keep a concise
+            # acquisition summary; retain bounded schema detail in the trace.
+            trace("provider.fantrax.player_stats_schema", "inspected",
+                  _json.dumps(inspection, sort_keys=True, separators=(",", ":"))[:2400])
         # Report evidence coverage as an actual inspection, not a claim that a
         # player-statistics provider was queried. Player master is identity data.
         player_records = ctx.player_master if isinstance(ctx.player_master, list) else []
@@ -206,7 +235,7 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             context=recap_context, coverage=evidence_coverage)
         trace("athena.research", "synthesized_partial" if any(v in {"not_attempted", "not_acquired", "incomplete", "not_reconciled", "failed", "source_error", "wrong_period", "invalid_schema"} for v in evidence_coverage.values()) else "synthesized", f"findings={len(athena_research['findings'])}; structured contract v1")
         return {
-            "selected_period": selected_period, "standings_period": standings_period,
+            "selected_period": selected_period, "standings_period": standings_period, "period_calendar": period_calendar,
             "activity": activity, "editorial": editorial, "dossier": dossier,
             "facts": facts, "highlights": highlights,
             "standings_comparison": standings_comparison, "standings_summary": standings_summary,

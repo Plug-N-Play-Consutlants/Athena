@@ -8,18 +8,15 @@ def test_period_calendar_propagation():
     assert '"period_calendar": period_calendar' in execution
     assert 'calendar_boundary_verified' in execution
     assert 'calendar = execution.get("period_calendar")' in router
-    assert 'Roster-period dates have not been verified as scoring-period dates.' in router
-    assert 'The calendar alone does not establish finalized standings' in router
+    assert 'calendar dates alone do not establish finalized scoring results' in router
 
-def test_calendar_scoring_roster_distinction():
-    from Athena.Investigation.fantrax_period_calendar import parse_period_calendar
-    payload = {'data': {'rosterPeriods': [{'period': 2, 'startDate': '2026-10-05', 'endDate': '2026-10-12'}]}}
+def test_unified_calendar_accepts_one_schedule_and_rejects_conflicts():
+    from Athena.Investigation.fantrax_period_calendar import resolve_unified_period
+    schedule = [{'period': 2, 'startDate': '2026-10-05', 'endDate': '2026-10-12'}]
     from datetime import date
-    got = parse_period_calendar(payload, 2, today=date(2026,10,19))
-    assert got['status'] == 'verified_boundary'
-    assert got['source'].endswith('.rosterPeriods')
-    assert got['completed'] is True
-    payload['data']['scoringPeriods'] = [{'period': 2, 'startDate': '2026-10-06', 'endDate': '2026-10-13'}]
-    got = parse_period_calendar(payload, 2, today=date(2026,10,19))
-    assert got['source'].endswith('.scoringPeriods')
-    assert got['start'] == '2026-10-06'
+    got = resolve_unified_period({'rosterPeriods': schedule}, today=date(2026,10,19))
+    assert got['status'] == 'calendar_closed'
+    assert got['start'] == '2026-10-05'
+    conflict = resolve_unified_period({'rosterPeriods': schedule, 'scoringPeriods': [
+        {'period': 2, 'startDate': '2026-10-06', 'endDate': '2026-10-13'}]}, today=date(2026,10,19))
+    assert conflict['status'] == 'calendar_conflict'

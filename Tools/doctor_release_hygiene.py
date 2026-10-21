@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tomllib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -67,15 +68,25 @@ def build_report() -> Dict[str, Any]:
     check("requirements.txt present", requirements.exists(), str(requirements.relative_to(PROJECT_ROOT)) if requirements.exists() else "missing")
     check("GitHub workflow present", workflow.exists(), str(workflow.relative_to(PROJECT_ROOT)) if workflow.exists() else "missing")
     check("requests dependency declared", "requests" in pyproject_text and "requests" in requirements_text, "requests declared in pyproject and requirements")
-    package_match = re.search(r'(?m)^version\s*=\s*["\']([^"\']+)["\']', pyproject_text)
-    package_version = package_match.group(1) if package_match else ""
-    check("distribution metadata matches runtime", package_version == ATHENA_VERSION,
-          f"pyproject={package_version or 'missing'}; runtime={ATHENA_VERSION}")
-    tool_section = re.search(r'(?ms)^\[tool\.athena\]\s*$(.*?)(?=^\[|\Z)', pyproject_text)
-    build_match = re.search(r'(?m)^\s*build\s*=\s*["\']([^"\']+)["\']', tool_section.group(1)) if tool_section else None
-    custom_build = build_match.group(1) if build_match else ""
-    check("Athena custom build metadata matches runtime", custom_build == ATHENA_BUILD,
-          f"tool.athena.build={custom_build or 'missing'}; runtime={ATHENA_BUILD}")
+    try:
+        metadata = tomllib.loads(pyproject_text)
+    except tomllib.TOMLDecodeError:
+        metadata = {}
+    project = metadata.get("project", {})
+    dynamic_version = "version" in project.get("dynamic", [])
+    version_attribute = metadata.get("tool", {}).get("setuptools", {}).get("dynamic", {}).get("version", {}).get("attr")
+    check("distribution version derives from runtime source",
+          dynamic_version and version_attribute == "Core.version.ATHENA_VERSION",
+          f"project.dynamic.version={dynamic_version}; attr={version_attribute or 'missing'}; runtime={ATHENA_VERSION}")
+    athena_metadata = metadata.get("tool", {}).get("athena", {})
+    build_attribute = athena_metadata.get("build", {}).get("attr") if isinstance(athena_metadata.get("build"), dict) else None
+    release_attribute = athena_metadata.get("release_name", {}).get("attr") if isinstance(athena_metadata.get("release_name"), dict) else None
+    check("Athena custom build metadata derives from runtime source",
+          build_attribute == "Core.version.ATHENA_BUILD" and ATHENA_BUILD == ATHENA_VERSION,
+          f"tool.athena.build.attr={build_attribute or 'missing'}; runtime={ATHENA_BUILD}")
+    check("release name derives from runtime source",
+          release_attribute == "Core.version.RELEASE_NAME",
+          f"tool.athena.release_name.attr={release_attribute or 'missing'}; runtime={RELEASE_NAME}")
     check("version schema locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA)
     check("Athena/Scout build aligned", SCOUT_VERSION == f"v{ATHENA_VERSION}" and ATHENA_BUILD == ATHENA_VERSION, f"Athena={ATHENA_VERSION}; Scout={SCOUT_VERSION}; Build={ATHENA_BUILD}")
     check("Athena package version unified", _version_from_init(PROJECT_ROOT / "Athena" / "__init__.py") == ATHENA_VERSION, _version_from_init(PROJECT_ROOT / "Athena" / "__init__.py") or "missing")

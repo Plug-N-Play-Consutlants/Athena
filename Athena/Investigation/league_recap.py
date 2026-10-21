@@ -31,7 +31,7 @@ def _activity_context(history, period, comparison):
     Multiple weeks are only comparable when the source actually contains rows
     from both periods; absence of historical records is not proof of silence.
     """
-    records = history.get("records", []) if isinstance(history, dict) else []
+    records = (history.get("records") or []) if isinstance(history, dict) else []
     if not isinstance(records, list) or not isinstance(period, int) or period < 2:
         return {}
     observed = set()

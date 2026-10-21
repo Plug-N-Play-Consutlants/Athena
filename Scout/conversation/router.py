@@ -233,7 +233,7 @@ def _num(value: Any) -> str:
 
 def _manager_records(ctx: ScoutContext) -> List[Dict[str, Any]]:
     payload = ctx.manager_behavior or {}
-    records = payload.get("records") if isinstance(payload, dict) else []
+    records = payload.get("records") or [] if isinstance(payload, dict) else []
     return [r for r in records if isinstance(r, dict)]
 
 
@@ -405,7 +405,9 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         limitations = ["Player-level scoring and keeper-fit conclusions require verified period-specific production, deployment and contract evidence; acquisition and validation status is recorded separately."]
         if not standings_comparison or standings_comparison.get("status") != "compared":
             limitations.append("A complete two-period standings comparison is not verified.")
-        answer=response(intent="analyze_league",title=(f"Around the {profile['league_name']} | Week {standings_period} (completion unverified)" if standings_period and not explicit_week else f"Around the {profile['league_name']} | Week {standings_period}" if standings_period else f"{profile['league_name']}: recent league recap"),
+        calendar = execution.get("period_calendar") if isinstance(execution.get("period_calendar"), dict) else {}
+        completion_note = " (completion unverified)" if standings_period and not calendar.get("completed") else ""
+        answer=response(intent="analyze_league",title=(f"Around the {profile['league_name']} | Week {standings_period}{completion_note}" if standings_period else f"{profile['league_name']}: recent league recap"),
                         engine_conclusion=conclusion,natural_language_response=conclusion,observed_facts=facts,
                         known_limitations=limitations,confidence=(.68 if highlights and standings_comparison and standings_comparison.get("status") == "compared" else .55),
                         cards=[{"label":"Transactions in scope","value":activity.get("transaction_count",0)},
@@ -450,17 +452,23 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
             answer["known_limitations"] = [item for item in answer.get("known_limitations", []) if "standings" not in item.lower()]
         if standings_comparison and standings_comparison.get("status") != "compared":
             answer["known_limitations"].append("Archived standings comparison is incomplete; do not infer team movement.")
-        if not explicit_week:
-            answer["known_limitations"].append("The selected period is not independently verified as completed; roster calendar dates alone do not establish scoring completion.")
+        if not calendar.get("completed"):
+            if calendar.get("status") == "verified_boundary":
+                answer["known_limitations"].append("The selected period has verified calendar boundaries, but calendar dates alone do not establish finalized scoring results.")
+            else:
+                answer["known_limitations"].append("The selected period is not independently verified as completed.")
         if selected_period is None:
-            answer["known_limitations"].append("No verified scoring-period identity; transactions use a rolling seven-day window.")
+            answer["known_limitations"].append("No verified scoring-period identity; transactions are omitted rather than attributed to a rolling seven-day window.")
         elif activity.get("scope_method") == "explicit_period":
             answer["known_limitations"].append("Transaction membership uses recorded season-week labels; independent date-boundary reconciliation is pending.")
         answer["developer"]["evidence_requirements"]=["time_scoped_transactions","standings","current_player_performance"]
         answer["editorial_report"] = True
         answer["normal_detail"] = False
         answer["developer"]["response_role"] = "editorial"
-        answer["developer"]["period_selection"] = {"period": selected_period, "explicit": bool(explicit_week), "completion_verified": False}
+        answer["developer"]["period_selection"] = {
+            "period": selected_period, "explicit": bool(explicit_week),
+            "completion_verified": bool(calendar.get("completed")),
+        }
         return answer
 
     subtype = str(profile.get("league_subtype") or "").replace("_", " ").strip()

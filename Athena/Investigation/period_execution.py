@@ -5,8 +5,77 @@ select sources, acquire standings, reconcile evidence or assert completeness.
 """
 from __future__ import annotations
 
+from datetime import date, datetime
 import re
 from typing import Any
+
+
+_DATE_RANGE = re.compile(
+    r"\b(?P<month>January|February|March|April|May|June|July|August|September|October|November|December|"
+    r"Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\s+"
+    r"(?P<start>\d{1,2})\s*(?:to|through|[-\u2013\u2014])\s*"
+    r"(?P<end>\d{1,2})(?:,?\s+(?P<year>\d{4}))?\b",
+    re.IGNORECASE,
+)
+_ISO_DATE_RANGE = re.compile(
+    r"\b(?P<start>\d{4}-\d{2}-\d{2})\s*(?:to|through|[-\u2013\u2014])\s*"
+    r"(?P<end>\d{4}-\d{2}-\d{2})\b",
+    re.IGNORECASE,
+)
+
+
+def _explicit_period_request(question: str) -> tuple[int | None, tuple[date, date] | None, str | None, bool]:
+    numbered = re.search(r"\b(?:week|period)\s*(\d+)\b", question, re.IGNORECASE)
+    if numbered:
+        return int(numbered.group(1)), None, f"Period {numbered.group(1)}", False
+    iso = _ISO_DATE_RANGE.search(question)
+    if iso:
+        try:
+            start, end = date.fromisoformat(iso.group("start")), date.fromisoformat(iso.group("end"))
+        except ValueError:
+            return None, None, "Invalid requested date range", False
+        return None, (start, end), f"{start.isoformat()} through {end.isoformat()}", False
+    named = _DATE_RANGE.search(question)
+    if named:
+        month = named.group("month")
+        year = int(named.group("year")) if named.group("year") else None
+        try:
+            start = datetime.strptime(f"{month} {named.group('start')} {year or 2000}", "%B %d %Y").date()
+        except ValueError:
+            try:
+                start = datetime.strptime(f"{month} {named.group('start')} {year or 2000}", "%b %d %Y").date()
+            except ValueError:
+                return None, None, "Invalid requested date range", False
+        try:
+            end = start.replace(day=int(named.group("end")))
+        except ValueError:
+            return None, None, "Invalid requested date range", False
+        if end < start:
+            return None, None, "Invalid requested date range", False
+        label = (f"{start.isoformat()} through {end.isoformat()}" if year
+                 else f"{month} {start.day}-{end.day} (year unspecified)")
+        return None, (start, end), label, year is None
+    return None, None, None, False
+
+
+def _match_date_period(schedule: dict, requested: tuple[date, date], *, year_unspecified: bool = False) -> int | None:
+    start, end = requested
+    matches = []
+    for period, bounds in schedule.items():
+        try:
+            candidate_start = date.fromisoformat(str(bounds["start"]))
+            candidate_end = date.fromisoformat(str(bounds["end"]))
+            matches_dates = (
+                (candidate_start.month, candidate_start.day, candidate_end.month, candidate_end.day)
+                == (start.month, start.day, end.month, end.day)
+                if year_unspecified
+                else candidate_start == start and candidate_end == end
+            )
+            if matches_dates:
+                matches.append(int(period))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return matches[0] if len(matches) == 1 else None
 
 
 def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dict) -> dict:
@@ -17,7 +86,7 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             investigation_trace.append({"stage": stage, "status": status, "detail": str(detail)})
         trace("scout.route", "selected", "analyze_league: period recap")
         from Athena.Inquiry.execution import summarize_recent_league_activity
-        explicit_week = re.search(r"\bweek\s*(\d+)\b", question, re.IGNORECASE)
+        explicit_week, requested_dates, explicit_period_label, date_year_unspecified = _explicit_period_request(question)
         # Period/roster-effective ownership cannot be inferred from archived
         # standings alone. The timeline resolver requires verified league rules,
         # eligible puck-drop schedule and effective period end.
@@ -30,28 +99,57 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             archive_league, archive_season = resolve_league_context(ctx.league_profile, ctx.standings_archive)
         except ValueError:
             archive_league, archive_season = None, None
-        selected_period = int(explicit_week.group(1)) if explicit_week else resolve_archived_period(OUTPUT_DIR, archive_league, archive_season)
-        archive_period_unverified = explicit_week is None
-        period_resolution = None
         from Athena.Investigation.fantrax_period_calendar import acquire_unified_period
         unified = acquire_unified_period(archive_league, archive_season)
         trace("provider.fantrax.unified_period", unified.get("status", "unavailable"),
               f"period={unified.get('period')}; source={unified.get('source')}; reason={unified.get('reason')}")
-        if explicit_week is None and unified.get("status") == "calendar_closed":
+        schedule = unified.get("schedule") or {}
+        date_request_unmatched = False
+        invalid_date_request = explicit_period_label is not None and explicit_week is None and requested_dates is None
+        if invalid_date_request:
+            selected_period = None
+            date_request_unmatched = True
+        elif explicit_week is not None:
+            selected_period = explicit_week
+        elif requested_dates is not None:
+            selected_period = _match_date_period(schedule, requested_dates, year_unspecified=date_year_unspecified)
+            date_request_unmatched = selected_period is None
+        elif unified.get("status") == "calendar_closed":
             selected_period = unified["period"]
-            archive_period_unverified = False
-        bounds = (unified.get("schedule") or {}).get(selected_period) or {}
-        period_calendar = {"status": "verified_boundary" if bounds else "unverified",
-                           "period": selected_period, "start": bounds.get("start"), "end": bounds.get("end"),
-                           "completed": bool(bounds and unified.get("period") is not None and selected_period <= unified["period"]),
-                           "source": unified.get("source", "none")}
+        elif unified.get("status") == "calendar_conflict":
+            selected_period = None
+        else:
+            selected_period = resolve_archived_period(OUTPUT_DIR, archive_league, archive_season)
+        explicit_period = explicit_week is not None or requested_dates is not None or explicit_period_label is not None
+        archive_period_unverified = not explicit_period and unified.get("status") != "calendar_closed"
+        bounds = schedule.get(selected_period) or {}
+        period_numbers = sorted(int(number) for number in schedule if str(number).isdigit())
+        previous_period = max((number for number in period_numbers if selected_period is not None and number < selected_period), default=None)
+        next_period = min((number for number in period_numbers if selected_period is not None and number > selected_period), default=None)
+        calendar_closed_through = unified.get("period") if unified.get("status") == "calendar_closed" else None
+        period_calendar = {
+            "status": "calendar_conflict" if unified.get("status") == "calendar_conflict" else "verified_boundary" if bounds else "unverified",
+            "league_id": archive_league, "season": archive_season, "period": selected_period,
+            "start": bounds.get("start"), "end": bounds.get("end"),
+            "completed": bool(bounds and calendar_closed_through is not None and selected_period <= calendar_closed_through),
+            "completion_status": ("calendar_elapsed" if bounds and calendar_closed_through is not None and selected_period <= calendar_closed_through
+                                  else "ongoing_or_not_yet_closed" if bounds and calendar_closed_through is not None
+                                  else "unverified"),
+            "previous_period": previous_period, "next_period": next_period,
+            "timezone": "not provided by Fantrax calendar response",
+            "boundary_semantics": "provider calendar date bounds; timezone and intraday cutoff unverified",
+            "source": unified.get("source", "none"),
+            "verification_status": "provider_calendar_boundary" if bounds else unified.get("status", "unverified"),
+            "requested_period_label": explicit_period_label,
+            "requested_dates_matched": not date_request_unmatched if requested_dates is not None else None,
+        }
         trace("provider.fantrax.period_calendar", period_calendar["status"],
               f"period={selected_period}; source={period_calendar['source']}; completed={period_calendar['completed']}")
         trace("athena.period_timeline", "shared_boundary_verified" if bounds else "awaiting_verified_boundaries",
               f"period={selected_period}; source={period_calendar['source']}")
         activity = summarize_recent_league_activity(ctx.transaction_history or {}, days=7,
             period=selected_period if selected_period is not None else None,
-            period_bounds=bounds)
+            period_bounds=bounds, allow_rolling=False)
         highlights = activity.get("highlights") or []
         trace("athena.transactions", "executed", f"period={selected_period}; count={activity.get('transaction_count', 0)}; scope={activity.get('scope_method', 'unknown')}")
         from Athena.Investigation.league_editorial import investigate_league_period
@@ -67,7 +165,9 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
                        "uncertainty": ["Impact not established without standings and player performance"]}
                       for h in highlights])
         facts = []
-        if archive_period_unverified:
+        if date_request_unmatched:
+            facts.append(f"Requested date window {explicit_period_label} does not match exactly one authoritative Fantrax calendar period; no substitute period was selected.")
+        elif archive_period_unverified:
             facts.append("Selected period is an evidence-acquisition target, not independently verified as the latest completed scoring period.")
         elif unified.get("status") == "calendar_closed":
             facts.append(f"Fantrax scoring calendar identifies period {selected_period} as the latest elapsed period; official standings finalization remains unverified.")
@@ -79,7 +179,10 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         else:
             facts.append("Fantrax shared-period date boundaries not independently verified.")
         facts += [
-            f"Time scope: {inquiry.temporal_scope.label}; " + (f"canonical season week {explicit_week.group(1)}." if explicit_week else "shared league period selected where verified; no rolling-week substitution."),
+            f"Time scope: {inquiry.temporal_scope.label}; " + (
+                f"explicit {explicit_period_label}." if explicit_period_label else
+                "shared league period selected where verified; no rolling-week substitution."
+            ),
             f"Canonical transactions in scope: {activity.get('transaction_count', 0)} across {activity.get('team_count', 0)} observed teams.",
         ]
         types = activity.get("transaction_types") or {}
@@ -92,7 +195,10 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             facts.append(editorial["evidence_boundary"])
         if highlights:
             lead = highlights[0].get("summary")
-            conclusion = (f"For {'season week '+explicit_week.group(1) if explicit_week else inquiry.temporal_scope.label}, Athena found {activity.get('transaction_count', 0)} canonical transaction(s) "
+            scope_label = (f"season week {explicit_week}" if explicit_week is not None
+                           else f"date window {explicit_period_label}" if requested_dates is not None
+                           else inquiry.temporal_scope.label)
+            conclusion = (f"For {scope_label}, Athena found {activity.get('transaction_count', 0)} canonical transaction(s) "
                           f"in the requested window. The strongest transaction signal is: {lead} "
                           "This is a transaction-led briefing, not a complete league report: standings and player-performance evidence have not been reconciled.")
         else:
@@ -106,9 +212,8 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         standings_period = selected_period
         from Athena.Investigation.standings_acquisition import ensure_period_snapshots
         from Athena.Investigation.standings_archive import compare_archived
-        from Core.project_paths import OUTPUT_DIR
         if archive_league and archive_season:
-            if standings_period is None:
+            if standings_period is None and not explicit_period:
                 archive_dir = OUTPUT_DIR / "Standings" / str(archive_league) / str(archive_season)
                 archived = sorted(int(p.stem.split("_")[-1]) for p in archive_dir.glob("period_*.json")
                                   if p.stem.split("_")[-1].isdigit())
@@ -117,13 +222,19 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             if standings_period is not None:
                 # Reconcile the calendar when archive fallback changes the period.
                 if standings_period != selected_period:
-                    period_calendar = acquire_period_calendar(archive_league, archive_season, standings_period)
-                    trace("provider.fantrax.period_calendar", period_calendar.get("status", "unavailable"),
-                          f"period={standings_period}; source={period_calendar.get('source', 'none')}; reconciled=true")
+                    bounds = schedule.get(standings_period) or {}
+                    period_calendar.update({
+                        "period": standings_period, "start": bounds.get("start"), "end": bounds.get("end"),
+                        "status": "verified_boundary" if bounds else "unverified",
+                        "completed": bool(bounds and calendar_closed_through is not None and standings_period <= calendar_closed_through),
+                        "verification_status": "provider_calendar_boundary" if bounds else "unverified",
+                    })
+                    trace("provider.fantrax.period_calendar", period_calendar["status"],
+                          f"period={standings_period}; source={period_calendar['source']}; reconciled=true")
                     trace("athena.period_timeline",
-                          "calendar_boundary_verified" if period_calendar.get("status") == "verified_boundary"
-                          else "awaiting_verified_boundaries", f"period={standings_period}; reconciled=true")
-                    if period_calendar.get("status") == "verified_boundary":
+                          "calendar_boundary_verified" if bounds else "awaiting_verified_boundaries",
+                          f"period={standings_period}; reconciled=true")
+                    if bounds:
                         facts.append(f"Reconciled Fantrax {period_calendar['source']} period {standings_period}: "
                                      f"{period_calendar['start']} through {period_calendar['end']}.")
                 fetcher = None
@@ -247,6 +358,7 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             comparison=standings_comparison, editorial=editorial,
             activity=activity, history=ctx.transaction_history or {},
             context=recap_context, coverage=evidence_coverage)
+        athena_research["period_calendar"] = period_calendar
         trace("athena.research", "synthesized_partial" if any(v in {"not_attempted", "not_acquired", "incomplete", "not_reconciled", "failed", "source_error", "wrong_period", "invalid_schema"} for v in evidence_coverage.values()) else "synthesized", f"findings={len(athena_research['findings'])}; structured contract v1")
         return {
             "selected_period": selected_period, "standings_period": standings_period, "period_calendar": period_calendar,
@@ -256,5 +368,5 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             "recap_context": recap_context, "evidence_coverage": evidence_coverage,
             "acquisition_audit": acquisition_audit, "player_production_acquisition": player_production,
             "athena_research": athena_research,
-            "investigation_trace": investigation_trace, "explicit_week": bool(explicit_week),
+            "investigation_trace": investigation_trace, "explicit_week": explicit_period,
         }

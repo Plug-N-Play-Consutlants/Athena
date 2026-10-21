@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import sys
+import tomllib
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -36,7 +37,17 @@ def main() -> int:
     check("requirements present", requirements.exists(), "requirements.txt")
     check("workflow present", workflow.exists(), ".github/workflows/verify-build.yml")
     check("requests declared", "requests" in _read(pyproject) and "requests" in _read(requirements), "requests")
-    check("custom build metadata unified", f'build = "{ATHENA_BUILD}"' in _read(pyproject), ATHENA_BUILD)
+    metadata = tomllib.loads(_read(pyproject))
+    check("distribution version derives from Core.version",
+          metadata.get("project", {}).get("dynamic") == ["version"]
+          and metadata.get("tool", {}).get("setuptools", {}).get("dynamic", {}).get("version", {}).get("attr")
+          == "Core.version.ATHENA_VERSION", ATHENA_VERSION)
+    check("custom build metadata derives from Core.version",
+          metadata.get("tool", {}).get("athena", {}).get("build", {}).get("attr")
+          == "Core.version.ATHENA_BUILD", ATHENA_BUILD)
+    check("release name derives from Core.version",
+          metadata.get("tool", {}).get("athena", {}).get("release_name", {}).get("attr")
+          == "Core.version.RELEASE_NAME", RELEASE_NAME)
     check("Athena __version__ unified", "__version__ = ATHENA_VERSION" in _read(PROJECT_ROOT / "Athena" / "__init__.py"), "Athena/__init__.py")
     check("legacy doctor uses Core version", "VERSION = ATHENA_VERSION" in _read(PROJECT_ROOT / "Tools" / "doctor.py"), "Tools/doctor.py")
     check("Studio release hygiene action", "show_release_hygiene" in _read(studio) and "Release Hygiene" in _read(studio), "Tools/athena_studio.py")

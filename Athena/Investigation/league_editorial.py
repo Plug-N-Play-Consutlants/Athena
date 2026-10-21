@@ -27,7 +27,7 @@ def investigate_league_period(transaction_history, period, *, period_bounds=None
     from Athena.Inquiry.execution import _parse_time
     start, end = (period_bounds or {}).get("start"), (period_bounds or {}).get("end")
     records = []
-    for r in (transaction_history or {}).get("records", []):
+    for r in ((transaction_history or {}).get("records") or []):
         if not isinstance(r, dict):
             continue
         label = r.get("period") or r.get("season_week")

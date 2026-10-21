@@ -1,5 +1,8 @@
 """Scout-owned narrative: consumes analytical findings; does not investigate."""
 
+from datetime import date
+
+
 def _points(value):
     return f"{value:g}" if isinstance(value, (int, float)) else "unverified"
 
@@ -11,7 +14,8 @@ def _describe(f):
     if kind == "trade_cluster":
         exchanges = []
         for exchange in f.get("exchanges", []):
-            parts = [f"{club} acquired {', '.join(assets)}" for club, assets in exchange.get("received", {}).items() if assets]
+            received = exchange.get("received") if isinstance(exchange.get("received"), dict) else {}
+            parts = [f"{club} acquired {', '.join(assets)}" for club, assets in received.items() if assets]
             if parts:
                 exchanges.append("; ".join(parts))
         detail = ". ".join(exchanges)
@@ -19,7 +23,17 @@ def _describe(f):
                 + (detail + ". " if detail else "")
                 + "The exchanges are confirmed; their competitive impact remains to be seen.")
     if kind == "trade":
-        return f"The league recorded {f['trade_count']} trades this period. Their competitive impact remains to be established."
+        exchanges = []
+        for exchange in f.get("exchanges", []):
+            received = exchange.get("received") if isinstance(exchange.get("received"), dict) else {}
+            details = [f"{team} acquired {', '.join(assets)}" for team, assets in received.items() if assets]
+            if details:
+                exchanges.extend(details)
+        count = f["trade_count"]
+        trade_word = "trade" if count == 1 else "trades"
+        detail = " Verified movement: " + "; ".join(exchanges) + "." if exchanges else ""
+        return (f"The league recorded {count} {trade_word} this period.{detail} "
+                "Competitive impact remains to be established.")
     if kind == "surge":
         return f"{team} put up {_points(points)} points, {'the highest verified total' if f.get('top_score') else 'one of the top totals'} of the week, and climbed {movement} to rank {rank}."
     if kind == "scoring_leader":
@@ -41,14 +55,58 @@ def _describe(f):
     raise ValueError(f"Unsupported Athena research finding: {kind}")
 
 
+def _evidence_gaps(research):
+    coverage = research.get("coverage") if isinstance(research.get("coverage"), dict) else {}
+    labels = {
+        "period_standings": "Period standings and movement",
+        "player_period_production": "Individual player production",
+        "roster_and_keeper_context": "Historical roster and keeper context",
+        "injury_context": "Period-specific injury and lineup impact",
+        "draft_asset_context": "Dated draft-asset movement",
+        "trading_block": "Trading-block change history",
+    }
+    unresolved = []
+    for key, label in labels.items():
+        status = coverage.get(key)
+        if status in (None, "available", "verified"):
+            continue
+        if status == "snapshot_context_only":
+            description = "current snapshot only; not period history"
+        elif status == "ir_designations_only":
+            description = "roster designation only; medical timing is unverified"
+        elif status == "future_ownership_snapshot_only":
+            description = "current ownership snapshot; no dated movement link"
+        elif status == "unverified_period":
+            description = "the provider did not confirm the requested season and period"
+        elif status in {"not_attempted", "not_acquired", "not_reconciled", "incomplete"}:
+            description = "not available as verified period evidence"
+        else:
+            description = "not verified for this period"
+        unresolved.append(f"{label}: {description}")
+    return unresolved
+
+
 def compose_period_report(*, research):
     if research.get("schema") != "athena.league_period_research.v2":
         raise ValueError("Scout requires Athena structured research contract v2")
     label = f"Week {research['period']}" if research.get("period") else "recent activity"
+    calendar = research.get("period_calendar") if isinstance(research.get("period_calendar"), dict) else {}
+    if calendar.get("start") and calendar.get("end"):
+        try:
+            start = date.fromisoformat(calendar["start"])
+            end = date.fromisoformat(calendar["end"])
+            label += f" ({start.strftime('%B')} {start.day}-{end.day}, {end.year})"
+        except (TypeError, ValueError):
+            pass
     lines = [f"{research['league_name']} | {label}"]
     findings = research.get("findings") or []
     if not findings:
-        return "\n\n".join(lines + ["There isn't enough verified evidence to identify a league-wide development yet."])
+        lines.append("There isn't enough verified evidence to identify a league-wide development yet.")
+        gaps = _evidence_gaps(research)
+        if gaps:
+            lines.append("Evidence still missing")
+            lines.extend(gaps)
+        return "\n\n".join(lines)
     lead = findings[0]
     lines.extend(["The week's defining development", _describe(lead)])
     primary = [f for f in findings[1:] if f["kind"] not in ("secondary_market", "market", "quiet_watch", "quiet_success")]
@@ -63,7 +121,8 @@ def compose_period_report(*, research):
     if quiet:
         lines.append("Who's keeping quiet?")
         lines.extend(_describe(f) for f in quiet)
-    rows = research.get("comparison", {}).get("teams", [])
+    comparison = research.get("comparison")
+    rows = (comparison.get("teams") or []) if isinstance(comparison, dict) else []
     ranks = {}
     for row in rows:
         if isinstance(row, dict) and isinstance(row.get("rank"), int):
@@ -74,4 +133,8 @@ def compose_period_report(*, research):
         lines.append("The archive shows shared ranks: " + "; ".join(f"{rank}: {', '.join(sorted(names))}" for rank, names in sorted(tied.items())) + ". No tiebreak is assumed.")
     lines.append("What to watch")
     lines.append("Next week's results will help show which moves stick. Player-level contributions and trade impact still require verified period-specific evidence.")
+    gaps = _evidence_gaps(research)
+    if gaps:
+        lines.append("Evidence still missing")
+        lines.extend(gaps)
     return "\n\n".join(lines)

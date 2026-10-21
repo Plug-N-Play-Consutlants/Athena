@@ -1,3 +1,10 @@
+## v0.7.10.51.2 — Unified Fantasy Period Reporting & Release Metadata
+
+- Resolve explicit period numbers and exact date windows against the authoritative shared Fantrax period schedule; never silently substitute a different period.
+- Prevent weekly reports from using rolling seven-day transaction data when no period can be verified.
+- Include period boundaries and transparent evidence gaps in the editorial response, while preserving independently available standings and transaction findings.
+- Make distribution version, Athena build, and release name derive from `Core/version.py` so packaging cannot drift after a release increment.
+
 ## v0.6.5.0.1 — Fantrax Connection Persistence & Sync Status Hotfix
 
 - Made the active Fantrax workspace league ID authoritative and mirrors it into the legacy provider configuration only for valid live league IDs, preventing stale league reversion.

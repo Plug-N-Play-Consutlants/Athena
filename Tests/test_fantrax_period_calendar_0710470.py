@@ -13,11 +13,11 @@ def test_calendar():
     assert parse_period_calendar(payload, 3)['status'] == 'unverified'
     assert parse_period_calendar({'scoringPeriods': payload['scoringPeriods'] * 2}, 2)['status'] == 'unverified'
     roster = parse_period_calendar({'rosterPeriods': payload['scoringPeriods']}, 2, today=date(2026, 10, 17))
-    assert roster['source'].endswith('rosterPeriods') and not roster['completed']
+    assert roster['status'] == 'unverified'
+    assert 'rosterPeriods are not scoring periods' in roster['reason']
     class Client:
         def __init__(self, **kwargs): pass
-        def get(self, endpoint):
-            assert endpoint == 'https://www.fantrax.com/fxea/general/getLeagueInfo'
+        def get_league(self):
             return payload
     assert acquire_period_calendar('test', '2026', 2, Client)['status'] == 'verified_boundary'
 

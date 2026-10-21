@@ -10,7 +10,7 @@ class Fake:
     def get_optional_endpoint(self, name, default): return "configured/player_stats"
     def has_cookie_auth(self): return True
     def is_error_payload(self, payload): return bool(isinstance(payload,dict) and payload.get("error"))
-    def get_player_stats(self):
+    def get_player_stats(self, params=None):
         return {"season":"2026", "period":2, "players":[{"player_id":"p1", "goals":2, "assists":1}]}
 
 assert acquire(league_id="L",season="2026",period=2,client_factory=Fake)["verified"]

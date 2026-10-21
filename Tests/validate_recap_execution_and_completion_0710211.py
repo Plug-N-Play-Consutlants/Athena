@@ -12,7 +12,7 @@ from Athena.execution_registry import Specialist
 
 question = 'What happened in the JHLPAA this week?'
 route, reason = select_executable_route(question, 'fantasy')
-assert route == '' and reason == 'athena_entry_policy:league_recap', (route, reason)
+assert route == 'league_recap' and reason == 'athena_entry_policy:league_recap', (route, reason)
 with patch('Scout.conversation.router.analyze_league', return_value={'intent':'analyze_league','engine_conclusion':'period recap'}) as recap:
     answer = route_question(question, ctx=SimpleNamespace(), mode='fantasy')
 assert answer['engine_conclusion'] == 'period recap'

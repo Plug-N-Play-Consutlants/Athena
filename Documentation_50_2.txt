@@ -1,0 +1,12 @@
+AthenaEngine 0.7.10.50.2 — scoped corrective overlay
+
+Changes:
+- Restore developer.athena_request metadata for Scout compatibility league recap execution.
+- Declare the actual execution owner; do not imply registered-specialist execution.
+- Remove unconditional claim that a runtime trace was returned when none was available.
+- Add focused source-contract regression tests.
+
+Not implemented: Studio Logs navigation, diagnostic export, legacy purge.
+Those source files are absent from the supplied incremental overlay.
+
+Full Studio verification is still required before release lock.

@@ -19,16 +19,25 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
     explicit = any(term in q for term in ('jhlpaa', 'fantrax'))
     fantasy = (mode != 'public' or explicit) and any(term in q for term in ('jhlpaa', 'fantrax', 'my league', 'around the league'))
     editorial = bool(re.search(r'\b(report|recap|summari[sz]e|analy[sz]e|analize|review|biggest stories|developments)\b', q)) and bool(re.search(r'\b(league|jhlpaa|fantrax|standings|scoring)\b', q))
-    # A schedule, lock or trade-effective-time question is not an editorial
-    # request, even if it asks how a future weekly report should describe it.
-    temporal_rules = fantasy and any(term in q for term in (
-        'when did it lock', 'when does the next', 'current scoring period',
-        'lineup lock', 'lineup-lock', 'receives his points',
-        'receives their points', 'acquiring team can use', 'trade effective',
-        'transaction effective', 'period boundaries', 'scoring period dates',
+    # A multi-section weekly editorial request is one investigation, even when
+    # its requested sections include top player producers or a scoring calendar.
+    # Route the whole request before selecting narrower specialist questions.
+    broad_report = bool(re.search(r'\b(weekly\s+(?:league\s+)?report|weekly\s+recap|league\s+(?:report|recap|roundup)|full\s+(?:weekly\s+)?report|complete\s+(?:weekly\s+)?report|around\s+the\s+(?:jhlpaa|league))\b', q))
+    sections = sum(bool(re.search(pattern, q)) for pattern in (
+        r'\bstandings|rankings|movement\b',
+        r'\bplayers?|performances?|producers?|g\s*\+\s*a\b',
+        r'\btransactions?|waivers?|free\s+agents?|adds?|drops?\b',
+        r'\btrades?|trading\s+blocks?\b',
+        r'\b(editorial|stories|analysis|highlights|movers|shakers)\b',
     ))
-    if temporal_rules:
-        return EntryDecision('league_period_timing', 'explicit_scoring_period_timing_and_trade_rules')
+    if fantasy and (broad_report or (editorial and sections >= 2)):
+        return EntryDecision('league_recap', 'composite_weekly_editorial_request')
+    # Explicit league questions retain their fantasy evidence domain even when
+    # the presentation mode is Public. Route by inquiry objective, not UI mode.
+    if explicit and re.search(r'\b(top\s*\d+|leaders?|leading|most|highest|best)\b', q) and re.search(r'\b(players?|producers?|production|points|goals|assists|g\s*\+\s*a)\b', q):
+        return EntryDecision('league_player_period_leaders', 'explicit_league_player_production')
+    if explicit and re.search(r'\b(scoring period|completed period|last completed|most recently completed)\b', q) and re.search(r'\b(when|which|what|date|ended|completed|latest|recent)\b', q):
+        return EntryDecision('league_scoring_period_boundary', 'explicit_league_calendar_question')
     standings = explicit and 'standings' in q and any(t in q for t in ('week', 'period', 'season', 'historical', 'movement'))
     if standings and not editorial:
         return EntryDecision('league_period_standings', 'explicit_period_standings')

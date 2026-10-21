@@ -22,10 +22,22 @@ def _movements(row):
     return sides, unresolved
 
 
-def investigate_league_period(transaction_history, period):
+def investigate_league_period(transaction_history, period, *, period_bounds=None):
     """Return defensible narratives from canonical transaction rows for one week."""
-    records = [r for r in (transaction_history or {}).get("records", [])
-               if isinstance(r, dict) and str(r.get("season_week") or r.get("period") or "") == str(period)]
+    from Athena.Inquiry.execution import _parse_time
+    start, end = (period_bounds or {}).get("start"), (period_bounds or {}).get("end")
+    records = []
+    for r in (transaction_history or {}).get("records", []):
+        if not isinstance(r, dict):
+            continue
+        label = r.get("period") or r.get("season_week")
+        if label is not None and str(label).strip():
+            if str(label).strip() == str(period):
+                records.append(r)
+        elif start and end:
+            dt = _parse_time(r.get("timestamp"))
+            if dt is not None and start <= dt.date().isoformat() <= end:
+                records.append(r)
     trades = [r for r in records if "trade" in str(r.get("transaction_type") or "").lower()]
     trade_teams = Counter()
     stories = []

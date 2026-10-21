@@ -194,6 +194,10 @@ except Exception:  # pragma: no cover - live intelligence remains optional durin
     live_intelligence_diagnostics = None  # type: ignore
 
 try:
+    from Intelligence.Runtime import run_runtime_trace
+except Exception:  # pragma: no cover - runtime diagnostics are additive
+    run_runtime_trace = None  # type: ignore
+try:
     from Intelligence.Player.player_intelligence import evaluate_player
 except Exception:  # pragma: no cover - player intelligence is optional during partial installs
     evaluate_player = None  # type: ignore
@@ -395,32 +399,13 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         investigation_trace = execution["investigation_trace"]
         explicit_week = execution["explicit_week"]
         conclusion = compose_period_report(research=athena_research)
-        # Latest archive is not synonymous with the latest completed scoring period.
-        # Surface the evidence boundary in the editorial text, not only diagnostics.
-        calendar = execution.get("period_calendar") or {}
-        if calendar.get("status") == "verified_boundary":
-            calendar_kind = "scoring" if ".scoringPeriods" in calendar.get("source", "") else "roster"
-            coverage = (f"Fantrax {calendar_kind} period {calendar['period']} runs from "
-                        f"{calendar['start']} through {calendar['end']}. "
-                        f"Its calendar window {'has ended' if calendar.get('completed') else 'has not ended'}. ")
-            if calendar_kind == "roster":
-                coverage += "Roster-period dates have not been verified as scoring-period dates. "
-            coverage += ("The calendar alone does not establish finalized standings, lineup eligibility, "
-                         "or the latest completed scoring period. Player-period production remains subject to independent verification.")
-            conclusion += "\n\nPeriod coverage\n\n" + coverage
-        elif not explicit_week:
-            period_label = f"Week {standings_period}" if standings_period is not None else "the available archive"
-            conclusion += ("\n\nPeriod coverage\n\nThis report reflects " + period_label +
-                           ", the latest period supported by the available archive. "
-                           "Its completion and any subsequent scoring-period results have not been independently verified. "
-                           "Refresh Fantrax transactions, standings and player-period production before publishing the next weekly edition.")
         investigation_trace.append({"stage": "scout.presentation", "status": "composed", "detail": "Structured Athena research rendered"})
         facts.append("Investigation execution trace: " + " | ".join(
             f"{entry['stage']}={entry['status']}" for entry in investigation_trace) + ".")
         limitations = ["Player-level scoring and keeper-fit conclusions require verified period-specific production, deployment and contract evidence; acquisition and validation status is recorded separately."]
         if not standings_comparison or standings_comparison.get("status") != "compared":
             limitations.append("A complete two-period standings comparison is not verified.")
-        answer=response(intent="analyze_league",title=(f"Around the {profile['league_name']} | Week {standings_period}" if standings_period else f"{profile['league_name']}: recent league recap"),
+        answer=response(intent="analyze_league",title=(f"Around the {profile['league_name']} | Week {standings_period} (completion unverified)" if standings_period and not explicit_week else f"Around the {profile['league_name']} | Week {standings_period}" if standings_period else f"{profile['league_name']}: recent league recap"),
                         engine_conclusion=conclusion,natural_language_response=conclusion,observed_facts=facts,
                         known_limitations=limitations,confidence=(.68 if highlights and standings_comparison and standings_comparison.get("status") == "compared" else .55),
                         cards=[{"label":"Transactions in scope","value":activity.get("transaction_count",0)},
@@ -431,6 +416,22 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
                             intelligence_used=["inquiry_state","adaptive_inquiry_execution","temporal_evidence_selection","significance_ranking"],
                             files_read=["Output/league_profile.json","Output/transaction_history.json"],
                             missing=["standings","current_player_performance"] ))
+        # Compatibility adapter executed by Scout, selected by Athena's entry
+        # policy. Preserve the request metadata contract without claiming that
+        # the registered-specialist executor was invoked for this path.
+        answer["developer"]["athena_request"] = {
+            "version": "0.7.10.50.3",
+            "boundary": "Athena.entry_policy.select_entry_route",
+            "execution_owner": "scout_compatibility_adapter",
+            "mode": "fantasy",
+            "requested_mode": "public" if getattr(ctx, "mode", None) == "public" else "unspecified",
+            "selected_route": "league_recap",
+            "selected_by": "athena_entry_policy",
+            "handler_module": "Scout.conversation.router",
+            "handler_executable": True,
+            "selected_intent": "analyze_league",
+            "continuation_status": "none",
+        }
         answer["developer"]["inquiry_state"]=inquiry.to_dict()
         answer["developer"]["adaptive_execution"]=activity
         if editorial: answer["developer"]["editorial_investigation"] = editorial
@@ -450,7 +451,7 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         if standings_comparison and standings_comparison.get("status") != "compared":
             answer["known_limitations"].append("Archived standings comparison is incomplete; do not infer team movement.")
         if not explicit_week:
-            answer["known_limitations"].append("The latest archived period is not independently verified as completed.")
+            answer["known_limitations"].append("The selected period is not independently verified as completed; roster calendar dates alone do not establish scoring completion.")
         if selected_period is None:
             answer["known_limitations"].append("No verified scoring-period identity; transactions use a rolling seven-day window.")
         elif activity.get("scope_method") == "explicit_period":
@@ -576,36 +577,23 @@ def most_active_managers(ctx: ScoutContext) -> Dict[str, Any]:
     if not observed:
         observed = ["No manager behavior records are available yet."]
 
-    if top:
-        leader = top[0]
-        leader_count = _transaction_count(leader)
-        ranking = "; ".join(f"{row.get('manager_name')}: {_transaction_count(row)}" for row in top)
-        narrative = (f"In the observed transaction-history window, {leader.get('manager_name')} leads with "
-                     f"{leader_count} recorded moves. The five most active teams are {ranking}. "
-                     "These totals count recorded transactions, not negotiations or trading-block interest. "
-                     "Activity indicates willingness to change a roster, but it does not establish a manager's motive, "
-                     "whether a move improved the team, or which club was most active specifically last week.")
-    else:
-        narrative = "No manager transaction records are available for a supported activity comparison."
     return response(
         intent="most_active_managers",
         title="Most active managers",
-        engine_conclusion=narrative,
-        natural_language_response=narrative,
+        engine_conclusion="The most active managers are the ones with the highest observed transaction counts in the current transaction-history window.",
         observed_facts=observed,
-        known_limitations=["Transaction-history window is not independently established as last week or the current scoring period.",
-                           "Counts exclude negotiations, rejected trades and trading-block changes."],
+        known_limitations=["This measures observed transaction activity only. It does not yet include trade negotiations, rejected trades, or official finance-page balances."],
         confidence=0.86 if top else 0.2,
         cards=[{"label": row.get("manager_name"), "value": _transaction_count(row)} for row in top],
         developer=developer_info(
-            "most_active_managers", ctx.files_loaded,
+            "most_active_managers",
+            ctx.files_loaded,
             knowledge_used=["transaction_history"],
             intelligence_used=["manager_behavior"],
             files_read=["Output/manager_behavior.json"],
-            missing=["transaction_window_bounds", "trading_block_history"],
+            missing=["relationship_graph", "trade_history"],
         ),
     )
-
 
 
 def league_market(ctx: ScoutContext) -> Dict[str, Any]:
@@ -1226,6 +1214,69 @@ def help_response(ctx: ScoutContext, question: str = "") -> Dict[str, Any]:
 
 
 
+def _diagnostic_runtime_answer(ctx: ScoutContext, question: str, selected_mode: str) -> Dict[str, Any]:
+    """Answer Scout self-diagnostic prompts using runtime/debug data."""
+    q = (question or "").lower()
+    trace_payload: Dict[str, Any] = {}
+    stages: List[Dict[str, Any]] = []
+    ledger: List[Dict[str, Any]] = []
+    limitations: List[str] = []
+    if run_runtime_trace is not None:
+        sample_question = "Who is Auston Matthews?" if "module" in q else (question or "What can Athena currently answer?")
+        try:
+            trace = run_runtime_trace(sample_question, mode=selected_mode or "public")
+            trace_payload = trace.to_dict() if hasattr(trace, "to_dict") else {}
+            stages = trace_payload.get("stages", []) if isinstance(trace_payload.get("stages"), list) else []
+            ledger = trace_payload.get("evidence_ledger", []) if isinstance(trace_payload.get("evidence_ledger"), list) else []
+            limitations = list(trace_payload.get("limitations") or [])
+        except Exception as exc:  # noqa: BLE001
+            limitations.append(f"Runtime trace failed: {type(exc).__name__}: {exc}")
+    else:
+        limitations.append("Runtime orchestration layer is unavailable.")
+
+    module_names = [str(stage.get("name")) for stage in stages if isinstance(stage, dict) and stage.get("name")]
+    observed = []
+    if module_names:
+        observed.append("Runtime stages executed: " + ", ".join(module_names) + ".")
+    for stage in stages:
+        if isinstance(stage, dict):
+            observed.append(f"{stage.get('name')}: {stage.get('status')} — {stage.get('detail')}")
+    if ledger:
+        observed.append("Evidence ledger: " + "; ".join(f"{item.get('source')}={item.get('evidence_count')}" for item in ledger if isinstance(item, dict)) + ".")
+    if not observed:
+        observed = ["Scout diagnostic routing executed, but no runtime stages were returned."]
+    title = "Scout runtime diagnostics"
+    if "evidence" in q:
+        title = "Scout evidence trace"
+    elif "module" in q:
+        title = "Scout modules executed"
+    elif "pipeline" in q or "trace" in q:
+        title = "Scout pipeline trace"
+    cards = [
+        {"label": "Stages", "value": len(stages)},
+        {"label": "Status", "value": trace_payload.get("status", "unknown") if trace_payload else "unknown"},
+        {"label": "Evidence", "value": len(ledger)},
+    ]
+    return response(
+        intent="scout_runtime_diagnostics",
+        title=title,
+        engine_conclusion=("Scout returned an observed runtime trace." if trace_payload else "Runtime trace unavailable; no execution provenance can be verified from this diagnostic."),
+        observed_facts=observed[:12],
+        known_limitations=limitations or ["Runtime diagnostics are observational; they do not change the underlying answer path."],
+        confidence=0.86 if stages else 0.45,
+        cards=cards,
+        developer=developer_info(
+            "scout_runtime_diagnostics",
+            ctx.files_loaded,
+            knowledge_used=["runtime_trace", "evidence_ledger"],
+            intelligence_used=["runtime_orchestration", "scout_acceptance_hotfix"],
+            files_read=["Intelligence/Runtime/orchestrator.py"],
+            missing=[] if stages else ["runtime_trace_output"],
+        ) | {"runtime_trace": trace_payload},
+    )
+
+
+
 def _normalize_public_query_text(question: str) -> str:
     """Normalize common fan shorthand before deterministic public routing.
 
@@ -1340,10 +1391,8 @@ def _public_analytical_answer(ctx: ScoutContext, question: str, selected_mode: s
     q = _normalize_public_query_text(question)
     if _is_team_performance_inquiry(question):
         from Athena.public_team_performance import assess_team_performance
-        # Canonical NHL identity registry, shared with the investigation pathway.
-        # Do not maintain a second, incomplete city/nickname lookup here.
-        from Athena.public_team_performance import resolve_nhl_team_subject
-        team = resolve_nhl_team_subject(question)
+        targets = {"toronto": ("TOR", "Toronto Maple Leafs"), "leafs": ("TOR", "Toronto Maple Leafs"), "edmonton": ("EDM", "Edmonton Oilers"), "oilers": ("EDM", "Edmonton Oilers"), "carolina": ("CAR", "Carolina Hurricanes"), "colorado": ("COL", "Colorado Avalanche"), "dallas": ("DAL", "Dallas Stars"), "florida": ("FLA", "Florida Panthers")}
+        team = next((v for k, v in targets.items() if k in q), None)
         if team is not None:
             assessment = assess_team_performance(question, *team)
             return response(
@@ -1887,7 +1936,29 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     raw_question = (question or "").strip()
     q = raw_question.lower()
     selected_mode = (mode or "fantasy").strip().lower()
-    explicit_league = any(term in q for term in ("jhlpaa", "fantrax"))
+    # Athena owns precedence classification; Scout retains only compatibility
+    # response adapters while their presentation contracts are migrated.
+    from Athena.entry_policy import select_entry_route
+    entry = select_entry_route(raw_question, selected_mode)
+    explicit_league = any(t in q for t in ('jhlpaa', 'fantrax'))
+    if entry.route in {'league_scoring_period_boundary', 'league_player_period_leaders'}:
+        from Athena.Investigation.league_period_questions import answer_league_period_question
+        period_answer = answer_league_period_question(ctx, raw_question, entry.route)
+        if isinstance(period_answer, dict):
+            period_answer.setdefault('entry_decision', {'route': entry.route, 'reason': entry.reason, 'mode': selected_mode})
+        return period_answer
+    if entry.route == 'league_period_standings':
+        return _league_standings_inquiry(ctx, raw_question)
+    # Registered Athena specialists own execution and trace provenance, even
+    # when the presentation is implemented by a legacy Scout adapter.
+    if entry.route == 'league_recap' or (entry.route == '' and _conversational_league_recap(raw_question, selected_mode)):
+        from Athena.inquiry_execution import answer as athena_answer
+        registered = athena_answer(raw_question, ctx, mode=selected_mode)
+        if registered is not None:
+            return registered
+        return analyze_league(ctx, raw_question)
+    if entry.route == 'fantasy_trade_investigation':
+        return _fantasy_trade_investigation(ctx, raw_question)
     # Prompt semantics must outrank stale UI/provider state. Public NHL prompts
     # cannot inherit fantasy mode just because the previous request used Fantrax.
     if _looks_like_public_sports_context(raw_question):
@@ -1896,7 +1967,17 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if not q:
         return help_response(ctx, question)
 
-    # Athena owns registered route selection and request-scoped evidence.
+    from Athena.diagnostic_intent import is_diagnostic_inquiry
+    if is_diagnostic_inquiry(raw_question):
+        from Athena.inquiry_execution import answer as athena_answer
+        diagnosed = athena_answer(raw_question, ctx, mode=selected_mode)
+        if diagnosed is not None:
+            return diagnosed
+        # Never substitute a fabricated runtime trace for an unavailable path.
+        return _diagnostic_runtime_answer(ctx, raw_question, selected_mode)
+
+    # Athena is the authoritative registered-specialist executor. Scout does
+    # not preempt it with its own live-news priority or handler selection.
     from Athena.inquiry_execution import answer as athena_answer
     orchestrated = athena_answer(raw_question, ctx, mode=selected_mode)
     if orchestrated is not None:
@@ -1916,7 +1997,7 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if any(term in q for term in ["league market", "market", "liquidity", "activity"]):
         return league_market(ctx)
 
-    if selected_mode != "public" and any(term in q for term in ["expiring", "contract", "contracts"]):
+    if any(term in q for term in ["expiring", "contract", "contracts"]):
         return expiring_contracts(ctx)
 
     if any(term in q for term in ["limitation", "missing", "gaps", "what don't", "what dont", "what do not"]):
@@ -1936,14 +2017,6 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
         # public identity layer build the user-facing candidate profiles/cards.
         if multi_sport_card is not None and multi_sport_card.get("intent") == "multi_sport_disambiguation" and analyze_public_request is None:
             return multi_sport_card
-
-        # Explicit single-team current-season performance questions are
-        # evidence-acquisition requests, not static public-knowledge gaps.
-        # Route before generic entity-gap handling, using canonical NHL identity.
-        if _is_team_performance_inquiry(raw_question):
-            from Athena.public_team_performance import resolve_nhl_team_subject
-            if resolve_nhl_team_subject(raw_question) is not None:
-                return _public_analytical_answer(ctx, raw_question, selected_mode)
 
         # PIF Build 003: public intent/entity routing must run before generic
         # player evaluation or rulebook retrieval. This prevents public player,

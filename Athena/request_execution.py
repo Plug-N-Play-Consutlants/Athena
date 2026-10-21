@@ -128,8 +128,16 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
                 inquiry = classify_player_question(question)
                 route = "public_player_identity" if inquiry == "profile" and not question.rstrip().endswith("?") else "public_player_investigation"
                 selected_by = "continued_public_identity"
+    if route and route not in SPECIALISTS:
+        # Entry policy can name planned capabilities that are not executable yet.
+        # Fall back explicitly rather than crashing the entire Scout request.
+        route, selected_by = "", "unregistered_entry_route_fallback"
     effective_mode = "public" if route and SPECIALISTS[route].mode == "public" else mode
-    context = request.context
+    refresh_status = None
+    if route in {"league_recap", "league_period_standings", "fantasy_trade_investigation"}:
+        from Athena.fantasy_refresh import ensure_fantasy_freshness
+        refresh_status = ensure_fantasy_freshness()
+    context = None if refresh_status and refresh_status.get("attempted") else request.context
     if context is None:
         from Scout.conversation.context import load_context
         context = load_context()
@@ -192,6 +200,8 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     from Athena.evidence_reconciliation import reconcile_evidence
     evidence_reconciliation = reconcile_evidence(request_evidence, answer)
     team_consumption = developer.get("team_evidence_consumption")
+    if refresh_status is not None:
+        developer["fantasy_auto_refresh"] = refresh_status
     developer["athena_request"] = {
         "version": ATHENA_VERSION,
         "boundary": "Athena.ask",

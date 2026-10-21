@@ -269,7 +269,6 @@ class AthenaStudio:
 
         self._button_group(body, "Core Workflow", [
             ("🔄 Sync League", self.sync_league, "Refresh the active league through Athena's canonical sync pipeline."),
-            ("🧪 Verify Build", self.verify_build, "Run release-critical checks and supported-capability regressions."),
             ("🔎 Repository Audit", self.show_repository_audit, "Run the Phase 3 read-only repository audit and write a report."),
             ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the Phase 4B shim and duplicate basename review reports."),
             ("🔐 Lock Repo Decisions", self.show_repository_decision_lock, "Lock the no-mutation shim and duplicate decisions for external audit."),
@@ -277,7 +276,7 @@ class AthenaStudio:
             ("🧹 Preview Cleanup", self.preview_repository_cleanup, "Preview safe cleanup without changing files."),
             ("✅ Apply Safe Cleanup", self.apply_repository_safe_cleanup, "Apply safe cleanup from Studio after preview review."),
             ("🧭 Acceptance Explorer", self.show_acceptance_explorer, "Inspect trace, capability, evidence, and composition audits."),
-            ("📁 Export Logs", self.export_diagnostics_logs, "Export Studio output, history, and diagnostics for review."),
+            ("📋 View Logs", self.open_logs, "Browse and read individual command logs inside Studio."),
             ("📂 Open Reports", self.open_reports, "Open Reports for exported logs, traces, and diagnostics."),
         ])
 
@@ -292,7 +291,7 @@ class AthenaStudio:
         info.pack(side=TOP, fill="x", padx=12, pady=(4, 2))
         ttk.Label(
             info,
-            text="Core Workflow Console — default path: Reload Build → Relaunch Studio → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs. Developer Mode is off by default.",
+            text="Core Workflow Console — default path: Reload Build → Relaunch Studio → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → View Logs. Verification and diagnostics are in Developer Mode.",
             anchor="w",
             style="Studio.Subtitle.TLabel",
         ).pack(fill="x")
@@ -315,7 +314,7 @@ class AthenaStudio:
         # Athena Studio Operations Console | Athena Studio Beta Tile UI | Athena Studio Compact Tile UI + Toolbar
         # Hover over controls for help | compact two-line dashboard tile label | compact dashboard tile grid | Compact tiles use icons
         # Historical default labels retained for compatibility only: ✅ Validate Everything | 🩺 Doctor Everything | 📤 Export Studio Log | 🧹 Clean Runtime | 🔃 Refresh | ⟲ Restart Studio
-        self.write("Athena Studio Core Workflow Console ready. Use Reload Build → Relaunch Studio → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer.\n")
+        self.write("Athena Studio Core Workflow Console ready. Use Reload Build → Relaunch Studio → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → View Logs. Verify Build is under Developer Mode.\n")
         if bool(self._studio_settings.get("auto_runtime_audit_on_start", False)):
             self.runtime_audit(auto=True)
 
@@ -345,11 +344,8 @@ class AthenaStudio:
             ("🧱 Release Hygiene", self.show_release_hygiene, "Run packaging, version, CI, and false-green checks."),
         ])
         self._button_group(right, "Developer Diagnostics", [
-            ("🩺 Doctor Everything", self.doctor_everything, "Run all registered doctors."),
             ("🩺 Studio Health", self.doctor_studio, "Diagnose Studio command center modules."),
-            ("🧭 Acceptance Explorer", self.show_acceptance_explorer, "Review acceptance diagnostics."),
-            ("📁 Export Diagnostics Logs", self.export_diagnostics_logs, "Export diagnostics into a timestamped Reports folder and open it."),
-            ("📂 Open Reports", self.open_reports, "Open Reports folder."),
+            ("📦 Export Diagnostics", self.export_diagnostics_logs, "Create a ZIP of current verification logs and Studio diagnostics."),
             ("🧭 Discover Draft Source", self.discover_draft_source, "Use the authenticated Fantrax session to inspect the draft-pick source safely."),
             ("🕰 Historical League Sweep", self.acquire_historical_leagues, "Acquire every registered historical league into isolated season-scoped Knowledge."),
             ("📋 Copy Console", self.copy_console, "Copy the entire Studio console buffer to the clipboard."),
@@ -2072,91 +2068,61 @@ class AthenaStudio:
         self._record_history("Open Reports", 0 if opened else 1, str(REPORT_DIR))
 
     def export_diagnostics_logs(self) -> None:
-        """Export diagnostics to a timestamped folder, then open that folder for manual selection.
+        """Create a portable ZIP containing current Studio verification and runtime logs.
 
-        This restores the original acceptance workflow: create files under Reports,
-        open the folder, and let the user choose the TXT/JSON/log to attach.
+        Unlike the former folder export, this includes the actual per-suite command
+        logs and produces a single attachable artifact with a complete manifest.
         """
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         REPORT_DIR.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        export_dir = REPORT_DIR / f"diagnostics_export_{stamp}"
-        export_dir.mkdir(parents=True, exist_ok=True)
-        copied: list[str] = []
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+        bundle = REPORT_DIR / f"athena_diagnostics_{stamp}.zip"
         errors: list[str] = []
-
-        def copy_file(path: Path, label: str | None = None) -> None:
-            if not path.exists() or not path.is_file():
-                return
-            target_name = label or path.name
-            target = export_dir / target_name
-            try:
-                shutil.copy2(path, target)
-                copied.append(target.name)
-            except Exception as exc:
-                errors.append(f"{path}: {exc}")
-
-        # Current visible Studio output and runtime summary.
+        included: list[str] = []
         try:
-            meta = self._current_version_metadata()
-            runtime_summary = "\n".join([
-                "Athena Diagnostics Export",
-                "=========================" ,
-                f"Created: {datetime.now(timezone.utc).isoformat()}",
-                f"Project root: {PROJECT_ROOT}",
-                f"Python: {self._python()}",
-                f"Athena: {meta.get('ATHENA_VERSION', 'unknown')}",
-                f"Scout: {meta.get('SCOUT_VERSION', 'unknown')}",
-                f"Build: {meta.get('ATHENA_BUILD', 'unknown')}",
-                f"Reports folder: {REPORT_DIR}",
-                f"Export folder: {export_dir}",
-            ])
-            (export_dir / "runtime_summary.txt").write_text(runtime_summary + "\n", encoding="utf-8")
-            copied.append("runtime_summary.txt")
-            (export_dir / "studio_visible_output.txt").write_text(self.output.get("1.0", END), encoding="utf-8")
-            copied.append("studio_visible_output.txt")
+            with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+                for path in sorted(LOG_DIR.rglob("*")):
+                    if not path.is_file() or path.suffix.lower() not in {".txt", ".log", ".json", ".jsonl"}:
+                        continue
+                    rel = path.relative_to(PROJECT_ROOT).as_posix()
+                    try:
+                        archive.write(path, rel)
+                        included.append(rel)
+                    except (OSError, ValueError) as exc:
+                        errors.append(f"{rel}: {exc}")
+                for filename in ("scout_session_log.txt", "scout_session_log.json"):
+                    path = REPORT_DIR / filename
+                    if path.is_file():
+                        rel = path.relative_to(PROJECT_ROOT).as_posix()
+                        try:
+                            archive.write(path, rel)
+                            included.append(rel)
+                        except (OSError, ValueError) as exc:
+                            errors.append(f"{rel}: {exc}")
+                archive.writestr("studio_visible_output.txt", self.output.get("1.0", END))
+                included.append("studio_visible_output.txt")
+                manifest = {
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "version": self._current_version_metadata(),
+                    "source_root": str(PROJECT_ROOT),
+                    "file_count": len(included),
+                    "files": included,
+                    "errors": errors,
+                }
+                archive.writestr("diagnostics_manifest.json", json.dumps(manifest, indent=2, default=str))
+            with zipfile.ZipFile(bundle) as check:
+                if check.testzip() is not None:
+                    raise OSError("ZIP integrity verification failed")
+            self.write(f"\n=== Export Diagnostics ===\nZIP: {bundle}\nIncluded: {len(included)} files\n")
+            if errors:
+                self.write("Skipped files:\n" + "\n".join(errors) + "\n")
+            self._record_history("Export Diagnostics", 0 if not errors else 1, str(bundle))
+            if not self._open_folder(REPORT_DIR):
+                self.write(f"Open this file manually: {bundle}\n")
         except Exception as exc:
-            errors.append(f"studio/runtime export: {exc}")
-
-        copy_file(HISTORY_FILE, "athena_studio_history.jsonl")
-        copy_file(LOG_DIR / "athena_studio_scout.log", "athena_studio_scout.log")
-        copy_file(LOG_DIR / "scout_stop_log.txt", "scout_stop_log.txt")
-        copy_file(REPORT_DIR / "scout_session_log.txt", "scout_session_log.txt")
-        copy_file(REPORT_DIR / "scout_session_log.json", "scout_session_log.json")
-
-        # Include the most recent text/json debug exports and Studio log exports without flooding the folder.
-        patterns = [
-            "scout_debug_export_*.txt",
-            "scout_debug_export_*.json",
-            "athena_studio_log_export_*.txt",
-            "diagnostics_recovery_validation_report.*",
-        ]
-        for pattern in patterns:
-            files = sorted(REPORT_DIR.glob(pattern), key=lambda p: p.stat().st_mtime if p.exists() else 0, reverse=True)
-            for path in files[:6]:
-                copy_file(path)
-
-        manifest = {
-            "ok": not errors,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "project_root": str(PROJECT_ROOT),
-            "reports_folder": str(REPORT_DIR),
-            "export_folder": str(export_dir),
-            "files": copied,
-            "errors": errors,
-        }
-        (export_dir / "diagnostics_manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        copied.append("diagnostics_manifest.json")
-
-        self.write("\n=== Diagnostics Logs Export ===\n")
-        self.write(f"Export folder: {export_dir}\n")
-        self.write(f"Files copied: {len(copied)}\n")
-        if errors:
-            self.write("Warnings:\n" + "\n".join(f"- {e}" for e in errors) + "\n")
-        opened = self._open_folder(export_dir)
-        self._record_history("Export Diagnostics Logs", 0 if not errors else 1, str(export_dir))
-        if not opened:
-            self.write("Open this folder manually to choose a log file.\n")
+            self.write(f"Diagnostics export failed: {type(exc).__name__}: {exc}\n")
+            self._record_history("Export Diagnostics", 1, str(exc))
+            messagebox.showerror("Export Diagnostics", f"Could not create diagnostic ZIP:\n{exc}")
 
     def create_diagnostic_bundle(self) -> None:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -2219,13 +2185,57 @@ class AthenaStudio:
             return f"Could not read {path}: {exc}\n"
 
     def open_logs(self) -> None:
+        """Browse actual command logs, without confusing Logs with Reports."""
+        import tkinter as tk
+        from tkinter import ttk
         LOG_DIR.mkdir(parents=True, exist_ok=True)
-        try:
-            os.startfile(str(LOG_DIR))  # type: ignore[attr-defined]
-        except Exception:
-            path = filedialog.askdirectory(initialdir=str(PROJECT_ROOT), title="Open Logs Folder")
-            if path:
-                self.write(f"Selected: {path}\n")
+        window = tk.Toplevel(self.root)
+        window.title("Athena Studio — Logs & Verification Output")
+        window.geometry("1050x730")
+        outer = ttk.Frame(window, padding=10)
+        outer.pack(fill="both", expand=True)
+        ttk.Label(outer, text="Command and runtime logs (newest first)").pack(anchor="w")
+        entries = sorted((p for p in LOG_DIR.rglob("*") if p.is_file() and p.suffix.lower() in {".txt", ".log", ".jsonl"}),
+                         key=lambda p: p.stat().st_mtime, reverse=True)[:400]
+        names = tk.Listbox(outer, height=11, exportselection=False)
+        names.pack(fill="x", pady=6)
+        for item in entries:
+            names.insert("end", str(item.relative_to(LOG_DIR)))
+        viewer_frame = ttk.Frame(outer)
+        viewer_frame.pack(fill="both", expand=True)
+        viewer = tk.Text(viewer_frame, wrap="none", font=("Consolas", 9))
+        scroll = ttk.Scrollbar(viewer_frame, command=viewer.yview)
+        viewer.configure(yscrollcommand=scroll.set)
+        viewer.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+        def show_selected(_event=None):
+            if not names.curselection():
+                return
+            path = entries[names.curselection()[0]]
+            try:
+                # Display the full verification failure without loading unbounded files.
+                with path.open("r", encoding="utf-8", errors="replace") as stream:
+                    content = stream.read(2_000_000)
+                    if stream.read(1):
+                        content += "\n\n[Display capped at 2 MB; open the original for the complete log.]"
+                viewer.configure(state="normal")
+                viewer.delete("1.0", "end")
+                viewer.insert("1.0", f"{path}\n\n{content}")
+                viewer.configure(state="disabled")
+                viewer.see("1.0")
+            except Exception as exc:
+                self.write(f"Log viewer error: {exc}\n")
+        names.bind("<<ListboxSelect>>", show_selected)
+        actions = ttk.Frame(outer)
+        actions.pack(fill="x", pady=6)
+        ttk.Button(actions, text="Open Logs Folder", command=lambda: self._open_folder(LOG_DIR)).pack(side="left", padx=4)
+        ttk.Button(actions, text="Export Diagnostics ZIP", command=self.export_diagnostics_logs).pack(side="left", padx=4)
+        if entries:
+            names.selection_set(0)
+            show_selected()
+        else:
+            viewer.insert("1.0", f"No logs found in {LOG_DIR}. Run Verify Build to generate command logs.")
+        self._record_history("View Logs", 0, f"{len(entries)} log files")
 
     @staticmethod
     def _is_port_open(port: int) -> bool:

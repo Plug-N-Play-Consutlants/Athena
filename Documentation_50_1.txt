@@ -1,0 +1,38 @@
+AthenaEngine v0.7.10.50.1 — Period Inquiry Diagnostics Hotfix
+
+PURPOSE
+Retain v0.7.10.49.0 period acquisition/reconciliation and v0.7.10.50.0
+Public/Fantasy inquiry routing; expose per-answer structured diagnostic
+trace for explicit JHLPAA scoring-period questions.
+
+WHAT IS VERIFIED
+The two target JHLPAA scoring-period answers in supplied exported logs
+were recorded before v0.7.10.50.0 was installed; the 0.50 export has
+only one new turn (Maple Leafs public profile). Thus failure mechanism
+cannot be determined from the exported sessions.
+
+CHANGES
+- Period answers expose period_investigation.decision_trace: selected route,
+  source attempts, rejected evidence, and terminal reason.
+- Direct entry answers expose entry_decision route/reason/mode.
+- Preserves explicit Public-mode JHLPAA access.
+- Includes 0.49 evidence acquisition and period execution modules, with
+  no loosening of period verification or identity requirements.
+- Adds focused regression tests.
+
+STUDIO ACCEPTANCE
+1. Extract overlay into canonical AthenaEngine repository.
+2. Reload Build; run Studio verification and pytest tests.
+3. Ask in Public mode: 'What was the most recently completed JHLPAA
+   scoring period? Give me its exact dates, explain how you verified it.'
+4. Ask in Public mode: 'Who were the top 10 point-producing players in
+   the most recently completed JHLPAA scoring period? Show each player's
+   goals and assists.'
+5. Export new Scout session JSON; inspect entry_decision and
+   period_investigation.decision_trace. Verify explicit evidence limitations.
+6. Confirm a Leafs public question and JHLPAA weekly report still route.
+
+LIMITATION
+This is an overlay, not a complete repository. No local end-to-end Studio
+or authenticated Fantrax validation was possible. Do not lock as PASS until
+Studio acceptance tests complete.

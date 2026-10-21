@@ -31,11 +31,11 @@ REQUIRED_MARKERS = [
     "Athena Studio Core Workflow Console",
     "Core Workflow",
     "Developer Mode",
-    "default path: Reload Build → Relaunch Studio → Verify Build → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → Export Logs",
+    "default path: Reload Build → Relaunch Studio → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → View Logs",
 ]
 DEFAULT_ACTIONS = [
     "🔄 Sync League",
-    "🧪 Verify Build",
+    "📋 View Logs",
     "🧭 Acceptance Explorer",
     "🔎 Repository Audit",
     "🧾 Review Shims/Duplicates",
@@ -43,16 +43,14 @@ DEFAULT_ACTIONS = [
     "🧱 Release Hygiene",
     "🧹 Preview Cleanup",
     "✅ Apply Safe Cleanup",
-    "📁 Export Logs",
     "📂 Open Reports",
 ]
 DEVELOPER_ACTIONS = [
     "Developer Validation",
     "Developer Diagnostics",
     "✅ Validate Everything",
-    "🩺 Doctor Everything",
     "🩺 Studio Health",
-    "📁 Export Diagnostics Logs",
+    "📦 Export Diagnostics",
 ]
 FORBIDDEN_BUTTON_WALL_ACTIONS = [
     "✅ Runtime",
@@ -151,6 +149,23 @@ def main() -> int:
             failures.append("Developer Mode button wall returned: " + ", ".join(button_wall_leaks))
         else:
             print("[PASS] Developer Mode button wall suppressed")
+        # Actions are intentionally assigned to one surface each. Validate
+        # actual rendered group declarations rather than global label presence.
+        core = text[text.index('self._button_group(body, "Core Workflow"'):text.index('self._status_group(body)')]
+        developer = text[text.index('def _build_developer_panel'):text.index('def _toggle_developer_mode')]
+        for label in ("🧪 Verify Build", "🩺 Doctor Everything", "📁 Export Logs"):
+            if label in core:
+                failures.append(f"Redundant control remains in Core Workflow: {label}")
+        if "🧪 Verify Build" not in developer:
+            failures.append("Verify Build must remain in Developer Validation")
+        if "🩺 Doctor Everything" in developer or "📂 Open Reports" in developer:
+            failures.append("Redundant doctor/reports controls remain in Developer Diagnostics")
+        if "📋 View Logs" not in core or "📂 Open Reports" not in core:
+            failures.append("Core must retain View Logs and Open Reports")
+        if "📦 Export Diagnostics" not in developer or "Export Diagnostics ZIP" not in text:
+            failures.append("Diagnostics ZIP export must be available in Developer Mode and View Logs")
+        if 'archive.write(path, rel)' not in text or 'LOG_DIR.rglob("*")' not in text:
+            failures.append("Diagnostics export must include actual command log files")
         build_ui = text[text.index("def _build_ui"):text.index("def _status_group")]
         visible_leaks = [label for label in REMOVED_DEFAULT_SURFACE if label in build_ui]
         if visible_leaks:

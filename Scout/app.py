@@ -1614,22 +1614,7 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                     if continuation is None:
                         continuation = _session_continuation(question_text, selected_mode)
                     answer = Athena.ask(question_text, context=ctx, mode=selected_mode, continuation=continuation)
-                    # League analysis is a current-state operation. If Scout routes a
-                    # fantasy prompt to league analysis, refresh the active workspace
-                    # before composing the final answer so stale derived artifacts are
-                    # never presented as current league state.
-                    if selected_mode.strip().lower() != "public" and answer.get("intent") == "analyze_league":
-                        stage = "fantasy_sync"
-                        refresh = Athena.sync(mode="fantasy_league", provider="Fantrax", fetch=True)
-                        stage = "athena_ask_after_sync"
-                        answer = Athena.ask(question_text, context=load_context(), mode=selected_mode)
-                        if isinstance(answer.get("developer"), dict):
-                            answer["developer"]["state_refresh"] = {
-                                "ok": bool(refresh.get("ok")),
-                                "partial": bool(refresh.get("partial")),
-                                "warnings": refresh.get("warnings", []),
-                                "summary": refresh.get("summary", {}),
-                            }
+                    # Athena.request_execution performs freshness-aware league sync before evidence acquisition.
                     # Final public composition is authoritative at the API boundary.
                     # Specialists may carry internal narratives, but normal mode may
                     # only receive the registered public presentation contract.

@@ -6,6 +6,7 @@ verified production. It reports the actual attempt and temporal validation.
 from __future__ import annotations
 from typing import Any
 import re
+import math
 
 _SAFE = re.compile(r"[^a-zA-Z0-9 _.,:;()/-]")
 
@@ -231,13 +232,31 @@ def acquire_player_period_production(*, league_id: str | None, season: Any,
         if not isinstance(records, list) or not records:
             result.update(status="invalid_schema", reason="No period-attributed player records")
             return result
-        valid = [item for item in records if isinstance(item, dict)
-                 and (item.get("player_id") or item.get("playerId"))
-                 and isinstance(item.get("goals"), (int, float))
-                 and isinstance(item.get("assists"), (int, float))]
-        if len(valid) != len(records):
-            result.update(status="invalid_schema", reason="Some records lack player identity or numeric G+A")
-            return result
+        # A verified envelope cannot validate malformed, duplicate or cross-period
+        # player rows. Fail the entire collection rather than silently dropping rows.
+        valid, identities = [], set()
+        for item in records:
+            if not isinstance(item, dict):
+                result.update(status="invalid_schema", reason="Non-object player record")
+                return result
+            identity = item.get("player_id") or item.get("playerId")
+            if not isinstance(identity, (str, int)) or isinstance(identity, bool) or not str(identity).strip():
+                result.update(status="invalid_schema", reason="Missing player identity")
+                return result
+            if str(identity) in identities:
+                result.update(status="invalid_schema", reason="Duplicate player identity")
+                return result
+            identities.add(str(identity))
+            for field in ("goals", "assists"):
+                value = item.get(field)
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+                    result.update(status="invalid_schema", reason="Invalid numeric player production")
+                    return result
+            for field, expected in (("period", period), ("scoringPeriod", period), ("season", season)):
+                if field in item and str(item[field]) != str(expected):
+                    result.update(status="unverified_period", reason="Player row contradicts requested season or period")
+                    return result
+            valid.append(item)
         result.update(status="verified", verified=True, records=valid,
                       reason=f"{len(valid)} season/period-attributed player production records")
     except Exception as exc:

@@ -84,7 +84,8 @@ def _record_assets(record: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 def summarize_recent_league_activity(transaction_history: Dict[str, Any], *, days: int = 7,
                                      now: datetime | None = None,
-                                     period: str | int | None = None) -> Dict[str, Any]:
+                                     period: str | int | None = None,
+                                     period_bounds: dict | None = None) -> Dict[str, Any]:
     """Build a time-scoped league activity read from canonical transactions."""
     records = [x for x in (transaction_history or {}).get("records", []) if isinstance(x, dict)]
     now = now or datetime.now(timezone.utc)
@@ -103,7 +104,20 @@ def summarize_recent_league_activity(transaction_history: Dict[str, Any], *, day
     # a resolved period. Calendar time is not a substitute for a lineup-lock boundary.
     if period is not None:
         period_text = str(period).strip()
-        scoped = [r for r in records if str(r.get("period") or r.get("season_week") or "").strip() == period_text]
+        # Explicit provider period wins. Timestamp-only rows may be attributed
+        # to the single verified reporting window; no rolling-week substitution.
+        start = (period_bounds or {}).get("start")
+        end = (period_bounds or {}).get("end")
+        scoped = []
+        for r in records:
+            label = r.get("period") or r.get("season_week")
+            if label is not None and str(label).strip():
+                if str(label).strip() == period_text:
+                    scoped.append(r)
+            elif start and end:
+                dt = _parse_time(r.get("timestamp"))
+                if dt is not None and start <= dt.date().isoformat() <= end:
+                    scoped.append(r)
     # If canonical rows carry explicit season-week semantics but timestamps are
     # unavailable, use the latest observed week as a bounded fallback.
     if period is None and not scoped and records and undated:
@@ -153,7 +167,7 @@ def summarize_recent_league_activity(transaction_history: Dict[str, Any], *, day
     return {"period_days": days, "transaction_count": len(scoped), "team_count": len(teams),
             "transaction_types": type_counts, "highlights": highlights,
             "source_record_count": len(records), "timestamp_coverage": len(records) - len(undated),
-            "scope_method": "explicit_period" if period is not None else "rolling_calendar_window"}
+            "scope_method": ("period_label_or_shared_bounds" if period_bounds and period is not None else "explicit_period" if period is not None else "rolling_calendar_window")}
 
 
 def reconstruct_league_trade(transaction_history: Dict[str, Any], *, team_names: Iterable[str] = (),

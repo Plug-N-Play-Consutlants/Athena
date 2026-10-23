@@ -398,7 +398,21 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         athena_research = execution["athena_research"]
         investigation_trace = execution["investigation_trace"]
         explicit_week = execution["explicit_week"]
-        conclusion = compose_period_report(research=athena_research)
+        from Scout.conversation.role_intelligence import select_scout_role, attach_role_metadata
+        from Scout.conversation.journalist_composition import compose_journalist_report
+        scout_role = select_scout_role(question, intent="analyze_league", route="league_recap", mode="fantasy")
+        if scout_role.role == "journalist":
+            conclusion = compose_journalist_report(research=athena_research)
+        elif scout_role.role == "auditor" and any(
+                word in question.lower() for word in ("editorial", "recap", "weekly report", "column")):
+            # Explicit dual assignment: audit first, independent sports column second.
+            # Keep every requested-period team difference in the audit prefix.
+            technical = compose_period_report(research=athena_research)
+            boundary = "\n\nThe week's defining development"
+            audit = technical.split(boundary, 1)[0] if boundary in technical else technical
+            conclusion = audit + "\n\nSPORTS DESK | WEEKLY COLUMN\n\n" + compose_journalist_report(research=athena_research)
+        else:
+            conclusion = compose_period_report(research=athena_research)
         investigation_trace.append({"stage": "scout.presentation", "status": "composed", "detail": "Structured Athena research rendered"})
         facts.append("Investigation execution trace: " + " | ".join(
             f"{entry['stage']}={entry['status']}" for entry in investigation_trace) + ".")
@@ -434,6 +448,14 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
             "selected_intent": "analyze_league",
             "continuation_status": "none",
         }
+        if len(execution.get("requested_periods") or []) > 1:
+            weeks = execution["requested_periods"]
+            answer["title"] = f"{profile['league_name']} | Weeks {', '.join(map(str, weeks))} scoring audit"
+            answer["developer"]["requested_periods"] = weeks
+        attach_role_metadata(answer, question=question, route="league_recap", mode="fantasy")
+        if scout_role.role == "journalist":
+            answer["editorial_report"] = True
+            answer.setdefault("presentation_contract", {})["kind"] = "editorial"
         answer["developer"]["inquiry_state"]=inquiry.to_dict()
         answer["developer"]["adaptive_execution"]=activity
         if editorial: answer["developer"]["editorial_investigation"] = editorial
@@ -447,6 +469,10 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         answer["developer"]["evidence_acquisition_audit"]=acquisition_audit
         answer["developer"]["player_production_acquisition"] = {
             k: v for k, v in execution["player_production_acquisition"].items() if k != "records"
+        }
+        nhl_production = execution.get("nhl_period_production_acquisition") or {}
+        answer["developer"]["nhl_period_production_acquisition"] = {
+            k: v for k, v in nhl_production.items() if k != "records"
         }
         if standings_summary:
             answer["known_limitations"] = [item for item in answer.get("known_limitations", []) if "standings" not in item.lower()]
@@ -1991,6 +2017,15 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     if orchestrated is not None:
         return orchestrated
 
+    # An explicit request for a named player's profile stays a player-profile
+    # assignment. Generic words such as "limitations" and "career legacy" are
+    # dimensions of that assignment, not alternative specialist intents.
+    if selected_mode == "public" and re.search(r"\b(?:scouting|player|full|complete)\s+profile\b", q):
+        from Athena.public_identity import resolve_public_player, execute_public_player
+        match = resolve_public_player(raw_question)
+        if match is not None and getattr(match, "entity", None) is not None:
+            return execute_public_player(ctx, raw_question)
+
     if selected_mode != "public" and any(term in q for term in ["draft order", "draft picks", "pick ownership", "draft ownership", "who owns the picks"]):
         return draft_order(ctx)
 
@@ -2116,3 +2151,19 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
         return candidate
 
     return _no_silent_failure_response(ctx, question, selected_mode)
+
+
+# Role provenance is applied at the public Scout boundary, including routes
+# provided by registered Athena specialists. This does not rewrite their facts.
+_route_question_without_role = route_question
+
+def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "fantasy") -> Dict[str, Any]:
+    from Scout.conversation.role_intelligence import (
+        attach_role_metadata, select_scout_role, compose_consultative_answer,
+    )
+    result = _route_question_without_role(question, ctx=ctx, mode=mode)
+    if not isinstance(result, dict):
+        return result
+    attach_role_metadata(result, question=question, mode=mode)
+    role = select_scout_role(question, intent=str(result.get("intent") or ""), mode=mode)
+    return compose_consultative_answer(result, question=question, role=role)

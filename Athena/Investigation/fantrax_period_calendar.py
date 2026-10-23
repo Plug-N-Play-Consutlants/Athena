@@ -4,7 +4,7 @@ Calendar boundaries establish a time window, not a completed scoring result,
 lineup eligibility, or player-period statistics. No inferred weekly cadence.
 """
 from __future__ import annotations
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, time
 from typing import Any
 
 
@@ -172,7 +172,8 @@ def acquire_latest_completed_scoring_period(league_id: str | None, season: Any, 
         return {"status": "unavailable", "period": None, "reason": type(exc).__name__ + " acquiring scoring calendar"}
 
 
-def resolve_unified_period(payload: Any, *, today: date | None = None) -> dict:
+def resolve_unified_period(payload: Any, *, today: date | None = None,
+                           at: datetime | None = None) -> dict:
     """Resolve one league reporting calendar, retaining provider schedule provenance.
 
     Scoring and roster period indices are equivalent only when both supplied
@@ -182,12 +183,16 @@ def resolve_unified_period(payload: Any, *, today: date | None = None) -> dict:
     data = payload.get("data", payload) if isinstance(payload, dict) else None
     if not isinstance(data, dict):
         return {"status": "unverified", "period": None, "reason": "invalid league response"}
+    scoring_system = data.get("scoringSystem")
+    scoring_type = scoring_system.get("type") if isinstance(scoring_system, dict) else None
     calendars = {}
+    instants = {}
     for key in ("scoringPeriods", "rosterPeriods"):
         entries = data.get(key)
         if not isinstance(entries, list) or not entries:
             continue
         parsed = {}
+        precise = {}
         for row in entries:
             if not isinstance(row, dict):
                 return {"status": "unverified", "period": None, "reason": f"invalid {key} entry"}
@@ -199,24 +204,63 @@ def resolve_unified_period(payload: Any, *, today: date | None = None) -> dict:
             if number < 1 or number in parsed or start is None or end is None or start > end:
                 return {"status": "unverified", "period": None, "reason": f"invalid {key} boundaries"}
             parsed[number] = (start, end)
+            # Preserve authenticated intraday boundaries, including UTC offset.
+            # Date-only entries are valid calendar evidence but do not prove
+            # a precise lineup-lock instant.
+            try:
+                start_raw, end_raw = row.get("startDate"), row.get("endDate")
+                start_dt = datetime.fromisoformat(start_raw) if isinstance(start_raw, str) and "T" in start_raw else None
+                end_dt = datetime.fromisoformat(end_raw) if isinstance(end_raw, str) and "T" in end_raw else None
+                if start_dt and end_dt and start_dt.tzinfo and end_dt.tzinfo:
+                    if end_dt < start_dt:
+                        return {"status": "unverified", "period": None, "reason": f"invalid {key} instant order"}
+                    precise[number] = (start_dt, end_dt)
+            except ValueError:
+                return {"status": "unverified", "period": None, "reason": f"invalid {key} timestamp"}
         ordered = sorted(parsed.items())
-        if any(ordered[i][1][0] <= ordered[i-1][1][1] for i in range(1, len(ordered))):
+        if any((precise[ordered[i][0]][0] <= precise[ordered[i-1][0]][1]
+                if ordered[i][0] in precise and ordered[i-1][0] in precise
+                else ordered[i][1][0] < ordered[i-1][1][1])
+               for i in range(1, len(ordered))):
             return {"status": "unverified", "period": None, "reason": f"overlapping {key} boundaries"}
         calendars[key] = parsed
+        instants[key] = precise
     if not calendars:
         return {"status": "unverified", "period": None, "reason": "no period schedules"}
     if len(calendars) == 2 and calendars["scoringPeriods"] != calendars["rosterPeriods"]:
         return {"status": "calendar_conflict", "period": None, "reason": "scoring and roster schedules differ; explicit mapping required"}
     key = "scoringPeriods" if "scoringPeriods" in calendars else "rosterPeriods"
     schedule = calendars[key]
-    current = today or datetime.now(timezone.utc).date()
-    closed = [number for number, (_, end) in schedule.items() if end < current]
+    # Use an exact instant when supplied. Legacy date-only callers represent
+    # midnight UTC; never silently convert a test date into local midnight.
+    if at is not None and (not isinstance(at, datetime) or at.tzinfo is None):
+        return {"status": "unverified", "period": None, "reason": "Calendar clock must be offset-aware"}
+    now = (at.astimezone(timezone.utc) if at is not None
+           else datetime.combine(today, time.min, timezone.utc) if today is not None
+           else datetime.now(timezone.utc))
+    current = now.date()
+    closed = [number for number, (_, end) in schedule.items()
+              if ((now > instants[key][number][1].astimezone(timezone.utc))
+                  if number in instants[key] else end < current)]
     selected = max(closed) if closed else None
     start, end = schedule[selected] if selected else (None, None)
+    points_based_roster = key == "rosterPeriods" and scoring_type == "POINTS_BASED"
     return {"status": "calendar_closed" if selected else "no_completed_period", "period": selected,
             "start": start.isoformat() if start else None, "end": end.isoformat() if end else None,
-            "source": "+".join(sorted(calendars)), "reason": "Shared period schedule; results finalization separately verified",
-            "schedule": {n: {"start": a.isoformat(), "end": b.isoformat()} for n, (a, b) in schedule.items()}}
+            "source": "+".join(sorted(calendars)),
+            "scoring_system_type": scoring_type,
+            "boundary_kind": ("scoring" if key == "scoringPeriods" else
+                              "points_based_roster_period" if points_based_roster else "roster_only"),
+            "reason": ("Provider scoring calendar elapsed; standings finalization independently unverified"
+                       if key == "scoringPeriods" else
+                       "Provider points-based league roster/reporting period elapsed; standings finalization and lineup eligibility remain independently unverified"
+                       if points_based_roster else
+                       "Provider roster calendar elapsed; scoring boundaries and standings finalization remain unverified"),
+            "schedule": {n: {"start": a.isoformat(), "end": b.isoformat(),
+                              **({"start_at": instants[key][n][0].isoformat(),
+                                  "end_at": instants[key][n][1].isoformat()}
+                                 if n in instants[key] else {})}
+                         for n, (a, b) in schedule.items()}}
 
 
 def acquire_unified_period(league_id, season, client_factory=None, *, today=None):

@@ -187,7 +187,9 @@ def assess_capabilities(provider: str = "Fantrax") -> Dict[str, Any]:
         tx_reason = "transactions.json is missing."
     elif transaction_rows <= 0:
         tx_status = AVAILABLE
-        tx_reason = "Transaction feed is available; no current-season transactions are recorded yet."
+        tx_reason = (f"Raw transaction feed has zero normalized rows; {transaction_history_records} canonical history records are available separately."
+                     if transaction_history_records else
+                     "Raw transaction feed has zero normalized rows; this does not establish that no transactions occurred.")
     else:
         tx_status = AVAILABLE
         tx_reason = f"Transaction rows detected: {transaction_rows}."
@@ -196,7 +198,7 @@ def assess_capabilities(provider: str = "Fantrax") -> Dict[str, Any]:
         "transactions", "Transactions", tx_status, layer="Fetch", required=False,
         reason=tx_reason,
         impact="Manager activity and trade-market intelligence are limited when unavailable.",
-        evidence={"transaction_rows": transaction_rows, "page_error": tx_page_error},
+        evidence={"transaction_rows": transaction_rows, "canonical_history_records": transaction_history_records, "page_error": tx_page_error},
     ))
 
     capabilities.append(_capability(

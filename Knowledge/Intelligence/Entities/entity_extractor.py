@@ -10,7 +10,7 @@ from .entity_registry import PublicEntity, all_entities, searchable_names
 from .fuzzy_match import normalize_name, similarity
 
 _STOP_PHRASES = [
-    "tell me about", "analyze", "analyse", "compare", "who is", "what about",
+    "tell me about", "analyze", "analyse", "compare", "who are", "who is", "what about",
     "give me the rundown on", "show me", "profile", "evaluate", "is", "any good",
 ]
 
@@ -45,6 +45,11 @@ def clean_entity_phrase(question: str) -> str:
             text = text[len(phrase):].strip(" .?!\"'")
             lowered = text.lower()
             break
+    # Definite articles are not part of the entity name. Preserve them in
+    # canonical registry aliases but remove them from the inquiry phrase so
+    # short hockey nicknames ("the Avs", "the Canes") can resolve exactly.
+    # This does not permit short aliases embedded inside unrelated words.
+    text = re.sub(r"^(?:the)\s+", "", text, flags=re.I).strip()
     return text
 
 

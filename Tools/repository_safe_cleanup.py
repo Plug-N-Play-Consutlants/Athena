@@ -234,8 +234,8 @@ def run_cleanup(root: Path | None = None, apply: bool = False) -> CleanupReport:
     warnings: list[str] = []
     if any(c.classification == "review" for c in candidates):
         warnings.append("Review candidates are reported only and never deleted by Apply Safe Cleanup.")
-    if not apply:
-        warnings.append("Preview mode only. Use Apply Safe Cleanup in Studio to remove safe runtime artifacts.")
+    if not apply and any(c.classification == "safe" for c in candidates):
+        warnings.append("Observation only: safe cleanup candidates were found. Apply Safe Cleanup requires explicit approval.")
     if skipped_locked:
         warnings.append(f"{len(skipped_locked)} locked/in-use file(s) were skipped. Relaunch Studio and rerun cleanup if they still need removal.")
     reports = project_root / "Reports" / "repository_cleanup"

@@ -60,6 +60,5 @@ def audit_recap_evidence(output, period):
         "roster": _inventory(root, ("player_pool_master.json", "player_pool.json"), period, "roster"),
         "draft_assets": _inventory(root, ("draft_picks.json",), period, "draft_assets"),
         "injuries": {"status": "unresolved", "reason": "Injury source and scoring-period timing not reconciled", "period": period},
-        "trading_block": {"status": "unresolved", "reason": "Authenticated current trading-block acquisition not verified", "period": period},
     }
     return result

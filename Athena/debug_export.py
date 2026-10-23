@@ -92,13 +92,23 @@ def _payload_shape(payload: Any) -> Dict[str, Any]:
 
 def _file_summary(path: Path) -> Dict[str, Any]:
     exists = path.exists() and path.is_file()
-    payload = read_optional_json(path) if exists else None
-    return {
+    error = None
+    try:
+        payload = read_optional_json(path) if exists else None
+    except (OSError, ValueError, TypeError) as exc:
+        # A corrupt diagnostic file must remain visible as a diagnostic,
+        # not prevent generation of the debug export itself.
+        payload = None
+        error = type(exc).__name__
+    result = {
         "path": str(path),
         "exists": exists,
         "size_bytes": path.stat().st_size if exists else 0,
         "shape": _payload_shape(payload) if exists else {},
     }
+    if error:
+        result['read_error'] = error
+    return result
 
 
 def _scan_files(paths: Iterable[Path]) -> Dict[str, Dict[str, Any]]:
@@ -154,8 +164,42 @@ def build_debug_export(
         OUTPUT_DIR / "manager_behavior.json",
         OUTPUT_DIR / "league_market.json",
         OUTPUT_DIR / "knowledge_readiness.json",
+        OUTPUT_DIR / "player_identity_coverage.json",
+        OUTPUT_DIR / "PeriodScoringAudit" / "sync_manifest.json",
+        OUTPUT_DIR / "PeriodScoringAudit" / "request_manifest.json",
     ])
 
+    # Include bounded, secret-free detail so a TXT export alone establishes
+    # whether the OPTIONAL audit ran. A green Sync League headline cannot.
+    def safe_audit_read(path):
+        try:
+            return read_optional_json(path)
+        except (OSError, ValueError, TypeError) as exc:
+            return {'status': 'unreadable', 'reason': type(exc).__name__}
+    sync_audit = safe_audit_read(OUTPUT_DIR / "PeriodScoringAudit" / "sync_manifest.json")
+    request_audit = safe_audit_read(OUTPUT_DIR / "PeriodScoringAudit" / "request_manifest.json")
+    identity_coverage = safe_audit_read(OUTPUT_DIR / "player_identity_coverage.json")
+    last_op = workspace.get("last_operation_result") or {}
+    stages = ((last_op.get("metadata") or {}).get("completed_steps") or []) if isinstance(last_op, dict) else []
+    audit_step = next(({"status": s.get("status"), "validation_message": s.get("validation_message"),
+                        "validation_details": s.get("validation_details"), "skip_reason": s.get("skip_reason")}
+                       for s in reversed(stages) if isinstance(s, dict) and s.get("id") == "audit_historical_period_scoring"),
+                      {"status": "not_recorded"})
+    def audit_view(value):
+        if not isinstance(value, dict):
+            return {"status": "manifest_missing", "periods": {}}
+        return {key: value.get(key) for key in (
+            "status", "audit_scope", "league_id", "season", "audited_at", "reason",
+            "attempted_count", "numeric_complete_periods", "fully_identity_complete_periods", "periods")}
+    scoring_diagnostics = {
+        "sync_step": audit_step,
+        "sync_manifest": audit_view(sync_audit),
+        "request_manifest": audit_view(request_audit),
+        "identity_coverage": {"status": "available", "historical_periods_with_gaps":
+                               identity_coverage.get("historical_periods_with_gaps"),
+                               "historical_periods": identity_coverage.get("historical_periods", {})}
+                             if isinstance(identity_coverage, dict) else {"status": "unavailable"},
+    }
     secrets = athena_status.get("secrets") if isinstance(athena_status.get("secrets"), dict) else {}
     export = {
         "debug_export_version": DEBUG_EXPORT_VERSION,
@@ -179,6 +223,7 @@ def build_debug_export(
         "capability_dashboard": dashboard,
         "raw_files": raw_files,
         "output_files": output_files,
+        "scoring_audit_diagnostics": scoring_diagnostics,
         "operation_history": workspace.get("operation_history", []),
         "latest_operation": latest_operation or {},
         "latest_answer": latest_answer or {},
@@ -242,6 +287,25 @@ def write_debug_export(
         if limitations:
             text_lines.append("  Known limitations:")
             text_lines.extend(f"    - {item}" for item in limitations[:12])
+    text_lines.extend(["", "Historical Scoring Audit", "------------------------"])
+    diagnostics = payload.get("scoring_audit_diagnostics") or {}
+    step = diagnostics.get("sync_step") or {}
+    text_lines.append(f"Sync optional stage: {step.get('status', 'not_recorded')} — "
+                      f"{step.get('validation_message') or step.get('skip_reason') or 'No detailed result recorded'}")
+    for label, key in (("Sync", "sync_manifest"), ("Scout request", "request_manifest")):
+        audit = diagnostics.get(key) or {}
+        text_lines.append(f"{label}: {audit.get('status')} ({audit.get('attempted_count', 0)} attempted; "
+                          f"{audit.get('numeric_complete_periods', 0)} fully matched periods)"
+                          + (f"; reason={audit['reason']}" if audit.get('reason') else ""))
+        for period, entry in sorted((audit.get('periods') or {}).items()):
+            text_lines.append(f"  - Week {period}: {entry.get('status')} "
+                              f"{entry.get('numeric_matched_teams', 0)}/{entry.get('team_count', 0)} teams; "
+                              f"unresolved_ACTIVE={len(entry.get('unmatched_active_ids') or [])}; "
+                              f"differences={len(entry.get('point_discrepancies') or [])}"
+                              + (f"; reason={entry['reason']}" if entry.get('reason') else ""))
+    coverage = diagnostics.get('identity_coverage') or {}
+    text_lines.append(f"Identity coverage: {coverage.get('status')}; "
+                      f"archived periods with gaps={coverage.get('historical_periods_with_gaps')}")
     text_lines.extend(["", "Operation History", "-----------------"])
     for item in history[:10]:
         if isinstance(item, dict):

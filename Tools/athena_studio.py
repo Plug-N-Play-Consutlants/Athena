@@ -432,6 +432,7 @@ class AthenaStudio:
     def _startup_cleanup_observation(self) -> None:
         """Report the actual startup Doctor observation without applying cleanup."""
         self.write("\n=== Startup Cleanup Doctor (observation only) ===\n")
+        self.write("Automatic startup inspection: OBSERVE ONLY. No files changed. Cleanup is never applied at startup.\n")
         try:
             # Direct script execution places Tools/ on sys.path, not its parent.
             if str(PROJECT_ROOT) not in sys.path:
@@ -448,7 +449,7 @@ class AthenaStudio:
 
     def restart_studio(self) -> None:
         """Restart Studio after a patch while preserving logs/history on disk."""
-        self.write("\nChecking safe cleanup before Studio relaunch...\n")
+        self.write("\nChecking safe cleanup before Studio relaunch (preview only; approval requested only for safe candidates)...\n")
         try:
             # Studio may be launched directly as Tools/athena_studio.py, in
             # which case Python initially adds Tools/ rather than repo root.
@@ -460,10 +461,11 @@ class AthenaStudio:
             review = [c for c in preview.candidates if c.classification != "safe"]
             self.write(f"Cleanup preview: {len(safe)} safe candidate(s), {len(review)} review-only candidate(s). Report: {preview.report_path}\n")
             if safe:
-                approved = messagebox.askyesno("Studio Cleanup Preview",
-                    f"Cleanup Doctor found {len(safe)} safe candidate(s) before relaunch.\n"
+                approved = messagebox.askyesno("Studio Cleanup — Optional Safe Cleanup",
+                    f"Doctor's relaunch preview found {len(safe)} safe runtime candidate(s).\n"
                     f"Review-only items: {len(review)} (will not be deleted).\n\n"
-                    f"Preview report: {preview.report_path}\n\nApply Safe Cleanup now?",
+                    f"Preview report: {preview.report_path}\n\n"
+                    "Apply safe cleanup before relaunch? No will defer cleanup and still relaunch Studio.",
                     parent=self.root)
                 if approved:
                     applied = run_cleanup(PROJECT_ROOT, apply=True)
@@ -473,7 +475,9 @@ class AthenaStudio:
                     self.write("Cleanup deferred by user; safe candidates remain pending.\n")
                     self._record_history("Relaunch Safe Cleanup", 1, "deferred")
             elif review:
-                self.write("Review-only cleanup candidates remain; no automatic deletion.\n")
+                self.write("No safe candidates: Doctor will not prompt or modify files. Review-only items remain untouched.\n")
+            else:
+                self.write("No cleanup candidates: Doctor will not prompt or modify files.\n")
         except Exception as exc:
             self.write(f"Cleanup preview failed; relaunch cancelled: {exc}\n")
             self._record_history("Relaunch Cleanup Preview", 1, str(exc))

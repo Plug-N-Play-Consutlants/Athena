@@ -52,6 +52,15 @@ FANTRAX_FANTASY_PIPELINE: List[Dict[str, Any]] = [
         "validator": "validate_league_profile",
     },
     {
+        "id": "sync_historical_period_rosters",
+        "label": "Archive historical period rosters",
+        "layer": "Investigation",
+        "script": "Athena/Investigation/sync_period_rosters.py",
+        "validator": "validate_historical_period_rosters",
+        "required": False,
+        "requires_fetch": True,
+    },
+    {
         "id": "build_player_pool_master",
         "label": "Build player pool master",
         "layer": "Build",
@@ -64,6 +73,23 @@ FANTRAX_FANTASY_PIPELINE: List[Dict[str, Any]] = [
         "layer": "Build",
         "script": "Providers/Fantrax/build/player_master.py",
         "validator": "validate_player_master",
+    },
+    {
+        "id": "fetch_nhl_identity_candidates",
+        "label": "Refresh current-season NHL identity candidates",
+        "layer": "Fetch",
+        "script": "Providers/NHL/fetch/fetch_identity_candidates.py",
+        "validator": "validate_nhl_identity_candidates",
+        "required": False,
+        "requires_fetch": True,
+    },
+    {
+        "id": "build_player_identity_map",
+        "label": "Refresh NHL player identities",
+        "layer": "Knowledge",
+        "script": "Knowledge/player_identity_resolver.py",
+        "validator": "validate_player_identity_map",
+        "required": False,
     },
     {
         "id": "build_player_contracts",
@@ -116,6 +142,15 @@ FANTRAX_FANTASY_PIPELINE: List[Dict[str, Any]] = [
         "validator": "validate_league_market",
         "required": False,
         "requires_capability": "transactions",
+    },
+    {
+        "id": "audit_historical_period_scoring",
+        "label": "Audit historical ACTIVE scoring and exceptions",
+        "layer": "Investigation",
+        "script": "Athena/Investigation/sync_period_scoring_audit.py",
+        "validator": "validate_historical_scoring_audit",
+        "required": False,
+        "requires_fetch": True,
     },
     {
         "id": "build_knowledge_readiness",
@@ -319,13 +354,79 @@ def _validate_knowledge_readiness() -> tuple[bool, str, Dict[str, Any]]:
     return True, f"Knowledge readiness: {score}.", {"readiness_score": score}
 
 
+def _validate_nhl_identity_candidates() -> tuple[bool, str, Dict[str, Any]]:
+    manifest = _read_json(OUTPUT_DIR / "nhl_identity_refresh_status.json")
+    if not isinstance(manifest, dict) or manifest.get("schema") != "athena.nhl_identity_refresh.v1":
+        return False, "NHL identity candidate refresh status unavailable; prior evidence is retained.", {}
+    ok = manifest.get("status") == "verified" and int(manifest.get("records") or 0) > 0
+    return ok, (f"NHL identity candidates: {manifest.get('records', 0)} from current season." if ok else
+                "Current NHL identity refresh unavailable; using retained NHL identity evidence."), {
+        "status": manifest.get("status"), "records": manifest.get("records", 0),
+        "season_id": manifest.get("season_id"), "reason": manifest.get("reason", ""),
+    }
+
+
+def _validate_player_identity_map() -> tuple[bool, str, Dict[str, Any]]:
+    players = _read_json(OUTPUT_DIR / "player_master.json")
+    mappings = _read_json(OUTPUT_DIR / "player_identity_map.json")
+    if not isinstance(players, list) or not isinstance(mappings, list):
+        return False, "Player master or NHL identity map missing.", {}
+    current_ids = {str(p.get("player_id")) for p in players if isinstance(p, dict)}
+    mapped = {str(row.get("fantrax_player_id")): row for row in mappings if isinstance(row, dict)}
+    missing = sorted(current_ids - set(mapped))
+    resolved = sum(mapped[id].get("resolution_status") == "resolved" for id in current_ids & set(mapped))
+    coverage = _read_json(OUTPUT_DIR / "player_identity_coverage.json")
+    archive_gaps = int(coverage.get("historical_periods_with_gaps") or 0) if isinstance(coverage, dict) else None
+    ok = not missing and resolved > 0
+    detail = (f"Player identities refreshed: {resolved}/{len(current_ids)} resolved; {len(missing)} absent from map."
+              + (f" Historical period(s) with ACTIVE identity gaps: {archive_gaps}." if archive_gaps is not None else ""))
+    return ok, detail, {
+        "current_players": len(current_ids), "resolved": resolved,
+        "missing": len(missing), "unresolved_or_review": len(current_ids) - resolved,
+        "historical_periods_with_gaps": archive_gaps,
+    }
+
+
+def _validate_historical_period_rosters() -> tuple[bool, str, Dict[str, Any]]:
+    manifest = _read_json(OUTPUT_DIR / "PeriodRosters" / "sync_manifest.json")
+    if not isinstance(manifest, dict) or manifest.get("schema") != "athena.historical_roster_sync.v1":
+        return False, "Historical roster archive manifest is missing or invalid.", {}
+    verified = int(manifest.get("verified_count") or 0)
+    attempted = int(manifest.get("attempted_count") or 0)
+    ok = attempted > 0 and verified == attempted and manifest.get("status") == "verified"
+    return ok, (f"Historical roster periods archived: {verified}/{attempted}."
+                if ok else f"Historical roster archive incomplete: {verified}/{attempted}; "
+                + str(manifest.get("reason") or "inspect per-period acquisition statuses.")), {
+                    "verified_count": verified, "attempted_count": attempted,
+                    "periods": manifest.get("periods", {})}
+
+
+def _validate_historical_scoring_audit() -> tuple[bool, str, Dict[str, Any]]:
+    manifest = _read_json(OUTPUT_DIR / "PeriodScoringAudit" / "sync_manifest.json")
+    if not isinstance(manifest, dict) or manifest.get("schema") != "athena.period_scoring_audit_manifest.v1":
+        return False, "Period scoring audit manifest missing.", {}
+    attempted = int(manifest.get("attempted_count") or 0)
+    complete = int(manifest.get("numeric_complete_periods") or 0)
+    observed = sum(p.get("status") in ("numeric_complete", "partial") for p in (manifest.get("periods") or {}).values())
+    ok = attempted > 0 and observed == attempted
+    return ok, (f"Historical scoring audited: {observed}/{attempted} periods; "
+                f"{complete} numerically complete. Per-team exceptions retained."), {
+                    "status": manifest.get("status"), "attempted": attempted,
+                    "audited": observed, "numeric_complete": complete,
+                    "periods": manifest.get("periods", {}), "reason": manifest.get("reason", "")}
+
+
 VALIDATORS: Dict[str, Validator] = {
     "validate_raw_fantrax": _validate_raw_fantrax,
     "validate_league_settings": _validate_league_settings,
     "validate_league_profile": _validate_league_profile,
+    "validate_historical_period_rosters": _validate_historical_period_rosters,
+    "validate_historical_scoring_audit": _validate_historical_scoring_audit,
     "validate_player_contracts": _validate_player_contracts,
     "validate_player_pool_master": _validate_player_pool_master,
     "validate_player_master": _validate_player_master,
+    "validate_player_identity_map": _validate_player_identity_map,
+    "validate_nhl_identity_candidates": _validate_nhl_identity_candidates,
     "validate_draft_picks": _validate_draft_picks,
     "validate_transaction_master": _validate_transaction_master,
     "validate_transaction_history": _validate_transaction_history,
@@ -480,7 +581,7 @@ def _transaction_capability_status() -> Dict[str, Any]:
     if rows <= 0:
         return {
             "available": True,
-            "reason": "Transaction feed is available; no current-season transactions are recorded yet.",
+            "reason": "Raw transaction feed contains zero normalized rows; check canonical transaction history separately before concluding that no activity occurred.",
             "page_error": page_error,
             "transaction_rows": rows,
         }

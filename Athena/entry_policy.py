@@ -30,6 +30,15 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
         r'\btrades?|trading\s+blocks?\b',
         r'\b(editorial|stories|analysis|highlights|movers|shakers)\b',
     ))
+    # A request to reconcile specific league scoring periods needs the complete
+    # Athena period-audit path even when the user does not ask for an editorial.
+    # Otherwise it can be misrouted as a standings-only or generic inquiry.
+    scoring_audit = (explicit
+                     and bool(re.search(r'\b(reconcile|reconciliation|audit|verify)\b', q))
+                     and bool(re.search(r'\b(?:weeks?|periods?)\s*\d+', q))
+                     and bool(re.search(r'\b(scoring|points|scores?|rosters?|active|standings)\b', q)))
+    if scoring_audit:
+        return EntryDecision('league_recap', 'explicit_period_scoring_reconciliation')
     if fantasy and (broad_report or (editorial and sections >= 2)):
         return EntryDecision('league_recap', 'composite_weekly_editorial_request')
     # Explicit league questions retain their fantasy evidence domain even when

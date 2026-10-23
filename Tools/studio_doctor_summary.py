@@ -25,7 +25,10 @@ def format_doctor_summary(report) -> list[str]:
     for warning in report.warnings:
         lines.append(f"[WARN] {warning}")
     if not report.applied:
-        lines.append("No files changed. Cleanup requires the separate Apply Safe Cleanup action.")
+        if safe:
+            lines.append(f"No files changed. {len(safe)} safe cleanup candidate(s) are eligible; applying cleanup requires explicit approval.")
+        else:
+            lines.append("No files changed. No safe cleanup candidates; no action or confirmation required. Review-only items are never deleted automatically.")
     elif not removed:
         lines.append("No files removed.")
     lines.append(f"Doctor report: {report.report_path}")

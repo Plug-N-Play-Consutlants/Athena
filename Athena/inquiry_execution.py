@@ -54,14 +54,17 @@ def investigate(question: str, context: Any, *, mode: str = "public") -> dict[st
     from Athena.capability_coordination import coordinate_capabilities
     objectives = decompose_inquiry(question)
     selected = (mode or "public").strip().lower()
-    route, selection_reason = select_executable_route(question, selected)
+    if context is None:
+        from Scout.conversation.context import load_context
+        context = load_context()
+    route, selection_reason = select_executable_route(question, selected, context=context)
     if not route or route not in SPECIALISTS:
         status = "legacy_fallback" if not route else "unregistered"
         return {"status": status, "result": None, "selection_reason": selection_reason, "inquiry_objectives": objectives, "capability_coordination": coordinate_capabilities(objectives, route, selected),
                 "capability_ledger": _remaining_capabilities("", selected),
                 "completion": _completion(None, status, question)}
     spec = SPECIALISTS[route]
-    if spec.mode == "fantasy" and selected != "fantasy":
+    if spec.mode == "fantasy" and selected != "fantasy" and selection_reason != "verified_named_fantasy_team_roster_assignment":
         status, result = "gated", None
         first = _record(route, "gated", "fantasy_mode_required", "skipped")
     else:

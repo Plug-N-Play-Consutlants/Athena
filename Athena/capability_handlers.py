@@ -273,25 +273,62 @@ def _team_rows(ctx: ScoutContext) -> List[Dict[str, Any]]:
 
 
 def _answer_fantasy_roster(ctx: ScoutContext, question: str) -> Dict[str, Any]:
+    """Named team before league ranking; no alternative club is the subject."""
+    from Athena.fantasy_team_subject import named_team_roster_subject
+    name = named_team_roster_subject(question, ctx)
     teams = _team_rows(ctx)
-    strongest = sorted(teams, key=lambda t: float(t.get("total_asset_value") or 0), reverse=True)[:1]
-    weakest = sorted(teams, key=lambda t: float(t.get("average_asset_value") or 0))[:1]
-    strength = strongest[0].get("team_name") if strongest else "not enough team data"
-    weakness = weakest[0].get("team_name") if weakest else "not enough team data"
+    if name:
+        profile = next((t for t in teams if str(t.get("team_name") or "").casefold() == name.casefold()), None)
+        players = [p for p in (ctx.player_master or []) if isinstance(p, dict)
+                   and str(p.get("owner_team") or "").casefold() == name.casefold()]
+        position_counts: dict[str, int] = {}
+        for p in players:
+            position = str(p.get("position") or "unknown").upper()
+            position_counts[position] = position_counts.get(position, 0) + 1
+        positions = ", ".join(f"{pos}: {count}" for pos, count in sorted(position_counts.items())) or "not available"
+        available = ["Roster inventory: " + str(len(players)) + " players" + ("; nominal position counts " + positions if players else "") + "."]
+        if profile and profile.get("total_asset_value") is not None:
+            available.append(f"Recorded roster asset-value signal: {profile['total_asset_value']} (model output; not verified NHL production).")
+        natural = (
+            f"Scouting assessment — {name}\n\n"
+            f"Athena identified {name} as the requested fantasy team. "
+            f"The current player master contains {len(players)} associated players. "
+            f"Nominal position inventory: {positions}. These are position labels, not proof of active-slot depth or on-ice contribution.\n\n"
+            "What can be assessed: roster composition and existing team-profile signals. "
+            "What cannot yet be concluded: that a particular position is a weakness, that a specific free agent would improve the lineup, "
+            "or that a trade is advisable without comparable period-adjusted production, eligibility, alternatives, contracts and asset costs.\n\n"
+            "Next analytical comparison: reconcile this team's ACTIVE-scoring distribution by position against its league peers; "
+            "then evaluate replacement options and keeper/trade opportunity costs. "
+            "No unrelated player's profile substitutes for that evaluation."
+        )
+        return response(
+            intent="fantasy_roster_diagnostic", title=f"{name} — roster improvement assessment",
+            engine_conclusion=natural, natural_language_response=natural,
+            observed_facts=available + (["Current team profile available."] if profile else []),
+            known_limitations=["Positional performance and bench/ACTIVE eligibility by scoring period are not yet reconciled in this advisory pathway.",
+                               "Specific trade and free-agent recommendations require verified available-player, contract and roster-fit evidence."],
+            confidence=.62 if players and profile else .49 if players else .35,
+            developer=developer_info("fantasy_roster_diagnostic", ctx.files_loaded,
+               knowledge_used=["player_master", "team_profiles"],
+               intelligence_used=["bounded_named_team_roster_diagnostic"],
+               missing=["comparative_positional_scoring", "verified_replacement_candidates", "game_effective_roster_eligibility"]),
+        )
+    # Possessive 'my roster' remains separate until the user's team is known;
+    # never substitute unrelated league teams for the user's assignment.
     natural = (
-        "Scout recognized this as a roster-organization diagnostic rather than a general league summary.\n\n"
-        f"Current bounded read: the strongest available signal is total roster asset strength, led by {strength}. The main weakness signal is average asset depth/efficiency, with {weakness} showing the lowest available average-value signal in the current team-profile set.\n\n"
-        "For your actual roster, Athena still needs a selected fantasy-team identity in Scout so it can evaluate your roster directly instead of only comparing league teams. Once that owner/team binding is explicit, the answer should identify positional surplus, expiring-contract risk, keeper pressure, tradeable assets, non-movable assets, and draft-capital needs."
+        "Athena recognizes a fantasy roster improvement request, but no unique fantasy team has been established "
+        "from this inquiry. A league-wide asset ranking would not answer whose roster needs improvement. "
+        "Name the team or connect a verified manager-team identity to evaluate its positional production and alternatives."
     )
     return response(
-        intent="fantasy_roster_diagnostic",
-        title="Roster strength and weakness diagnostic",
-        engine_conclusion="Scout routed the prompt to roster diagnostics and identified the missing owner/team binding needed for a direct personal-roster answer.",
-        natural_language_response=natural,
-        observed_facts=[f"Team profiles loaded: {len(teams)}.", f"Top total-value signal: {strength}.", f"Lowest average-value signal: {weakness}."],
-        known_limitations=["Scout does not yet know which fantasy team is 'my roster' unless that owner/team binding is provided or persisted."],
-        confidence=0.62 if teams else 0.32,
-        developer=developer_info("fantasy_roster_diagnostic", ctx.files_loaded, knowledge_used=["team_profiles", "player_contracts", "player_master"], intelligence_used=["scout_intent_orchestration", "bounded_roster_diagnostic"], missing=["current_user_team_binding", "positional_surplus_engine"]),
+        intent="fantasy_roster_diagnostic", title="Roster assignment needs a team subject",
+        engine_conclusion=natural, natural_language_response=natural,
+        observed_facts=[f"Available team profiles: {len(teams)}."],
+        known_limitations=["A unique fantasy team subject is required for a team-specific roster recommendation."],
+        confidence=.3,
+        developer=developer_info("fantasy_roster_diagnostic", ctx.files_loaded,
+             knowledge_used=["team_profiles", "player_master"], intelligence_used=["scout_intent_orchestration"],
+             missing=["verified_fantasy_team_subject"]),
     )
 
 

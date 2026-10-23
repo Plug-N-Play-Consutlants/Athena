@@ -228,10 +228,12 @@ def plan_capability(question: str, mode: str = "public") -> Optional[AthenaInten
     if len(comparison_players) >= 2 and _has_any(q, ["compare", " vs ", " versus ", "which player", "build a franchise around"]):
         return AthenaIntentPlan("public_player_comparison", 0.94, "Two-player comparison intent outranks live-event terms.", 96)
 
-    if selected_mode == "public" and len(comparison_players) == 1 and _has_any(q, (
+    if (selected_mode == "public" and len(comparison_players) == 1
+            and not _has_any(q, ("scouting profile", "player profile", "complete profile", "full profile"))
+            and _has_any(q, (
         "generational", "historical stature", "historical greatness", "all-time great",
         "hall of fame caliber", "hall of fame calibre", "career legacy", "superstar or",
-    )):
+    ))):
         return AthenaIntentPlan(
             "public_player_historical_stature", 0.995,
             "Named-player historical stature requires a career evidence inventory and explicit unresolved tests; incidental injury words must not trigger live news.", 105,

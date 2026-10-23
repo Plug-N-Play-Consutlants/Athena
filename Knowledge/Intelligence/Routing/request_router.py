@@ -91,7 +91,17 @@ def analyze_public_request(question: str) -> PublicRoute:
     entities: List[EntityMatch] = []
     notes: List[str] = []
 
-    if intent.intent == IntentType.PLAYER_COMPARISON:
+    # Evaluate the subject before allocating the intelligence domain.
+    # A uniquely named team inside a multi-clause roster assessment takes
+    # precedence over generic player-style verbs such as "evaluate".
+    team_subject = resolve_entity(normalized_question, preferred_type="team")
+    team_assignment = bool(re.search(r"\b(roster|lineup|team)\b", normalized_question)
+                           and re.search(r"\b(improv\w*|weakness\w*|upgrade\w*|assess|evaluat\w*|tradeoffs?|needs?)\b", normalized_question))
+    if team_assignment and team_subject.entity is not None and team_subject.confidence >= .82:
+        entities = [team_subject]
+        route = "team_intelligence"
+        notes.append("Team roster assignment precedes player resolution.")
+    elif intent.intent == IntentType.PLAYER_COMPARISON:
         entities = extract_entities(normalized_question, preferred_type="player")
         route = "player_comparison"
         notes.append("Public comparison route selected; fantasy owner context is blocked unless explicitly requested.")
@@ -129,6 +139,14 @@ def analyze_public_request(question: str) -> PublicRoute:
         route = "rulebook_knowledge"
     elif intent.intent == IntentType.NEWS_SUMMARY:
         route = "event_intelligence_gap"
+    elif (intent.intent in {IntentType.GENERAL_DISCUSSION, IntentType.UNKNOWN}
+          and team_subject.entity is not None and team_subject.confidence >= 0.95):
+        # A direct named-team question can be broader than the intent
+        # classifier's verb patterns ("Who are the Avs?"). Trust a *strong*
+        # identity match, not a fuzzy substitute for an unrelated team.
+        entities = [team_subject]
+        route = "team_intelligence"
+        notes.append("Explicit named-team identity overrides generic question wording.")
     else:
         route = "clarify"
 

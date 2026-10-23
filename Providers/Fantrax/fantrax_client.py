@@ -260,6 +260,16 @@ class FantraxClient:
     def get_league(self) -> Any:
         return self.get(self.get_endpoint("league"))
 
+    def get_team_rosters(self, period: int) -> Any:
+        """Documented fxea historical lineup-period snapshot (period=N).
+
+        Requires the returned period to be checked by the canonical normalizer;
+        HTTP success alone never establishes correct historical data.
+        """
+        if type(period) is not int or period < 1:
+            raise ValueError("period must be a positive lineup-period integer")
+        return self.get(FantraxEndpoints.PLAYER_POOL, params={"period": period})
+
     def get_player_pool_payload(self) -> Any:
         """Return the active live Fantrax roster/player-pool payload."""
         return self.get(self.get_endpoint("player_pool"))

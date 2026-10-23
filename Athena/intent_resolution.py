@@ -4,12 +4,16 @@ from __future__ import annotations
 from Athena.execution_registry import SPECIALISTS
 
 
-def select_executable_route(question: str, mode: str) -> tuple[str, str]:
+def select_executable_route(question: str, mode: str, context=None) -> tuple[str, str]:
     from Athena.intent_planner import plan_capability
 
     from Athena.diagnostic_intent import is_diagnostic_inquiry
     if is_diagnostic_inquiry(question):
         return "athena_runtime_diagnostics", "athena_diagnostic_intent"
+
+    from Athena.fantasy_team_subject import named_team_roster_subject
+    if named_team_roster_subject(question, context):
+        return "fantasy_roster_diagnostic", "verified_named_fantasy_team_roster_assignment"
 
     from Athena.entry_policy import select_entry_route
     entry = select_entry_route(question, mode)

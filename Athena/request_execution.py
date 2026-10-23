@@ -109,7 +109,14 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
     from Athena.intent_resolution import select_executable_route
     from Athena.execution_registry import SPECIALISTS, execute_specialist
 
-    route, selected_by = select_executable_route(effective_question, mode)
+    # Resolve request-scoped team ownership from the same context later passed
+    # to the specialist. Direct AthenaRequest calls without a Scout context
+    # must not silently lose named-team inquiry routing.
+    route_context = request.context
+    if route_context is None:
+        from Scout.conversation.context import load_context
+        route_context = load_context()
+    route, selected_by = select_executable_route(effective_question, mode, context=route_context)
     if continuation_status == "resolved_pending_inquiry":
         route = "public_player_investigation"
         selected_by = "resolved_entity_pending_inquiry"
@@ -133,11 +140,13 @@ def execute_request(request: AthenaRequest) -> Dict[str, Any]:
         # Fall back explicitly rather than crashing the entire Scout request.
         route, selected_by = "", "unregistered_entry_route_fallback"
     effective_mode = "public" if route and SPECIALISTS[route].mode == "public" else mode
+    if route == "fantasy_roster_diagnostic" and selected_by == "verified_named_fantasy_team_roster_assignment":
+        effective_mode = "fantasy"  # Explicit team subject, even from Public UI.
     refresh_status = None
     if route in {"league_recap", "league_period_standings", "fantasy_trade_investigation"}:
         from Athena.fantasy_refresh import ensure_fantasy_freshness
         refresh_status = ensure_fantasy_freshness()
-    context = None if refresh_status and refresh_status.get("attempted") else request.context
+    context = None if refresh_status and refresh_status.get("attempted") else route_context
     if context is None:
         from Scout.conversation.context import load_context
         context = load_context()

@@ -715,20 +715,71 @@ def player_profile_answer(ctx, profile: PublicPlayerProfile, question: str) -> D
         answer["developer"].setdefault("knowledge_used", []).append("nhl_player_landing")
         answer["developer"]["assessment_window"] = professional
         answer["title"] = f"{profile.display_name} — {profile.position} / {seed.get('team') or profile.team}"
-    else:
-        answer["assessment_badges"] = ["Assessment Pending"]
-        answer["confidence"] = min(float(answer.get("confidence") or .5), .65)
-        answer["title"] = f"{profile.display_name} — {profile.position} / {profile.nationality or 'team unverified'}"
+    elif seed.get("source") == "nhl_skater_summary" and seed.get("season_history"):
+        # One official historical season is a meaningful, dated observation.
+        # It must not be mistaken for active-year production or complete
+        # career evidence. This path remains useful without NHL landing access.
+        latest = seed["season_history"][0]
+        label = str(latest.get("season") or "unknown")
+        gp = latest.get("gp")
+        pts = latest.get("points")
+        goals, assists = latest.get("goals"), latest.get("assists")
+        production = f"{pts} points in {gp} games"
+        if isinstance(goals, (int, float)) and isinstance(assists, (int, float)):
+            production += f" ({goals} goals, {assists} assists)"
+        natural = _compose_public_player_copy(profile, question, fallback=profile.career_identity, evaluation=evaluation)
+        natural += (f"\n\nVerified NHL regular-season evidence ({label}): "
+                    f"{production}. This is a historical season, not a 2026-27 current-season total "
+                    "or a complete career record. Current production, career totals and award counts "
+                    "require a separately verified official player landing record.")
+        answer["engine_conclusion"] = natural
+        answer["observed_facts"] = [
+            f"Official NHL skater summary: {profile.display_name}, NHL ID {seed.get('nhl_id')}, "
+            f"{label}: {production}.",
+            f"Curated identity: {profile.display_name}, {profile.position}; registered historical association {profile.team}.",
+        ]
+        answer["stats"] = {}  # Never display last year's line as current-year stats.
         answer["player"]["team"] = ""
+        answer["title"] = f"{profile.display_name} — {profile.position} / verified {label} history"
+        answer["assessment_badges"] = ["Verified Historical NHL Season", "Current Statistics Pending"]
+        answer["cards"] = [card for card in answer.get("cards", []) if str(card.get("label") or "").lower() in {"player", "position"}]
+        answer["cards"].extend([{"label": "Verified NHL season", "value": label},
+                                 {"label": "Season points", "value": str(pts)},
+                                 {"label": "Season games", "value": str(gp)}])
+        answer["known_limitations"] = list(dict.fromkeys(
+            _public_limitations(profile.known_limitations) +
+            ["Official one-season skater summary does not establish career totals, current deployment, or current-season performance."]))
+        answer["confidence"] = 0.75
+        answer["developer"].setdefault("knowledge_used", []).append("nhl_skater_summary")
+    else:
+        # Absence of an official statistical join does not erase the separately
+        # identified historical player. Preserve *seeded* context explicitly
+        # while refusing to upgrade it to a current NHL/team/stats assertion.
+        answer["assessment_badges"] = ["Official Statistics Pending"]
+        answer["confidence"] = min(float(answer.get("confidence") or .5), .65)
+        answer["title"] = f"{profile.display_name} — {profile.position} / historical profile"
+        answer["player"]["team"] = ""  # no verified *current* club
         answer["cards"] = [card for card in answer.get("cards", []) if card.get("label", "").lower() in {"player", "position"}]
+        context = str(profile.career_identity or profile.role or "A registered historical professional player").strip()
+        recorded = "; ".join(str(note).strip() for note in profile.career_notes[:2] if str(note).strip())
         natural = (
-            f"Athena resolved {profile.display_name}'s identity ({profile.position}, {profile.nationality or 'nationality unverified'}) "
-            "but does not have a matched NHL career and season record for this player. "
-            "The current club, statistical snapshot, current tier, and career legacy remain unverified. "
-            "Historical profile notes are retained as leads for further evidence, not as a current player assessment."
+            f"{profile.display_name} is identified in Athena's curated professional history as {profile.position} "
+            f"with historical ties to {profile.team or 'an unverified NHL organization'}. "
+            f"Historical context in the registry: {context}"
+            + (f" {recorded}." if recorded else "")
+            + "\n\nAthena does not have a matched official career/season statistical record in this answer path. "
+              "Current roster affiliation, live production, and a numerical career assessment therefore remain unverified. "
+              "This evidence gap does not imply that the player lacks an NHL career or established historical stature."
         )
         answer["engine_conclusion"] = natural
-        answer["observed_facts"] = [f"Identity: {profile.display_name}, {profile.position}, {profile.nationality}."]
+        answer["observed_facts"] = [
+            f"Curated historical identity: {profile.display_name}, {profile.position}; historical team association {profile.team}.",
+            "Official career and season statistics: not joined to this identity in the current answer path.",
+        ]
+        answer["known_limitations"] = list(dict.fromkeys(
+            _public_limitations(profile.known_limitations)
+            + ["Curated biographical/legacy context is not a substitute for an official statistical or award source."]
+        ))
     answer = _set_public_surface(answer, natural)
     answer["developer"]["public_player_profile"] = profile.to_dict()
     answer["developer"]["player_experience_seed"] = seed

@@ -53,6 +53,15 @@ def validate_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
     for previous, current in zip(ordered, ordered[1:]):
         if current > previous + rank_counts[previous]:
             raise ValueError(f'standings ranking has an unexplained gap before rank {current}')
+    # Points-only total-points league: a worse rank cannot have a larger
+    # cumulative score than a better rank. Equal scores may carry provider
+    # tie-break order, so do not manufacture ties from equal totals.
+    ordered_rows = sorted(teams, key=lambda r: (r['rank'], str(r['team_id'])))
+    for better, worse in zip(ordered_rows, ordered_rows[1:]):
+        if better['points'] < worse['points'] - 1e-7:
+            raise ValueError('standings rank/total-points conflict: '
+                             f"{better['team_id']} rank {better['rank']} points {better['points']} "
+                             f"versus {worse['team_id']} rank {worse['rank']} points {worse['points']}")
     return snapshot
 
 

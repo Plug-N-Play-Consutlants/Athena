@@ -40,12 +40,12 @@ PLAYER_COMMAND_RE = re.compile(
 
 def _conversational_league_recap(q: str, mode: str) -> bool:
     """Interpret informal league recap language without overriding public inquiries."""
-    if mode == "public":
+    if mode == "public" and not any(tag in (q or "").casefold() for tag in ("jhlpaa", "fantrax")):
         return False
     words = re.findall(r"[a-z]+", (q or "").lower())
-    league = any(w in ("league", "leauge", "leage") for w in words)
-    action = any(w in ("analyze", "analyse", "analize", "analise", "review", "summarize", "summarise", "recap", "assess") for w in words)
-    temporal = any(w in ("week", "weekly", "recent", "yesterday") for w in words)
+    league = any(w in ("league", "leauge", "leage", "jhlpaa", "fantrax") for w in words)
+    action = any(w in ("analyze", "analyse", "analize", "analise", "review", "summarize", "summarise", "summary", "recap", "assess", "report") for w in words)
+    temporal = any(w in ("week", "weekly", "recent", "yesterday", "previous", "last", "period") for w in words)
     informal = any(phrase in (q or "").lower() for phrase in ("how did things shake out", "how did my league do", "what happened in my league", "how was my league"))
     return league and temporal and (action or informal)
 
@@ -399,18 +399,26 @@ def analyze_league(ctx: ScoutContext | None = None, question: str = "") -> Dict[
         investigation_trace = execution["investigation_trace"]
         explicit_week = execution["explicit_week"]
         from Scout.conversation.role_intelligence import select_scout_role, attach_role_metadata
-        from Scout.conversation.journalist_composition import compose_journalist_report
+        from Scout.conversation.journalist_composition import compose_editorial_publication
         scout_role = select_scout_role(question, intent="analyze_league", route="league_recap", mode="fantasy")
-        if scout_role.role == "journalist":
-            conclusion = compose_journalist_report(research=athena_research)
-        elif scout_role.role == "auditor" and any(
-                word in question.lower() for word in ("editorial", "recap", "weekly report", "column")):
-            # Explicit dual assignment: audit first, independent sports column second.
-            # Keep every requested-period team difference in the audit prefix.
-            technical = compose_period_report(research=athena_research)
-            boundary = "\n\nThe week's defining development"
-            audit = technical.split(boundary, 1)[0] if boundary in technical else technical
-            conclusion = audit + "\n\nSPORTS DESK | WEEKLY COLUMN\n\n" + compose_journalist_report(research=athena_research)
+        # Every published sports column, including auditor-requested dual output,
+        # passes the SAME publication gate. Never bypass the gate via role routing.
+        if scout_role.role == "journalist" or (
+                scout_role.role == "auditor" and any(
+                    word in question.lower() for word in ("editorial", "recap", "weekly report", "column"))):
+            edition = compose_editorial_publication(research=athena_research)
+            publication = edition["audit"]
+            investigation_trace.append({"stage": "scout.publication_gate", "status": publication["status"],
+                                         "detail": ", ".join(publication["issues"]) or "trade inventory and claim coverage passed"})
+            if scout_role.role == "journalist":
+                conclusion = edition["report"]
+            else:
+                # Auditor-specific numerical diagnostics are preserved separately;
+                # the optional sports column cannot bypass publication safeguards.
+                technical = compose_period_report(research=athena_research)
+                boundary = "\n\nThe week's defining development"
+                audit = technical.split(boundary, 1)[0] if boundary in technical else technical
+                conclusion = audit + "\n\nSPORTS DESK | WEEKLY COLUMN\n\n" + edition["report"]
         else:
             conclusion = compose_period_report(research=athena_research)
         investigation_trace.append({"stage": "scout.presentation", "status": "composed", "detail": "Structured Athena research rendered"})
@@ -1981,6 +1989,9 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
         if isinstance(period_answer, dict):
             period_answer.setdefault('entry_decision', {'route': entry.route, 'reason': entry.reason, 'mode': selected_mode})
         return period_answer
+    if entry.route == 'league_multi_period_analysis':
+        from Athena.Investigation.multi_period_analysis import investigate_multi_period
+        return investigate_multi_period(ctx, raw_question)
     if entry.route == 'league_period_standings':
         return _league_standings_inquiry(ctx, raw_question)
     # Registered Athena specialists own execution and trace provenance, even

@@ -176,11 +176,11 @@ class WeeklyReportAcceptanceTests(unittest.TestCase):
         self.assertTrue(answer["developer"]["period_selection"]["completion_verified"])
         self.assertEqual(answer["developer"]["player_production_acquisition"]["status"], "unverified_period")
         report = answer["natural_language_response"]
-        self.assertIn("Week 3 (October 12-18, 2026)", report)
+        self.assertIn("Week 3 (October 12–18, 2026)", report)
         self.assertIn("Alpha", report)
         self.assertIn("Player A", report)
         self.assertNotIn("Player B", report)
-        self.assertIn("Individual player production: the provider did not confirm the requested season and period", report)
+        self.assertNotIn("Individual player production: the provider did not confirm the requested season and period", report)
         self.assertEqual(answer["developer"]["period_standings_comparison"]["status"], "compared")
         self.assertEqual(dated_answer["developer"]["period_selection"]["period"], 3)
         self.assertTrue(dated_answer["developer"]["period_selection"]["explicit"])

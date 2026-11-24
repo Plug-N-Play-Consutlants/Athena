@@ -111,6 +111,6 @@ def test_journalism_connects_headline_and_scoreboard_and_avoids_score_dump():
     assert "The developing picture" in report and "two consecutive periods" in report
     assert report.count("The sequence is verified") == 0
     assert report.count("Those are verified arcs") == 1
-    assert report.count("Those changes are standings facts") == 1
-    assert "manager's reasoning" in report
+    assert "Standings movement" in report
+    assert "quiet corner" in report.lower()
     assert "cause" not in report[:report.index("The transaction wire")]

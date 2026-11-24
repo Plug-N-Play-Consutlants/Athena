@@ -82,7 +82,7 @@ def _scope(research):
         try:
             start = date.fromisoformat(bounds["start"])
             end = date.fromisoformat(bounds["end"])
-            label += f" ({start.strftime('%B')} {start.day}-{end.day}, {end.year})"
+            label += (f" ({start.strftime('%B')} {start.day}–" + (f"{end.strftime('%B')} " if start.month != end.month or start.year != end.year else '') + f"{end.day}, {end.year})")
         except (ValueError, TypeError):
             pass
     return label
@@ -92,19 +92,29 @@ def _continuity(research, findings):
     """Use authenticated cross-week signals before single-period movement."""
     serial = research.get("storyline_continuity") or {}
     if serial.get("status") == "verified" and serial.get("source") == "canonical_period_standings":
-        leading = (serial.get("signals") or [])[:2]
+        leading = (serial.get("signals") or [])[:3]
         stories = []
         for item in leading:
             periods = item.get("periods") or []
-            if len(periods) != 3 or item.get("direction") not in ("climb", "slide"):
+            if len(periods) != 3 or not item.get('team_name'):
                 continue
             movement = item.get("overall_rank_change")
-            if type(movement) is not int or not movement:
+            if type(movement) is not int:
                 continue
-            verb = "climbed" if movement > 0 else "slipped"
-            stories.append(f"{item['team_name']} has {verb} {abs(movement)} standings "
-                           f"{'place' if abs(movement) == 1 else 'places'} over two consecutive "
-                           f"periods (Weeks {periods[0]}–{periods[2]})")
+            direction = item.get("direction")
+            if direction in ("climb", "slide") and movement:
+                verb = "climbed" if movement > 0 else "slipped"
+                stories.append(f"{item['team_name']} has {verb} {abs(movement)} standings "
+                               f"{'place' if abs(movement) == 1 else 'places'} over two consecutive "
+                               f"periods (Weeks {periods[0]}–{periods[2]})")
+            elif direction == "reversal":
+                moves = item.get('movements') or []
+                if len(moves) == 2 and all(type(m) is int and m for m in moves) and moves[0] * moves[1] < 0:
+                    earlier = 'rose' if moves[0] > 0 else 'fell'
+                    latter = 'recovered' if moves[1] > 0 else 'gave back ground'
+                    stories.append(f"{item['team_name']} {earlier} {abs(moves[0])} "
+                                   f"{'place' if abs(moves[0]) == 1 else 'places'} in Week {periods[1]}, "
+                                   f"then {latter} by {abs(moves[1])} in Week {periods[2]}")
         if stories:
             return "; ".join(stories) + ". Those are verified arcs in the standings, not explanations of what caused them."
     comparison = research.get("comparison") or {}
@@ -199,137 +209,271 @@ def _market_paragraph(findings: list[dict]) -> str:
     return " ".join(parts)
 
 
+def _newsroom_market(research):
+    from Athena.Investigation.editorial_newsroom import transaction_inventory
+    inventory = transaction_inventory(research)
+    parts = []
+    for event in inventory['trades']:
+        sides = [f"{club} received {', '.join(players)}" for club, players in sorted(event['received'].items())]
+        parts.append('; '.join(sides) + '.')
+    secondary = next((f for f in research.get('findings') or [] if f.get('kind') == 'secondary_market'), None)
+    extra = ''
+    if secondary:
+        count = secondary.get('transaction_count', 0)
+        examples = [str(x) for x in secondary.get('examples') or [] if x]
+        prefix = (f"Outside the trades, {count} other recorded moves" if parts else f"The league recorded {count} roster moves")
+        extra = prefix + (f" including {'; '.join(examples[:2])}." if examples else ' this period.')
+    if not parts and not extra: return '', inventory
+    opener = f"The league recorded {len(parts)} confirmed {'trade' if len(parts) == 1 else 'trades'} this period." if parts else ''
+    return ' '.join(x for x in [opener, ' '.join(parts), extra] if x), inventory
+
+
+def _briefing_sections(briefing: dict, featured: str | None) -> list[str]:
+    """Render Athena's verified complete standings comparison without changing scores."""
+    if briefing.get('status') != 'verified' or briefing.get('source') != 'canonical_period_standings':
+        return []
+    leaders = briefing['leaders']
+    top = briefing['weekly_top_points']
+    lead = leaders[0]
+    parts = [f"{lead['name']} set the weekly pace with {_n(top)} points"]
+    other = [x for x in leaders if x['name'] != lead['name']]
+    if other:
+        parts.append('The other leading totals came from ' + '; '.join(
+            f"{x['name']} ({_n(x['period_points'])})" for x in other))
+    if lead['rank'] != 1:
+        parts.append(f"The week's highest scorer finished at {_rank(lead['rank'])} in the cumulative standings, rather than first overall")
+    else:
+        parts.append('The weekly scoring leader also occupies first place overall')
+    sections = ['Around the league', '. '.join(parts) + '.']
+    climbers = briefing['climbers']
+    fallers = briefing['fallers']
+    movement = []
+    if climbers:
+        movement.append('Moving up: ' + '; '.join(
+            f"{x['name']} +{x['rank_change']} to {_rank(x['rank'])} ({_n(x['period_points'])} points)" for x in climbers))
+    if fallers:
+        movement.append('Moving down: ' + '; '.join(
+            f"{x['name']} {x['rank_change']} to {_rank(x['rank'])} ({_n(x['period_points'])} points)" for x in fallers))
+    if not movement:
+        movement.append('No teams changed standings position this period')
+    sections.extend(['Standings movement', '. '.join(movement) + '.'])
+    stable = briefing['unchanged']
+    gaps = briefing['gaps_to_first']
+    context = []
+    if stable:
+        context.append(f"{len(stable)} of {briefing['team_count']} teams held their standings positions, "
+                       'even though the weekly points continued to accumulate')
+    if gaps:
+        closest = gaps[0]
+        context.append(f"{closest['team']} sits {_n(closest['points_behind'])} cumulative points behind the "
+                       f"first-place points total at {_rank(closest['rank'])}")
+    if context:
+        sections.extend(['The competitive picture', '. '.join(context) + '.'])
+    return sections
+
+
+
+def _competitive_story(briefing: dict) -> str | None:
+    """Write a bounded narrative from verified Athena contrasts, not imagined motives.
+
+    A separate narrative paragraph complements the exhaustive standings inventory:
+    it explains *why the observed combination is interesting*, without reciting
+    every row or assigning fantasy points to individuals.
+    """
+    if briefing.get('status') != 'verified' or briefing.get('source') != 'canonical_period_standings':
+        return None
+    signals = briefing.get('narrative_signals') or []
+    if not isinstance(signals, list):
+        return None
+    stories = []
+    seen_kinds = set()
+    for signal in signals:
+        if not isinstance(signal, dict):
+            continue
+        kind = signal.get('kind')
+        if kind in seen_kinds:
+            continue
+        if kind == 'weekly_vs_overall':
+            if not all(k in signal for k in ('weekly_team', 'weekly_points', 'weekly_rank', 'overall_team', 'overall_rank')):
+                continue
+            story = (f"The week's scoring crown belongs to {signal['weekly_team']} "
+                     f"({_n(signal['weekly_points'])} points), but the overall lead still belongs to "
+                     f"{signal['overall_team']}. A weekly win and first place in the season race "
+                     "are two different prizes.")
+        elif kind == 'leader_under_pressure':
+            if not all(k in signal for k in ('team', 'period_points', 'weekly_best')):
+                continue
+            story = (f"{signal['team']} still sets the overall pace, despite scoring "
+                     f"{_n(signal['period_points'])} against a weekly best of "
+                     f"{_n(signal['weekly_best'])}. Nobody gets to coast just because the table says first.")
+        elif kind == 'scored_but_slipped':
+            if not all(k in signal for k in ('team', 'period_points', 'rank_change', 'rank')):
+                continue
+            story = (f"{signal['team']} delivered {_n(signal['period_points'])} points and still "
+                     f"slipped {abs(signal['rank_change'])} "
+                     f"{'place' if abs(signal['rank_change']) == 1 else 'places'} "
+                     f"to {_rank(signal['rank'])}. Good production doesn't guarantee a climb "
+                     "when the field is moving too.")
+        elif kind == 'movement_vs_scoring':
+            if not all(k in signal for k in ('team', 'period_points', 'rank_change', 'rank', 'weekly_team')):
+                continue
+            story = (f"{signal['team']} climbed {signal['rank_change']} "
+                     f"{'place' if signal['rank_change'] == 1 else 'places'} "
+                     f"on {_n(signal['period_points'])} points, even without owning the week's "
+                     f"top score. {signal['weekly_team']} supplied the fireworks; "
+                     f"{signal['team']} gained ground in the standings.")
+        else:
+            continue
+        stories.append(story)
+        seen_kinds.add(kind)
+        if len(stories) == 2:
+            break
+    return ' '.join(stories) if stories else None
+
+
+def audit_publication(research: dict, report: str) -> dict:
+    """Publication checks never alter canonical scoring or trade data."""
+    from Athena.Investigation.editorial_newsroom import transaction_inventory
+    inventory = transaction_inventory(research)
+    problems = []
+    expected = inventory['expected_count']
+    if type(expected) is int and inventory['count'] != expected:
+        problems.append('trade_inventory_count_mismatch')
+    if inventory['trades'] and 'The transaction wire' not in report:
+        problems.append('missing_trade_section')
+    for event in inventory['trades']:
+        for players in event['received'].values():
+            for player in players:
+                if player not in report: problems.append('omitted_trade_asset:' + player)
+    scoring = research.get('period_scoring_audit') or {}
+    if scoring and scoring.get('status') == 'partial':
+        if 'These NHL totals reconcile with the team scoring snapshots' in report:
+            problems.append('unqualified_partial_scoring_attribution')
+        if 'All teams reconciled' in report or '14/14 teams reconciled' in report:
+            problems.append('unverified_leaguewide_scoring_claim')
+    if 'Reporting limits' in report: problems.append('diagnostics_leaked_into_publication')
+    if 'The scoring and the deal are both recorded' in report:
+        problems.append('repeated_trade_context')
+    return {'status': 'pass' if not problems else 'fail', 'issues': sorted(set(problems)),
+            'audited_trades': inventory['count'], 'expected_trades': expected}
+
+
 def compose_journalist_report(*, research: dict) -> str:
-    """Compose a story with evidence-based context, not one sentence per team."""
-    if research.get("schema") != "athena.league_period_research.v2":
-        raise ValueError("Scout requires Athena structured research contract v2")
-    findings = [f for f in research.get("findings") or [] if isinstance(f, dict)]
+    """Evidence-grounded league edition; canonical trade coverage is complete and non-repeating."""
+    if research.get('schema') != 'athena.league_period_research.v2':
+        raise ValueError('Scout requires Athena structured research contract v2')
+    from Athena.Investigation.editorial_newsroom import rank_stories
+    findings = [f for f in research.get('findings') or [] if isinstance(f, dict)]
     title = f"{research.get('league_name') or 'League'} — {_scope(research)}"
     if not findings:
-        return (title + "\n\nThe press box is open, but there isn't enough verified activity "
-                "to call a league-wide story this week. A good column can wait for evidence; rumours don't become results.")
-    main = [f for f in findings if f.get("kind") in ("surge", "scoring_leader", "slide", "climb")]
-    headline = next((f for f in findings if f.get("kind") in
-                    ("surge", "scoring_leader", "slide", "climb", "trade_cluster", "trade")), None)
-    lead_story = _story_lead(headline, findings, research.get("storyline_continuity") or {})
-    featured = headline.get("team") if headline else None
-    # Join a relevant personnel story to the featured club without inventing
-    # transaction timing, a managerial motive or a causal scoring effect.
-    if featured:
-        for trade_finding in findings:
-            if trade_finding.get("kind") not in ("trade", "trade_cluster"):
-                continue
-            acquisitions = []
-            for exchange in trade_finding.get("exchanges") or []:
-                if not isinstance(exchange, dict):
-                    continue
-                for club, players in (exchange.get("received") or {}).items():
-                    if str(club).casefold() == str(featured).casefold() and players:
-                        acquisitions.extend(str(p) for p in players)
-            if acquisitions:
-                lead_story += (f" The club also appears on the transaction wire, acquiring "
-                               f"{', '.join(acquisitions[:3])}. The scoring and the deal are both recorded; "
-                               "their causal connection is not established.")
-                break
-    lines = [title, "The headline", lead_story]
-    scoring = [f for f in main if f.get("kind") == "scoring_leader" and f.get("team") != featured]
-    rising = [f for f in main if f.get("kind") in ("surge", "climb") and f.get("team") != featured]
-    falling = [f for f in main if f.get("kind") == "slide" and f.get("team") != featured]
-    sides = []
-    if scoring:
-        scored = sorted(scoring, key=lambda f: f.get("period_points") if type(f.get("period_points")) in (float, int) else -1, reverse=True)
-        leader = scored[0]
-        if not (headline and featured and type(headline.get("period_points")) in (float, int) and
-                type(leader.get("period_points")) in (float, int) and leader["period_points"] > headline["period_points"]
-                and headline.get("kind") in ("surge", "climb")):
-            sides.append(f"On the scoreboard, {leader.get('team')} produced {_n(leader.get('period_points'))} points.")
-        if len(scored) > 1:
-            sides.append(f"{scored[1].get('team')} also posted {_n(scored[1].get('period_points'))}, adding pressure near the top of the weekly leaderboard.")
-    if rising:
-        movements = [_clause_for_move(f) for f in rising[:2]]
-        movements = [m for m in movements if m]
+        return title + "\n\nNo verified league developments are available for this period."
+    ranked = rank_stories(research)
+    headline = ranked[0]['finding'] if ranked else None
+    featured = headline.get('team') if headline else None
+    lead = _story_lead(headline, findings, research.get('storyline_continuity') or {})
+    # The headline should introduce a story. Trade details are reported exactly
+    # once, under the wire, from Athena's full canonical event list.
+    if headline and headline.get('kind') in {'trade_cluster','trade'}:
+        count = headline.get('trade_count', 0)
+        lead = (f"{featured} has made {count} trades this period, keeping the transaction wire busy."
+                if featured else f"The league recorded {count} trades this period.")
+    lines = [title, 'The headline', lead]
+    briefing = research.get('editorial_briefing') or {}
+    # Compatibility path for older structured fixtures and staged integrations;
+    # production researches compute this briefing inside Athena.
+    sections = _briefing_sections(briefing, featured)
+    if sections:
+        lines.extend(sections)
+        competitive_story = _competitive_story(briefing)
+        if competitive_story:
+            lines.extend(['Beyond the scores', competitive_story])
+    else:
+        scoreboard = sorted((f for f in findings if f.get('kind') in {'surge','scoring_leader'}
+                             and type(f.get('period_points')) in (int,float)),
+                            key=lambda f: (-f['period_points'], str(f.get('team'))))
+        scorelines = []
+        for f in scoreboard[:3]:
+            if f.get('team') != featured:
+                scorelines.append(f"{f['team']} posted {_n(f['period_points'])} points")
+        if scorelines:
+            lines.extend(['Around the league', '. '.join(scorelines) + '.'])
+        climbers = sorted((f for f in findings if f.get('kind') in {'surge','climb'} and f.get('team') != featured),
+                         key=lambda f: -(f.get('rank_change') or 0))
+        slides = sorted((f for f in findings if f.get('kind') == 'slide' and f.get('team') != featured),
+                        key=lambda f: (f.get('rank_change') or 0))
+        movements = [_clause_for_move(f) for f in climbers[:2] + slides[:2]]
+        movements = [x for x in movements if x]
         if movements:
-            sides.append("There was upward movement elsewhere: " + "; ".join(movements) + ".")
-    if falling:
-        movements = [_clause_for_move(f) for f in falling[:3]]
-        movements = [m for m in movements if m]
-        if movements:
-            sides.append("The other side of that shuffle: " + "; ".join(movements) +
-                         ". Those changes are standings facts, not proof of why each roster struggled.")
-    if sides:
-        lines.extend(["Around the league", " ".join(sides)])
-    market = _market_paragraph(findings)
-    if market:
-        lines.extend(["The transaction wire", market])
+            lines.extend(['Standings movement', '; '.join(movements) + '.'])
+    market, inventory = _newsroom_market(research)
+    if market: lines.extend(['The transaction wire', market])
     continuity = _continuity(research, findings)
-    if continuity:
-        lines.extend(["The developing picture", continuity])
-    comparison = research.get("comparison") or {}
-    verified_rows = comparison.get("teams") or [] if comparison.get("status") == "compared" else []
-    quiet = next((f for f in findings if f.get("kind") == "quiet_watch" and f.get("teams") and
-                  len(f.get("observed_weeks") or []) == 2), None)
-    success = next((f for f in findings if f.get("kind") == "quiet_success"), None)
+    trade_continuity = research.get('editorial_trade_continuity') or {}
+    trade_stories = []
+    if trade_continuity.get('status') == 'verified':
+        for item in (trade_continuity.get('signals') or [])[:2]:
+            weeks = item.get('periods') or []
+            if len(weeks) == 2 and type(item.get('total_trades')) is int:
+                trade_stories.append(f"{item['team']} has completed {item['total_trades']} trades across Weeks {weeks[0]}–{weeks[1]}")
+    if continuity or trade_stories:
+        lines.extend(['The developing picture', ' '.join(filter(None, [continuity, '; '.join(trade_stories) + '.' if trade_stories else '']))])
+    comparison = research.get('comparison') or {}
+    verified_rows = comparison.get('teams') or [] if comparison.get('status') == 'compared' else []
+    quiet = next((f for f in findings if f.get('kind') == 'quiet_watch' and len(f.get('observed_weeks') or []) == 2 and f.get('teams')), None)
+    success = next((f for f in findings if f.get('kind') == 'quiet_success'), None)
     if quiet:
-        teams = [str(x) for x in quiet.get("teams") or []]
-        weeks = quiet["observed_weeks"]
-        focus = sorted((row for row in verified_rows if isinstance(row, dict)
-                        and (row.get("name") or row.get("team_id")) in teams
-                        and type(row.get("rank_change")) is int and row["rank_change"] < 0),
-                       key=lambda row: row["rank_change"])
+        weeks = quiet['observed_weeks']; teams = set(map(str, quiet['teams']))
+        focus = sorted((r for r in verified_rows if isinstance(r,dict) and (r.get('name') or r.get('team_id')) in teams and type(r.get('rank_change')) is int and r['rank_change'] < 0), key=lambda r:r['rank_change'])
         if focus:
-            row = focus[0]
-            line = (f"{row.get('name') or row.get('team_id')} has made no recorded move across Weeks {weeks[0]} and {weeks[1]} "
-                    f"while sliding {abs(row['rank_change'])} standings places in the latest comparison. "
-                    "That doesn't reveal the manager's reasoning, but it's becoming a story worth watching.")
+            row = focus[0]; magnitude = abs(row['rank_change'])
+            paragraph = f"{row.get('name') or row.get('team_id')} recorded no moves across Weeks {weeks[0]} and {weeks[1]} while slipping {magnitude} {'place' if magnitude == 1 else 'places'} this week. A quiet trade wire is starting to get noticed."
         else:
-            line = (f"No recorded moves for {', '.join(teams[:3])} across Weeks {weeks[0]} and {weeks[1]}. "
-                    "Quiet is a roster decision too—whether it's rewarded is another matter.")
-        if success and success.get("team") and success.get("team") not in line:
-            line += (f" Meanwhile, {success['team']} put up {_n(success.get('period_points'))} "
-                     "without recorded activity; standing pat can look rather different when the points arrive.")
-        lines.extend(["The quiet corner", line])
+            paragraph = f"No moves recorded for {', '.join(sorted(teams)[:3])} across Weeks {weeks[0]} and {weeks[1]}. There's no shortage of activity elsewhere."
+        if success and success.get('team'):
+            paragraph += f" Meanwhile, {success['team']} scored {_n(success.get('period_points'))} without a recorded move. Standing pat can work, too."
+        lines.extend(['The quiet corner', paragraph])
     elif success:
-        lines.extend(["The quiet corner", _fixture(success)])
-    # Spotlight needs a verified period-identity and ACTIVE team join; NHL
-    # scoring alone is insufficient to name a JHLPAA team's contributors.
-    bridge = research.get("editorial_player_attribution") or {}
-    linked = ([r for r in bridge.get("records") or [] if isinstance(r, dict) and
-               r.get("fantasy_team") and type(r.get("points")) is int and r["points"] > 0 and
-               r.get("attribution_kind") == "historical_active_snapshot_numeric_reconciliation" and
-               r.get("credited_points_verified") is False]
-              if bridge.get("status") == "reconciled_snapshot" and
-                 bridge.get("period") == research.get("period") else [])
+        lines.extend(['The quiet corner', _fixture(success)])
+    bridge = research.get('editorial_player_attribution') or {}
+    linked = [r for r in bridge.get('records') or [] if isinstance(r,dict) and r.get('fantasy_team')
+              and type(r.get('points')) is int and r['points'] > 0
+              and r.get('attribution_kind') == 'historical_active_snapshot_numeric_reconciliation'
+              and r.get('credited_points_verified') is False] if (bridge.get('status') == 'reconciled_snapshot' and bridge.get('period') == research.get('period')) else []
     if linked:
-        performers = linked[:3]
-        mentions = [f"{r['player_name']} ({r['points']} G+A) was on "
-                    f"{r['fantasy_team']}'s archived ACTIVE roster" for r in performers]
-        spotlight = ("The player-to-team picture is taking shape: " + "; ".join(mentions) +
-                     ". Those NHL totals reconcile numerically with their teams' reported weekly scores; "
-                     "the period snapshot does not independently prove game-by-game fantasy eligibility.")
-        lines.extend(["JHLPAA player spotlight", spotlight])
+        mentions = [f"{r['player_name']} ({r['points']} G+A) featured on {r['fantasy_team']}'s archived ACTIVE roster" for r in linked[:3]]
+        audit = research.get('period_scoring_audit') or {}
+        if audit.get('status') == 'partial':
+            caveat = ('These players belong to individually reconciled team snapshots, not the entire league; '
+                      'game-by-game fantasy eligibility remains unverified.')
+        else:
+            caveat = 'These team snapshots reconcile numerically; game-by-game eligibility has not independently been confirmed.'
+        lines.extend(['JHLPAA player spotlight', '; '.join(mentions) + '. ' + caveat])
     else:
-        leaders = [r for r in research.get("nhl_player_leaders") or [] if isinstance(r, dict)
-                   and type(r.get("points")) is int and r["points"] > 0 and r.get("player_name")]
+        leaders = [r for r in research.get('nhl_player_leaders') or [] if isinstance(r,dict) and type(r.get('points')) is int and r['points'] > 0 and r.get('player_name')]
         if leaders:
-            names = [f"{r['player_name']} ({r['points']} G+A)" for r in leaders[:2]]
-            spotlight = ("Around the NHL, " + " and ".join(names) + " drew attention. "
-                         "These are NHL performances, not independently verified fantasy lineup credit; "
-                         "the league-team connection remains to be established before calling them fantasy difference-makers.")
-            lines.extend(["NHL spotlight", spotlight])
-    if headline and headline.get("team"):
-        watch = f"The next test for {headline['team']} is whether this week's result becomes part of a sustained run."
-    elif market:
-        watch = "The next scoring period will begin to show what those roster moves actually changed."
+            lines.extend(['NHL spotlight', 'Around the NHL, ' + ' and '.join(f"{r['player_name']} ({r['points']} G+A)" for r in leaders[:2]) + ' stood out. Their JHLPAA team credit has not been verified.'])
+    if continuity:
+        watch = 'The next period will test whether those emerging standings trends hold.'
+    elif inventory['count']:
+        watch = 'The next period should give the latest roster exchanges a chance to show their value.'
     else:
-        watch = "Next week's results will tell us which movements had staying power."
-    lines.extend(["Next on the radar", watch])
-    attribution = research.get("historical_roster_attribution") or {}
-    gaps = [t for t in attribution.get("teams") or [] if isinstance(t, dict) and
-            (t.get("status") == "discrepancy" or t.get("unmatched_active_ids"))]
-    if gaps:
-        lines.append(f"Scoring note: {len(gaps)} team totals retain an unresolved numerical or identity exception.")
-    from Scout.conversation.league_recap_narrative import _evidence_gaps
-    missing = _evidence_gaps(research)
-    if missing:
-        lines.extend(["Reporting limits", "\n".join(missing)])
-    return "\n\n".join(lines)
+        watch = 'Next period will show whether the scoring and standings movement continues.'
+    lines.extend(['Next on the radar', watch])
+    return '\n\n'.join(lines)
+
+
+def compose_editorial_publication(*, research: dict) -> dict:
+    """Single publication boundary for every Scout journalist surface.
+
+    Both the ordinary sports column and an auditor-requested attached column
+    must pass the same evidence gate. This function returns evidence state;
+    it never silently substitutes or mutates canonical Athena research.
+    """
+    draft = compose_journalist_report(research=research)
+    publication = audit_publication(research, draft)
+    return {"status": publication["status"], "issues": publication["issues"],
+            "report": (draft if publication["status"] == "pass" else
+                       "Editorial publication held: the verified transaction inventory "
+                       "could not be completely represented. The analytical evidence "
+                       "remains available, but this column needs correction before publication."),
+            "audit": publication}

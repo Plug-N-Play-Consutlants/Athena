@@ -436,6 +436,63 @@ VALIDATORS: Dict[str, Validator] = {
 }
 
 
+# Required sync stages must leave evidence from THIS invocation, not simply
+# validate artifacts left behind by an earlier successful run.
+_REQUIRED_STAGE_ARTIFACTS = {
+    "fetch_fantrax_data": (RAW_DIR / "league_info.json", RAW_DIR / "fantrax_player_pool.json"),
+    "build_league_settings": (OUTPUT_DIR / "league_settings.json",),
+    "build_league_profile": (OUTPUT_DIR / "league_profile.json",),
+    "build_player_pool_master": (OUTPUT_DIR / "player_pool_master.json",),
+    "build_player_master": (OUTPUT_DIR / "player_master.json",),
+}
+
+
+def _artifact_snapshot(paths: tuple[Path, ...]) -> dict[str, tuple[int, int] | None]:
+    snapshot: dict[str, tuple[int, int] | None] = {}
+    for path in paths:
+        try:
+            stat = path.stat()
+            snapshot[str(path)] = (stat.st_mtime_ns, stat.st_size)
+        except FileNotFoundError:
+            snapshot[str(path)] = None
+    return snapshot
+
+
+def _assert_fresh_required_artifacts(step: Dict[str, Any], before: dict[str, tuple[int, int] | None]) -> None:
+    paths = _REQUIRED_STAGE_ARTIFACTS.get(str(step.get("id")), ())
+    after = _artifact_snapshot(paths)
+    stale = [(str(path.relative_to(PROJECT_ROOT)) if path.is_relative_to(PROJECT_ROOT) else str(path)) for path in paths
+             if after[str(path)] is None or after[str(path)] == before.get(str(path))]
+    if stale:
+        raise AthenaPipelineError(
+            "Required sync stage did not refresh its canonical artifacts: " + ", ".join(stale)
+        )
+
+
+def _assert_league_identity() -> None:
+    settings = _read_json(OUTPUT_DIR / "league_settings.json")
+    profile = _read_json(OUTPUT_DIR / "league_profile.json")
+    if not isinstance(settings, dict) or not isinstance(profile, dict):
+        raise AthenaPipelineError("Required league settings/profile identity artifacts are absent.")
+    keys = ("league_id", "season", "league_name")
+    for key in keys:
+        left, right = settings.get(key), profile.get(key)
+        if not left or not right or str(left).strip() != str(right).strip():
+            raise AthenaPipelineError(f"League identity mismatch between settings and profile: {key}.")
+    configured = str(get_workspace_value("league_id") or "").strip()
+    if configured and configured != str(settings["league_id"]).strip():
+        raise AthenaPipelineError("Refreshed league_id does not match the active workspace league_id.")
+    raw_league = _read_json(RAW_DIR / "league_info.json")
+    if isinstance(raw_league, dict):
+        raw_history = str(raw_league.get("leagueHistoryId") or "").strip()
+        expected_history = str(settings.get("league_history_id") or "").strip()
+        if raw_history and expected_history and raw_history != expected_history:
+            raise AthenaPipelineError("Raw Fantrax league history does not match refreshed league settings.")
+        raw_season = str(raw_league.get("seasonYear") or "").strip()
+        if raw_season and raw_season != str(settings["season"]).strip():
+            raise AthenaPipelineError("Raw Fantrax season does not match refreshed league settings.")
+
+
 def _run_script(relative_path: str) -> Dict[str, Any]:
     script_path = PROJECT_ROOT / relative_path
     if not script_path.exists():
@@ -478,6 +535,22 @@ def _validate_step(step: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _read_output_summary() -> Dict[str, Any]:
+    league_profile = _read_json(OUTPUT_DIR / "league_profile.json")
+    league_settings = _read_json(OUTPUT_DIR / "league_settings.json")
+    profile = league_profile if isinstance(league_profile, dict) else {}
+    settings = league_settings if isinstance(league_settings, dict) else {}
+    configured_teams = settings.get("teams") if isinstance(settings.get("teams"), list) else []
+    # The canonical profile's configured team count is authoritative for the
+    # league-wide snapshot; roster counts must not silently replace it.
+    team_count = profile.get("team_count")
+    if not isinstance(team_count, int) or isinstance(team_count, bool) or team_count < 1:
+        team_count = settings.get("team_count")
+    if not isinstance(team_count, int) or isinstance(team_count, bool) or team_count < 1:
+        team_count = len(configured_teams) if configured_teams else None
+    league_name = str(profile.get("league_name") or settings.get("league_name") or "").strip()
+    season = profile.get("season") or settings.get("season")
+    player_master = _read_json(OUTPUT_DIR / "player_master.json")
+    player_count = len(player_master) if isinstance(player_master, list) else _count_records(player_master)
     transaction_master = _read_json(OUTPUT_DIR / "transaction_master.json")
     transaction_history = _read_json(OUTPUT_DIR / "transaction_history.json")
     manager_behavior = _read_json(OUTPUT_DIR / "manager_behavior.json")
@@ -506,6 +579,12 @@ def _read_output_summary() -> Dict[str, Any]:
             readiness_score = summary_block.get("overall_readiness_score")
 
     return {
+        "league_name": league_name or None,
+        "season": season,
+        "league_id": profile.get("league_id") or settings.get("league_id"),
+        "team_count": team_count,
+        "player_count": player_count,
+        "configured_team_records": len(configured_teams),
         "canonical_transactions": canonical_transactions,
         "asset_movements": asset_movements,
         "managers_analyzed": managers,
@@ -694,7 +773,9 @@ def sync(
             current_step = step
             current_stage = str(step.get("label") or step.get("id") or "pipeline step")
             developer_trace.append(trace_event(current_stage, "running", f"Running {step.get('layer', 'Pipeline')} step.", script=step.get("script")))
+            artifact_before = _artifact_snapshot(_REQUIRED_STAGE_ARTIFACTS.get(str(step.get("id")), ()))
             step_result = _run_script(str(step["script"]))
+            _assert_fresh_required_artifacts(step, artifact_before)
             completed = {
                 "id": step["id"],
                 "label": step["label"],
@@ -705,6 +786,8 @@ def sync(
             completed_steps.append(completed)
             validation = _validate_step(step)
             completed.update(validation)
+            if step.get("id") == "build_league_profile" and validation.get("validation_status") == "pass":
+                _assert_league_identity()
             completed["status"] = "completed" if validation.get("validation_status") == "pass" else validation.get("validation_status")
             validation_status = str(validation.get("validation_status", "pass"))
             validation_details = validation.get("validation_details", {}) if isinstance(validation.get("validation_details"), dict) else {}

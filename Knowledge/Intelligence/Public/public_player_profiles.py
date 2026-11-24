@@ -67,6 +67,18 @@ PROFILES: Dict[str, PublicPlayerProfile] = {
         role="NHL winger", career_identity="Toronto Maple Leafs winger",
         known_limitations=["Current-season performance must be verified against official NHL evidence."],
     ),
+    "nhl.player.mitch_marner": PublicPlayerProfile(
+        entity_id="nhl.player.mitch_marner",
+        display_name="Mitch Marner", position="RW", team="VGK", nationality="Canada",
+        draft="2015 NHL Draft, 4th overall, Toronto Maple Leafs",
+        role="elite playmaking winger and two-way offensive creator",
+        style="perimeter-to-slot passing, puck distribution, transition play and two-way anticipation",
+        career_identity="Marner established his NHL playmaking reputation with Toronto before moving to Vegas; past-team identity is not current club identity.",
+        career_notes=["Toronto development and NHL production are historical context, not proof of current Vegas deployment."],
+        public_value="High-end playmaker; current value depends on verified production, usage and health",
+        known_limitations=["Current-line deployment, health and causal impact require independent dated evidence."],
+        comparison_tags=["playmaking", "two_way", "transition", "power_play"],
+    ),
     "nhl.player.auston_matthews": PublicPlayerProfile(
         entity_id="nhl.player.auston_matthews",
         display_name="Auston Matthews",

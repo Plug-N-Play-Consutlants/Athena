@@ -23,7 +23,7 @@ import webbrowser
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCOUT_APP = PROJECT_ROOT / "Scout" / "app.py"
-DEFAULT_HOST = "localhost"
+DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 from Core.version import ATHENA_VERSION, SCOUT_VERSION
 

@@ -29,14 +29,16 @@ def investigate_storyline_continuity(output_dir: Path, league_id: str | None,
     for tid in sorted(ids[0]):
         before, middle, now = (s[tid] for s in observations)
         moves = (before["rank"] - middle["rank"], middle["rank"] - now["rank"])
-        if moves[0] * moves[1] <= 0:
-            continue
+        if moves[0] == 0 or moves[1] == 0:
+            continue  # One observed movement is not a two-period story.
+        direction = ("climb" if moves[0] > 0 else "slide") if moves[0] * moves[1] > 0 else "reversal"
         signals.append({"team_id": tid, "team_name": str(now.get("name") or tid),
                         "periods": [period - 2, period - 1, period],
-                        "direction": "climb" if moves[0] > 0 else "slide",
+                        "direction": direction,
                         "movements": list(moves), "overall_rank_change": sum(moves),
                         "rank": now["rank"], "source": "canonical_period_standings"})
-    signals.sort(key=lambda signal: (-abs(signal["overall_rank_change"]), signal["team_id"]))
+    signals.sort(key=lambda signal: (0 if signal["direction"] in ("climb", "slide") else 1,
+                                      -max(abs(x) for x in signal["movements"]), signal["team_id"]))
     return {"status": "verified" if signals else "no_consecutive_direction",
             "source": "canonical_period_standings", "periods": [period - 2, period - 1, period],
             "signals": signals}

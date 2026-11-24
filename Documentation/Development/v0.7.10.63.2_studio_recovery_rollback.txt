@@ -1,0 +1,21 @@
+ATHENAENGINE RECOVERY OVERLAY — for installed v0.7.10.63.2
+
+Purpose: restore pre-v63 Studio launch behaviour without rolling back Athena's
+professional/fantasy/weekly-editorial implementation, data or session journals.
+
+Only changed code: Tools/athena_studio.py (v0.7.10.59.2 last-known pre-gate Studio source).
+
+NOT CHANGED:
+ - Core/version.py: remains v0.7.10.63.2
+ - Scout/run_scout.py: remains current
+ - Scout/stop_scout_windows.py: remains current safer identity-aware helper
+ - Athena and Scout intelligence/routing/profile code
+ - Output/, Data/, Knowledge/, journals, logs or settings
+
+Install over F:\Development\AthenaEngine, preserving folder paths.
+Relaunch Studio (old Studio processes retain previously loaded code).
+Normal Launch Scout may again open an existing server without version validation.
+This deliberately restores usability but does NOT prove the serving Scout version.
+Avoid the forced Reload Build command if another Scout cannot be stopped.
+
+This is a rollback/recovery of launch blocking, NOT proof of v63 live acceptance.

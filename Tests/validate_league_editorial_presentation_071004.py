@@ -13,8 +13,8 @@ assert "Team A received Player X" in article
 assert "Transactions in scope" not in article
 router = Path(__file__).resolve().parents[1] / "Scout/conversation/router.py"
 source = router.read_text(encoding="utf-8")
-assert 'answer["editorial_report"] = bool(editorial' in source
-assert 'compose_league_editorial(editorial' in source
+assert 'answer["editorial_report"] = True' in source
+assert 'compose_journalist_report(research=athena_research)' in source and 'audit_publication' in source
 app = (Path(__file__).resolve().parents[1] / "Scout/app.py").read_text(encoding="utf-8")
 assert 'normalDetail && !answer.editorial_report' in app
 print("PASS: editorial sections and public diagnostic gating")

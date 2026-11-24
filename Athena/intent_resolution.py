@@ -15,6 +15,18 @@ def select_executable_route(question: str, mode: str, context=None) -> tuple[str
     if named_team_roster_subject(question, context):
         return "fantasy_roster_diagnostic", "verified_named_fantasy_team_roster_assignment"
 
+    # A player profile request is an identity-first assignment, including
+    # qualified same-name subjects. Do not downgrade it to a short investigation
+    # merely because the user supplied team/position qualifiers or "scouting".
+    if mode == "public":
+        import re
+        from Athena.public_identity import resolve_public_player
+        qualified = resolve_public_player(question)
+        explicit_profile = bool(re.search(r"\b(?:profile|scouting report|scout report)\b", question, re.I))
+        if (qualified is not None and qualified.entity is not None and explicit_profile
+                and not re.search(r"\b(?:compare|versus|\bvs\b)\b", question, re.I)):
+            return "public_player_identity", "explicit_player_profile_with_qualified_identity"
+
     from Athena.entry_policy import select_entry_route
     entry = select_entry_route(question, mode)
     if entry.route:

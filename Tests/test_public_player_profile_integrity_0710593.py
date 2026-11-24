@@ -24,8 +24,8 @@ def test_bare_ovechkin_provides_dated_official_historical_stats(monkeypatch):
     assert a["intent"] == "public_player_profile"
     assert a["player"]["full_name"] == "Alex Ovechkin"
     assert "64 points in 82 games" in a["public_comment"]
-    assert "2025-26" in a["title"]
-    assert "complete career record" in a["public_comment"]
+    assert "2025-26" in a["public_comment"]
+    assert "historical evidence" in a["public_comment"].lower()
     assert a["stats"] == {}  # Never present 2025-26 as current 2026-27.
     assert a["season_statistics"][0]["season"] == "2025-26"
 
@@ -77,13 +77,17 @@ def test_exact_id_landing_recovery_normalizes_lw_and_checks_birth(monkeypatch):
     monkeypatch.setenv("ATHENA_NHL_PLAYER_NETWORK", "1")
     payload = _landing("Alex Ovechkin", "1985-09-17", "L", "WSH", "8471214")
     evidence._verified_landing_by_id.cache_clear()
-    with patch.object(evidence, "_verified_landing_by_id", return_value=payload) as get_landing, \
+    with patch.object(evidence, "_records", return_value=([], {})), \
+         patch.object(evidence, "_cached_summary_candidates", return_value=[{"playerId":"8471214"}]), \
+         patch.object(evidence, "_verified_landing_by_id", return_value=payload) as get_landing, \
          patch.object(evidence, "_live_record", return_value=None):
         a = evidence.player_evidence("Alex Ovechkin", team="WSH", position="LW", birth_date="1985-09-17")
         assert a.get("nhl_id") == "8471214"
         assert a["stats"]["points"] == 4
         get_landing.assert_called_once_with("8471214", "Alex Ovechkin", "LW", "1985-09-17")
-    with patch.object(evidence, "_verified_landing_by_id", return_value=None), \
+    with patch.object(evidence, "_records", return_value=([], {})), \
+         patch.object(evidence, "_cached_summary_candidates", return_value=[{"playerId":"8471214", "seasonId":20252026, "gamesPlayed":82, "points":64, "goals":32, "assists":32}]), \
+         patch.object(evidence, "_verified_landing_by_id", return_value=None), \
          patch.object(evidence, "_live_record", return_value=None):
         a = evidence.player_evidence("Alex Ovechkin", team="WSH", position="LW", birth_date="1985-09-17")
         assert a.get("source") == "nhl_skater_summary"

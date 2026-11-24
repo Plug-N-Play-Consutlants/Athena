@@ -700,6 +700,26 @@ def player_profile_answer(ctx, profile: PublicPlayerProfile, question: str) -> D
             for item in seed.get("season_history", []) if item.get("season") in professional["window_seasons"]
         ]
         natural = assessment_copy(profile.display_name, seed, professional)
+        # A three-season aggregate is NOT a substitute for the most recent
+        # dated season. Keep the latest observation visible, and never pass
+        # it off as current-year production when the target season is missing.
+        recent = answer["season_statistics"]
+        if recent:
+            latest = recent[0]
+            if isinstance(latest.get("pts"), (int, float)) and isinstance(latest.get("gp"), (int, float)):
+                details = f"{latest['pts']:g} points in {latest['gp']:g} games"
+                if isinstance(latest.get("g"), (int, float)) and isinstance(latest.get("a"), (int, float)):
+                    details += f" ({latest['g']:g} goals, {latest['a']:g} assists)"
+                natural += f"\n\nLatest verified NHL regular season ({latest['season']}): {details}."
+        if not seeded_stats:
+            natural += (f" No verified {seed.get('target_season') or 'current-season'} game totals are attached; "
+                        "the latest completed season is historical evidence, not a current-year scoring line.")
+        # Editorial depth can use the curated scouting seed provided it is
+        # explicitly separated from official statistical observations.
+        if profile.style:
+            natural += f"\n\nPlaying style (curated scouting context): {profile.style.rstrip('.')}."
+        if profile.role:
+            natural += f"\n\nRole: {profile.role.rstrip('.')}. Current usage and impact require dated deployment evidence."
         answer["engine_conclusion"] = natural.split("\n\n", 1)[0]
         answer["observed_facts"] = [
             f"NHL landing identity: {profile.display_name}, NHL ID {seed['nhl_id']}, birth date {seed['birth_date']}.",
@@ -780,6 +800,27 @@ def player_profile_answer(ctx, profile: PublicPlayerProfile, question: str) -> D
             _public_limitations(profile.known_limitations)
             + ["Curated biographical/legacy context is not a substitute for an official statistical or award source."]
         ))
+    # Deep scouting requests should not just echo the name-card synopsis.
+    # Use only registered scouting context and dated statistical evidence;
+    # incomplete health/role information is an explicit analytical boundary.
+    from re import search as _search_profile
+    if _search_profile(r"\b(?:complete|full|detailed|comprehensive|in.depth)\b", question, 2) and _search_profile(r"\b(?:scouting|profile|scout)\b", question, 2):
+        blocks = []
+        if profile.style:
+            blocks.append("Scouting read (curated, not a live measurement): " + profile.style.rstrip(".") + ".")
+        if profile.career_identity:
+            blocks.append("Career context: " + profile.career_identity.rstrip(".") + ".")
+        if profile.analytical_notes:
+            blocks.append("Analytical considerations: " + " ".join(str(x).strip().rstrip(".") + "." for x in profile.analytical_notes[:3] if str(x).strip()))
+        if seed.get("season_history"):
+            dated = [r for r in seed["season_history"] if isinstance(r, dict) and isinstance(r.get("points"), (int, float)) and isinstance(r.get("gp"), (int, float)) and r["gp"] > 0]
+            if len(dated) > 1:
+                first, second = dated[:2]
+                first_rate, second_rate = first["points"] / first["gp"], second["points"] / second["gp"]
+                blocks.append(f"Dated scoring comparison: {first.get('season')} {first_rate:.2f} points/game versus {second.get('season')} {second_rate:.2f}; the observed difference is {first_rate-second_rate:+.2f}, which alone does not explain its cause.")
+        blocks.append("Remaining scouting uncertainty: verified current deployment, health, and independent defensive-impact evidence are required for a full present-day projection.")
+        natural += "\n\n" + "\n\n".join(blocks)
+        answer.setdefault("developer", {}).setdefault("intelligence_used", []).append("evidence_bounded_deep_scouting_composition")
     answer = _set_public_surface(answer, natural)
     answer["developer"]["public_player_profile"] = profile.to_dict()
     answer["developer"]["player_experience_seed"] = seed

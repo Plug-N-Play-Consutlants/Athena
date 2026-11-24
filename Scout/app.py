@@ -56,6 +56,29 @@ SESSION_INSTANCE = uuid.uuid4().hex
 SESSION_JOURNAL = PROJECT_ROOT / "Reports" / "scout_session_turns.jsonl"
 
 
+def _runtime_provenance() -> Dict[str, Any]:
+    """Runtime-loaded version and actual module origin for one request.
+
+    Exported journal history spans many Scout processes. A global export
+    header must never be mistaken for a historical turn's runtime version.
+    """
+    from Core.version import ATHENA_VERSION, ATHENA_BUILD
+    from Athena import request_execution as request_module
+    from Scout.conversation import router as router_module
+    return {
+        "scout_version": SCOUT_VERSION,
+        "athena_version": ATHENA_VERSION,
+        "build": ATHENA_BUILD,
+        "process_id": os.getpid(),
+        "session_instance": SESSION_INSTANCE,
+        "python_executable": sys.executable,
+        "project_root": str(PROJECT_ROOT.resolve()),
+        "app_module": str(Path(__file__).resolve()),
+        "request_module": str(Path(request_module.__file__).resolve()),
+        "router_module": str(Path(router_module.__file__).resolve()),
+    }
+
+
 def _journal_event(event: Dict[str, Any]) -> None:
     """Durable turn recording independent of in-memory HTTP server lifetime."""
     SESSION_JOURNAL.parent.mkdir(parents=True, exist_ok=True)
@@ -178,6 +201,7 @@ def _record_session_turn(question: str, mode: str, answer: Dict[str, Any], prese
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "mode": mode,
             "presentation_mode": presentation_mode,
+            "runtime_provenance": _runtime_provenance(),
             "question": question,
             "answer": _session_answer_summary(answer),
             "user_visible_text": "",
@@ -242,6 +266,7 @@ def _write_session_log() -> Dict[str, Any]:
     payload = {
         "created": datetime.now(timezone.utc).isoformat(),
         "version": SCOUT_VERSION,
+        "export_runtime": _runtime_provenance(),
         "turn_count": len(turns),
         "turns": turns,
     }
@@ -251,6 +276,7 @@ def _write_session_log() -> Dict[str, Any]:
         "=================================",
         f"Created: {payload['created']}",
         f"Scout: {SCOUT_VERSION}",
+        "Note: Scout header is the export process; per-turn version is authoritative for historical requests.",
         f"Turns: {len(turns)}",
         "",
     ]
@@ -262,6 +288,7 @@ def _write_session_log() -> Dict[str, Any]:
             f"Mode: {turn.get('mode', '')}",
             f"Presentation: {turn.get('presentation_mode', 'normal')}",
             f"Prompt: {turn.get('question', '')}",
+            "Request runtime: " + json.dumps(turn.get("runtime_provenance") or {"status": "legacy_turn_no_runtime_provenance"}, ensure_ascii=False, sort_keys=True),
             "USER-VISIBLE RESPONSE:",
             str(turn.get("user_visible_text") or "[Browser-rendered response was not captured for this turn.]"),
             "",
@@ -1483,6 +1510,7 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                 "app": "Scout",
                 "engine": "Athena",
                 "project_root": str(PROJECT_ROOT),
+                "runtime_provenance": _runtime_provenance(),
                 "host": HOST,
                 "port": PORT,
             })
@@ -1492,6 +1520,7 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "version": SCOUT_VERSION,
                 "athena": Athena.status().get("athena_version"),
+                "runtime_provenance": _runtime_provenance(),
             })
             return
         if path == "/api/context":
@@ -1620,6 +1649,7 @@ class ScoutRequestHandler(BaseHTTPRequestHandler):
                     # only receive the registered public presentation contract.
                     stage = "compose_answer"
                     answer = compose_answer_payload(answer)
+                    answer.setdefault("developer", {})["runtime_provenance"] = _runtime_provenance()
                     LATEST_ANSWER = {"question": question_text, "answer": answer}
                     stage = "record_turn"
                     turn_id = _record_session_turn(question_text, selected_mode, answer, presentation_mode=presentation_mode)

@@ -71,6 +71,21 @@ def execute_public_player_investigation(context: Any, question: str) -> Dict[str
     profile = profile_for_entity(match.entity) if match is not None and match.entity is not None else None
     if profile is None:
         return execute_public_player(context, question)
+    # A descriptive, qualified identity request is not inherently a narrow
+    # investigation. Answer it through the same evidence-backed profile as a
+    # name-only lookup; keep genuinely analytical questions in this specialist.
+    from Knowledge.Intelligence.Entities.entity_extractor import normalize_name
+    import re
+    question_norm = normalize_name(question)
+    name_norm = normalize_name(profile.display_name)
+    residual = question_norm.replace(name_norm, " ", 1) if name_norm in question_norm else question_norm
+    descriptive_terms = {"carolina", "hurricanes", "swedish", "sweden", "finnish", "finland",
+                         "islanders", "defenseman", "defenceman", "center", "centre",
+                         "forward", "winger", "player", "profile", "scouting", "report", "complete", "full"}
+    residual_tokens = re.findall(r"[a-z]+", residual)
+    if (residual_tokens and all(token in descriptive_terms for token in residual_tokens)
+            and not question.strip().endswith("?")):
+        return execute_public_player(context, question)
     assessment = assess_player_question(profile, question)
     bundle = getattr(context, "request_evidence", {}) if context is not None else {}
     player_bundle = bundle.get("player", {}) if isinstance(bundle, dict) else {}

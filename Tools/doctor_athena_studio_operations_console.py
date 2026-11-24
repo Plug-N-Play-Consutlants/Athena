@@ -28,18 +28,19 @@ REQUIRED_SYMBOLS = {
     "export_diagnostics_logs",
     "open_reports",
     "_open_folder",
+    "refresh_reconcile_evidence",
+    "show_repository_review",
 }
 REQUIRED_VISIBLE_ACTIONS = {
     "🔄 Sync League",
-    "🧪 Verify Build",
     "🧭 Acceptance Explorer",
     "🔎 Repository Audit",
-    "🧾 Review Shims/Duplicates",
+    "🧾 Refresh & Reconcile Evidence",
     "🔐 Lock Repo Decisions",
     "🧱 Release Hygiene",
     "🧹 Preview Cleanup",
     "✅ Apply Safe Cleanup",
-    "📁 Export Logs",
+    "📋 View Logs",
     "📂 Open Reports",
 }
 HIDDEN_TOOL_MARKERS = {"Developer Validation", "Developer Diagnostics", "developer_panel.pack_forget"}
@@ -68,6 +69,10 @@ def main() -> int:
     methods = {node.name for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
     checks.append(report("core workflow methods present", REQUIRED_SYMBOLS.issubset(methods), ", ".join(sorted(REQUIRED_SYMBOLS - methods))))
     checks.append(report("visible core workflow actions present", REQUIRED_VISIBLE_ACTIONS.issubset(set(a for a in REQUIRED_VISIBLE_ACTIONS if a in text)), ", ".join(sorted(REQUIRED_VISIBLE_ACTIONS))))
+    core = text[text.index('self._button_group(body, "Core Workflow"'):text.index('self._status_group(body)')]
+    developer = text[text.index('def _build_developer_panel'):text.index('def _toggle_developer_mode')]
+    checks.append(report("evidence refresh wired in core", '"🧾 Refresh & Reconcile Evidence", self.refresh_reconcile_evidence' in core))
+    checks.append(report("repository review retained in Developer Mode", '"🧾 Review Shims/Duplicates", self.show_repository_review' in developer))
     toolbar_block = text[text.index("toolbar = ttk.Frame"):text.index("dev_toggle = ttk.Checkbutton")]
     order = [toolbar_block.find("🔄 Reload Build"), toolbar_block.find("🔁 Relaunch Studio"), toolbar_block.find("▶ Launch Scout")]
     checks.append(report("toolbar follows approved reload/relaunch sequence", all(pos >= 0 for pos in order) and order == sorted(order), "Reload Build → Relaunch Studio → Launch Scout"))
@@ -77,7 +82,7 @@ def main() -> int:
     checks.append(report("developer button wall suppressed", not leaked, ", ".join(leaked)))
     checks.append(report("legacy button wall removed from default surface", "Sync Providers" not in text and "Build Knowledge" not in text, "repository/diagnostic tiles moved out of default view"))
     checks.append(report("Studio output scrollbar retained", "output_scrollbar" in text and "yscrollcommand" in text, "scrollbar compatibility"))
-    checks.append(report("diagnostics export retained", "def export_diagnostics_logs" in text and "diagnostics_export_" in text and "_open_folder" in text, "folder-first diagnostics workflow"))
+    checks.append(report("diagnostics export retained", "def export_diagnostics_logs" in text and "athena_diagnostics_" in text and "_open_folder" in text, "folder-first diagnostics workflow"))
     from Core.version import ATHENA_BUILD, ATHENA_VERSION, RELEASE_NAME, VERSION_SCHEMA
     checks.append(report("version schema locked", VERSION_SCHEMA == "major.epic.sprint.patch.hotfix", VERSION_SCHEMA))
     checks.append(report("version metadata matches", ATHENA_VERSION == ATHENA_BUILD and ATHENA_VERSION >= "0.5.6.2.0", f"{ATHENA_VERSION} / {ATHENA_BUILD}"))

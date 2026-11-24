@@ -46,6 +46,8 @@ def select_scout_role(question: str, *, intent: str = "", route: str = "", mode:
     editorial_request = _has(q, r"\b(weekly (?:league )?(?:report|recap|roundup)|league (?:report|recap|roundup|news)|around the league|around the jhlpaa|what(?:'s| is) happening|what happened|who(?:'s| is) making moves|movers and shakers|sports column|editorial|recap|headlines|week(?:ly)? highlights?)\b")
     if "league_recap" in label or (league_context and editorial_request) or (intent == "analyze_league" and not _has(q, r"\b(team weaknesses|draft prep|roster improve)\b")):
         return ScoutRole("journalist", "league news and recap assignment", "lively; observant; news-led, not a score dump")
+    if intent == 'league_multi_period_analysis' or 'league_multi_period_analysis' in label:
+        return ScoutRole('journalist', 'league-wide cross-period editorial assignment', 'news-led; evidence-bounded trends')
     # A front-office decision is different from general player or roster assessment.
     decision = _has(q, r"\b(should (?:we|i|they|the \w+)|would you|recommend|best (?:move|deal)|trade|trading|acquir(?:e|ing)|sign(?:ing)?|salary.cap|ltir|buyout|retention|contract|cap space|keeper strategy|draft capital|organizational strategy|rebuild|contend|gm|management)\b")
     if decision and _has(q, r"\b(trade|acquir|sign|cap|contract|keeper|pick|strateg|management|organiz|rebuild|asset|cost|deal|retain|buyout|waiver)\b"):
@@ -81,7 +83,7 @@ def compose_consultative_answer(answer: dict, *, question: str, role: ScoutRole)
             ("compare", "versus", " vs ", "evaluate", "weakness", "improve", "scout", "roster fit")))
     ):
         return answer
-    if intent in {"clarify_or_help", "analyze_league", "public_player_profile", "public_team_profile"} or "audit" in intent:
+    if intent in {"clarify_or_help", "analyze_league", "public_player_profile", "public_team_profile", "league_multi_period_analysis"} or "audit" in intent:
         return answer
     original = str(answer.get("natural_language_response") or answer.get("engine_conclusion") or "").strip()
     if not original or len(original) > 5200 or original.startswith(("Scouting assessment", "Executive decision brief")):

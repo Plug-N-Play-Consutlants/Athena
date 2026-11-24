@@ -63,7 +63,7 @@ def test_journalist_uses_only_verifiable_story_evidence_and_differs_from_audit()
     assert "The transaction wire" in report and "The quiet corner" in report
     assert "Alpha" in report and "48" in report and "Player A" in report
     assert "Beta" in report and "Player B" in report
-    assert "NHL performances, not independently verified fantasy lineup credit" in report
+    assert "Their JHLPAA team credit has not been verified" in report
     assert "Who’s keeping quiet" not in report
     assert report != audit
     assert report.count("The league recorded 1 confirmed trade") == 1
@@ -74,7 +74,7 @@ def test_empty_evidence_is_never_embellished_as_news():
     data = sample_research()
     data["findings"] = []
     result = compose_journalist_report(research=data)
-    assert "isn't enough verified activity" in result
+    assert "No verified league developments are available" in result
     assert "Player A" not in result and "48 points" not in result
 
 

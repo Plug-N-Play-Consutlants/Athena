@@ -24,7 +24,12 @@ namespaces = true
 version = {attr = "Core.version.ATHENA_VERSION"}
 
 [tool.athena]
-build = {attr = "Core.version.ATHENA_BUILD"}
-release_name = {attr = "Core.version.RELEASE_NAME"}
 version_schema = "major.epic.sprint.patch.hotfix"
 studio_first = true
+
+[tool.athena.build]
+attr = "Core.version.ATHENA_BUILD"
+
+[tool.athena.release_name]
+attr = "Core.version.RELEASE_NAME"
+

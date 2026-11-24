@@ -85,10 +85,12 @@ def _record_assets(record: Dict[str, Any]) -> List[Dict[str, Any]]:
 def summarize_recent_league_activity(transaction_history: Dict[str, Any], *, days: int = 7,
                                      now: datetime | None = None,
                                      period: str | int | None = None,
-                                     period_bounds: dict | None = None,
-                                     allow_rolling: bool = True) -> Dict[str, Any]:
+                                     period_bounds: dict | None = None, allow_rolling: bool = True) -> Dict[str, Any]:
     """Build a time-scoped league activity read from canonical transactions."""
-    records = [x for x in ((transaction_history or {}).get("records") or []) if isinstance(x, dict)]
+    records = [x for x in (transaction_history or {}).get("records", []) if isinstance(x, dict)]
+    if period is None and not allow_rolling:
+        return {"transaction_count": 0, "team_count": 0, "transaction_types": {}, "highlights": [],
+                "source_record_count": len(records), "timestamp_coverage": 0, "scope_method": "unresolved_period"}
     now = now or datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
@@ -121,13 +123,11 @@ def summarize_recent_league_activity(transaction_history: Dict[str, Any], *, day
                     scoped.append(r)
     # If canonical rows carry explicit season-week semantics but timestamps are
     # unavailable, use the latest observed week as a bounded fallback.
-    if period is None and allow_rolling and not scoped and records and undated:
+    if period is None and not scoped and records and undated:
         weeks = [str(r.get("season_week") or "") for r in records if str(r.get("season_week") or "")]
         if weeks:
             latest = sorted(set(weeks))[-1]
             scoped = [r for r in records if str(r.get("season_week") or "") == latest]
-    if period is None and not allow_rolling:
-        scoped = []
     type_counts: Dict[str, int] = {}
     teams = set()
     ranked = []
@@ -170,10 +170,7 @@ def summarize_recent_league_activity(transaction_history: Dict[str, Any], *, day
     return {"period_days": days, "transaction_count": len(scoped), "team_count": len(teams),
             "transaction_types": type_counts, "highlights": highlights,
             "source_record_count": len(records), "timestamp_coverage": len(records) - len(undated),
-            "scope_method": ("period_label_or_shared_bounds" if period_bounds and period is not None
-                              else "explicit_period" if period is not None
-                              else "rolling_calendar_window" if allow_rolling
-                              else "unresolved_period")}
+            "scope_method": ("period_label_or_shared_bounds" if period_bounds and period is not None else "explicit_period" if period is not None else "rolling_calendar_window")}
 
 
 def reconstruct_league_trade(transaction_history: Dict[str, Any], *, team_names: Iterable[str] = (),

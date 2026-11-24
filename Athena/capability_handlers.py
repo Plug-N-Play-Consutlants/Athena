@@ -142,11 +142,27 @@ def _answer_player_comparison(ctx: ScoutContext, question: str, *, league_profil
 
 def _answer_league_player_comparison(ctx: ScoutContext, question: str) -> Dict[str, Any]:
     """Reuse public player analysis with the explicitly requested league lens."""
-    return _answer_player_comparison(
+    answer = _answer_player_comparison(
         ctx,
         question,
         league_profile=getattr(ctx, "league_profile", None),
     )
+    # Reuse canonical professional identities without ever promoting NHL G+A
+    # to game-effective fantasy points. Explicit league scoring and ownership
+    # remain separate evidence layers.
+    if isinstance(answer, dict):
+        from Athena.intent_planner import _public_player_profiles_for
+        subjects = _public_player_profiles_for(question)
+        answer.setdefault("developer", {})["cross_domain_evidence_bridge"] = {
+            "identity_source": "canonical_public_player_registry",
+            "subjects": [{"entity_id": p.entity_id, "name": p.display_name,
+                          "position": p.position} for p in subjects],
+            "professional_production": "nhl_official_season_evidence_when_available",
+            "fantasy_credit": "unverified_without_period_eligible_roster_reconciliation",
+            "league_scoring": "configured_league_model_only",
+            "ownership": "unverified_unless_explicitly_attested",
+        }
+    return answer
 
 
 def _answer_ambiguous_entity(ctx: ScoutContext, question: str) -> Dict[str, Any]:

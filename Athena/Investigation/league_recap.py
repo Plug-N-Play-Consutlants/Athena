@@ -314,6 +314,6 @@ def research_period(*, league_name, period, comparison, editorial, activity, his
         findings.append({"kind": "quiet_watch", "team": None, "significance": 20, "teams": remaining, "observed_weeks": quiet.get("observed_weeks"), "evidence": ["transaction_history"]})
     return {"schema": "athena.league_period_research.v2", "league_name": league_name, "period": period,
             "findings": sorted(findings, key=lambda f: f["significance"], reverse=True),
-            "comparison": comparison, "activity": activity, "quiet_activity": quiet,
+            "comparison": comparison, "editorial": editorial or {}, "activity": activity, "quiet_activity": quiet,
             "context": context or {}, "coverage": coverage or {},
             "limitations": [k for k, v in (coverage or {}).items() if v not in ("available", "verified")]}

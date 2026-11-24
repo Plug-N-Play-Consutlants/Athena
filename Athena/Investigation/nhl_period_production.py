@@ -179,6 +179,87 @@ def normalize_nhl_period_production(payload: Any, schedules: list[Any], *,
     }
 
 
+def fetch_complete_nhl_game_summary(client, cayenne: str, *, max_rows: int = 15000, trace: list[dict] | None = None) -> dict:
+    """Fetch all NHL game rows without assuming that requested page size is honoured.
+
+    Stats REST can return fewer rows than ``limit`` while still declaring the
+    full ``total``. Offset by the *actual number of returned records*, not the
+    requested limit. An empty page, unstable total, repeated player/game, or
+    incomplete final coverage always fails closed.
+    """
+    # Game-level results must have a stable, unique ordering across offset
+    # pages. Without an explicit sort, NHL REST may change row order between
+    # requests; page overlaps cannot safely be interpreted as new evidence.
+    # gameId + playerId together uniquely identify the requested skater rows.
+    sort = json.dumps([
+        {"property": "gameId", "direction": "ASC"},
+        {"property": "playerId", "direction": "ASC"},
+    ], separators=(",", ":"))
+    base = {"isAggregate": "false", "isGame": "true",
+            "factCayenneExp": "gamesPlayed>=1", "cayenneExp": cayenne,
+            "sort": sort}
+    initial = client.get_stats("skater/summary", params={**base, "start": 0, "limit": -1})
+    if trace is not None:
+        trace.append({"request": "initial", "offset": 0, "requested_limit": -1,
+                      "declared_total": initial.get("total") if isinstance(initial, dict) else None,
+                      "returned_rows": len(initial.get("data")) if isinstance(initial, dict) and isinstance(initial.get("data"), list) else None,
+                      "schema_valid": isinstance(initial, dict) and isinstance(initial.get("data"), list)})
+    if not isinstance(initial, dict) or not isinstance(initial.get("data"), list):
+        raise ValueError("NHL game summary response schema invalid")
+    total = initial.get("total")
+    if type(total) is not int or total < 0:
+        raise ValueError("NHL game summary has no reliable total count")
+    if total == 0:
+        raise ValueError("NHL game summary returned zero rows for the period/season filter")
+    if total > max_rows:
+        raise ValueError("NHL game summary exceeds bounded historical retrieval limit")
+    rows = initial["data"]
+    if len(rows) > total:
+        raise ValueError("NHL game summary returned more records than declared")
+    if len(rows) == total:
+        return {"total": total, "data": rows}
+
+    # A single limit=-1 response may be cut off by an intermediary. Restart
+    # with explicit offsets. A shorter-than-requested page is not necessarily
+    # incomplete: some NHL interfaces impose a smaller effective page limit.
+    page_size = 500
+    max_pages = 200
+    gathered: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    page_count = 0
+    while len(gathered) < total:
+        # Page cap prevents a server returning one row per request forever.
+        if page_count >= max_pages:
+            raise ValueError("NHL game summary pagination exceeded request budget")
+        offset = len(gathered)
+        requested = min(page_size, total - offset)
+        page = client.get_stats("skater/summary", params={**base, "start": offset, "limit": requested})
+        page_count += 1
+        if trace is not None:
+            trace.append({"request": "page", "page": page_count, "offset": offset,
+                          "requested_limit": requested,
+                          "declared_total": page.get("total") if isinstance(page, dict) else None,
+                          "returned_rows": len(page.get("data")) if isinstance(page, dict) and isinstance(page.get("data"), list) else None,
+                          "schema_valid": isinstance(page, dict) and isinstance(page.get("data"), list)})
+        if (not isinstance(page, dict) or type(page.get("total")) is not int or
+                page["total"] != total or not isinstance(page.get("data"), list)):
+            raise ValueError("NHL game summary pagination changed total or schema")
+        chunk = page["data"]
+        if not chunk or len(chunk) > requested or offset + len(chunk) > total:
+            raise ValueError("NHL game summary pagination returned an empty or invalid page")
+        for row in chunk:
+            if not isinstance(row, dict):
+                raise ValueError("NHL game summary pagination contains a malformed row")
+            key = (str(row.get("playerId")), str(row.get("gameId")))
+            if key in seen:
+                raise ValueError("NHL game summary pagination contains overlapping player/game rows")
+            seen.add(key)
+        gathered.extend(chunk)
+    if len(gathered) != total:
+        raise ValueError("NHL game summary pagination coverage is incomplete")
+    return {"total": total, "data": gathered}
+
+
 def acquire_nhl_period_production(*, league_id: str | None, season: Any, period: int | None,
                                   boundary: dict, client_factory=None, output_dir: Path | None = None,
                                   clock=None, period_rosters: dict | None = None) -> dict:
@@ -260,13 +341,31 @@ def acquire_nhl_period_production(*, league_id: str | None, season: Any, period:
             client_factory = NHLClient
         client = client_factory()
         start_date, end_date = start.date(), end.date()
+        # NHL gameDate is date-typed. Avoid appending a time-of-day value
+        # that can make the REST filter reject the entire range.
         cayenne = (f'gameDate>="{start_date.isoformat()}" and '
-                   f'gameDate<="{end_date.isoformat()} 23:59:59" and '
+                   f'gameDate<="{end_date.isoformat()}" and '
                    f'gameTypeId=2 and seasonId={season_id}')
-        payload = client.get_stats("skater/summary", params={
-            "isAggregate": "false", "isGame": "true", "start": 0,
-            "limit": -1, "factCayenneExp": "gamesPlayed>=1", "cayenneExp": cayenne,
-        })
+        # Persist only request counts and response shape on failure. Do not
+        # record credentials, URLs, headers, raw players, or the Cayenne filter.
+        source_trace: list[dict] = []
+        try:
+            payload = fetch_complete_nhl_game_summary(client, cayenne, trace=source_trace)
+        except (ValueError, TypeError, OSError) as fetch_error:
+            trace_path = target_dir / "PeriodScoringAudit" / "nhl_source_traces" / str(league_id) / str(season) / f"period_{period:03d}.json"
+            diagnostic = {"schema": "athena.nhl_source_trace.v1", "period": period,
+                          "season": str(season), "status": "acquisition_failed",
+                          "error_type": type(fetch_error).__name__,
+                          "error": str(fetch_error)[:160], "requests": source_trace[:201]}
+            try:
+                trace_path.parent.mkdir(parents=True, exist_ok=True)
+                temp = trace_path.with_suffix(".tmp")
+                temp.write_text(json.dumps(diagnostic, indent=2), encoding="utf-8")
+                temp.replace(trace_path)
+                trace_note = f" [source trace: {trace_path.relative_to(target_dir)}]"
+            except (OSError, ValueError):
+                trace_note = " [source trace unavailable]"
+            raise ValueError(str(fetch_error)[:150] + trace_note) from fetch_error
         boundary_schedules = [client.get_web(f"schedule/{day.isoformat()}")
                               for day in sorted({start_date, end_date})]
         data = normalize_nhl_period_production(payload, boundary_schedules,

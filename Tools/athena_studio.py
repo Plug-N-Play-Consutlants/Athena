@@ -8,6 +8,8 @@ from __future__ import annotations
 import ast
 import json
 import os
+import queue
+import signal
 import re
 import shutil
 import socket
@@ -22,6 +24,7 @@ from pathlib import Path
 from tkinter import BOTH, END, LEFT, RIGHT, TOP, Y, BooleanVar, Frame, Scrollbar, StringVar, Text, Tk, filedialog, messagebox, simpledialog
 from tkinter import ttk
 
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 LOG_DIR = PROJECT_ROOT / "Logs"
 REPORT_DIR = PROJECT_ROOT / "Reports"
@@ -32,10 +35,172 @@ STUDIO_SETTINGS_FILE = LOG_DIR / "athena_studio_settings.json"
 STUDIO_COMMAND_LOG_DIR = LOG_DIR / "athena_studio_commands"
 
 
+
+def _export_nhl_source_traces(archive: zipfile.ZipFile, output_root: Path,
+                              included: list[str], errors: list[str]) -> int:
+    """Attach allowlisted NHL acquisition metadata, never unfiltered source files.
+
+    Traces are generated under Output/PeriodScoringAudit, not Logs. A malformed
+    trace is skipped with an explicit export error rather than copied verbatim.
+    """
+    trace_root = output_root / "PeriodScoringAudit" / "nhl_source_traces"
+    if not trace_root.is_dir():
+        return 0
+    allowed_request = ("request", "page", "offset", "requested_limit",
+                       "declared_total", "returned_rows", "schema_valid")
+    count = 0
+    for path in sorted(trace_root.rglob("period_*.json")):
+        if not path.is_file() or path.is_symlink():
+            continue
+        relative = path.relative_to(output_root)
+        member = (Path("Output") / relative).as_posix()
+        try:
+            # Do not permit external files through symlinked trace directories.
+            if not path.resolve().is_relative_to(trace_root.resolve()):
+                raise ValueError("trace path escapes the evidence directory")
+            if path.stat().st_size > 131072:
+                raise ValueError("trace exceeds metadata size limit")
+            original = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(original, dict) or original.get("schema") != "athena.nhl_source_trace.v1":
+                raise ValueError("unexpected trace schema")
+            requests = original.get("requests")
+            if not isinstance(requests, list) or len(requests) > 201:
+                raise ValueError("invalid trace requests")
+            sanitized = {
+                "schema": "athena.nhl_source_trace.v1",
+                "period": original.get("period") if type(original.get("period")) is int else None,
+                "season": str(original.get("season", ""))[:8],
+                "status": "acquisition_failed",
+                "error_type": str(original.get("error_type", ""))[:64],
+                "requests": [],
+            }
+            for item in requests:
+                if not isinstance(item, dict):
+                    raise ValueError("invalid request metadata")
+                safe = {}
+                for field in allowed_request:
+                    value = item.get(field)
+                    if field == "request" and value in ("initial", "page"):
+                        safe[field] = value
+                    elif field == "schema_valid" and type(value) is bool:
+                        safe[field] = value
+                    elif field not in ("request", "schema_valid") and (value is None or type(value) is int):
+                        safe[field] = value
+                sanitized["requests"].append(safe)
+            archive.writestr(member, json.dumps(sanitized, indent=2))
+            included.append(member)
+            count += 1
+        except (OSError, ValueError, TypeError) as exc:
+            errors.append(f"{member}: {type(exc).__name__}: {exc}")
+    return count
+
+
+def _sync_league_snapshot_lines(output: str) -> list[str]:
+    """Show operator-facing sync facts without exposing the verbose operation JSON.
+
+    Source is the canonical Tools/sync_league.py result. A completed snapshot
+    must not be constructed from stale cached artifacts or a failed response.
+    """
+    decoder = json.JSONDecoder()
+    for pos, char in enumerate(output):
+        if char != "{":
+            continue
+        try:
+            result, _ = decoder.raw_decode(output[pos:])
+        except ValueError:
+            continue
+        if not isinstance(result, dict) or not result.get("ok") or result.get("dry_run"):
+            continue
+        summary = result.get("summary")
+        if not isinstance(summary, dict):
+            # Also support the operation result's metadata contract.
+            summary = result.get("metadata", {}).get("summary") if isinstance(result.get("metadata"), dict) else None
+        if not isinstance(summary, dict):
+            continue
+        lines = ["League-wide sync snapshot (not a weekly report):"]
+        name = summary.get("league_name") or "Unidentified league"
+        season = summary.get("season")
+        lines.append(f"  League: {name}" + (f" | Season: {season}" if season is not None else ""))
+        fields = (
+            ("Teams", "team_count"),
+            ("Players", "player_count"),
+            ("Transactions", "canonical_transactions"),
+            ("Asset movements", "asset_movements"),
+            ("Managers analyzed", "managers_analyzed"),
+            ("Market liquidity", "market_liquidity"),
+            ("Knowledge readiness", "knowledge_readiness"),
+        )
+        for label, key in fields:
+            value = summary.get(key)
+            lines.append(f"  {label}: {value if value is not None else 'unavailable'}")
+        warnings = result.get("warnings")
+        if isinstance(warnings, list) and warnings:
+            lines.append(f"  Warnings: {len(warnings)} (see full output)")
+        return lines
+    return []
+
+
+def _evidence_refresh_summary_lines(output: str) -> list[str]:
+    """Summarize the historical-evidence CLI JSON without claiming numeric matches prove credit."""
+    try:
+        result = json.loads(output.strip())
+    except (ValueError, TypeError):
+        return ["Evidence results could not be parsed; inspect the command log."]
+    if not isinstance(result, dict):
+        return ["Unexpected evidence response; inspect the command log."]
+    before = result.get("before") if isinstance(result.get("before"), dict) else {}
+    after = result.get("after") if isinstance(result.get("after"), dict) else before
+    manifest = result.get("acquisition_manifest") if isinstance(result.get("acquisition_manifest"), dict) else {}
+    periods = after.get("periods") if isinstance(after.get("periods"), list) else []
+    lines = ["Historical scoring evidence (numeric matches are NOT proof of credited fantasy points):"]
+    if manifest:
+        lines.append(f"  Acquisition: {manifest.get('status', 'unknown')} | attempted: {manifest.get('attempted_count', 'unknown')}")
+    elif result.get("refresh_attempted"):
+        lines.append("  Acquisition was requested but no manifest was returned.")
+    for evidence in periods:
+        if not isinstance(evidence, dict):
+            continue
+        period = evidence.get("period", "?")
+        status = evidence.get("status", "unknown")
+        lines.append(f"  Period {period}: {status}")
+        if evidence.get("missing_components"):
+            lines.append("    Missing: " + ", ".join(str(x) for x in evidence["missing_components"]))
+        elif evidence.get("team_count"):
+            lines.append(
+                f"    Numeric match: {evidence.get('numeric_reconciled_teams', 0)}/{evidence['team_count']} teams; "
+                f"absolute discrepancy: {evidence.get('total_absolute_point_difference', 0)}; "
+                f"unresolved active IDs: {evidence.get('unresolved_active_identity_count', 0)}"
+            )
+        if manifest:
+            entry = (manifest.get("periods") or {}).get(str(period), {})
+            if isinstance(entry, dict) and entry.get("reason"):
+                lines.append(f"    Acquisition blocker: {entry['reason']}")
+        if evidence.get("next_action") and status not in ("numeric_match_not_game_credit_proof",):
+            lines.append(f"    Next: {evidence['next_action']}")
+    if not periods:
+        lines.append("  No verified period results returned; see command log.")
+    return lines
+
+
+def _parse_evidence_periods(raw: str) -> list[int]:
+    """Accept bounded completed-period lists; never silently expand the selected scope."""
+    tokens = re.split(r"[\s,]+", str(raw).strip())
+    if not tokens or not 1 <= len(tokens) <= 8 or any(not t.isdigit() for t in tokens):
+        raise ValueError("Enter 1–8 completed period numbers, such as 6 7 8.")
+    values = [int(t) for t in tokens]
+    if any(p < 2 for p in values) or len(set(values)) != len(values):
+        raise ValueError("Periods must be unique integers of 2 or greater.")
+    return values
+
+
 def _command_summary(label: str, code: int, output: str, log_path: Path) -> list[str]:
     status = "PASS" if code == 0 else "FAIL"
     lines = [f"[{status}] {label} (exit code {code})", f"Full output: {log_path}"]
     if code == 0:
+        if label == "Sync League":
+            lines.extend(_sync_league_snapshot_lines(output))
+        elif label == "Refresh & Reconcile Evidence":
+            lines.extend(_evidence_refresh_summary_lines(output))
         return lines
     failure_lines = [
         line.strip()
@@ -52,6 +217,7 @@ def _command_summary(label: str, code: int, output: str, log_path: Path) -> list
 
 
 BUILD_VALIDATION_REGISTRY: tuple[tuple[str, str, str, str], ...] = (
+    ("release-critical", "Sync routing and integrity", "unittest:-m unittest Tests.test_sync_integrity_0710661", "Canonical Studio sync, mandatory-stage freshness, workspace identity, and false-success prevention."),
     ("release-critical", "Release hygiene", "Tests/validate_release_hygiene.py", "Version alignment, packaging, CI, and release readiness."),
     ("release-critical", "Athena request boundary", "Tests/validate_athena_request_boundary.py", "Request ownership, registered execution, evidence adaptation, and response preservation."),
     ("release-critical", "Athena capability routing", "Tests/validate_athena_capability_pathways.py", "Planner ownership, specialist registration, and Public/Fantasy route separation."),
@@ -71,6 +237,92 @@ BUILD_VALIDATION_REGISTRY: tuple[tuple[str, str, str, str], ...] = (
     ("targeted-regression", "Studio reload workflow", "Tests/validate_studio_reload_workflow.py", "Supported Studio reload/relaunch behavior."),
 )
 
+
+
+VERIFY_CHECK_TIMEOUT_SECONDS = 150
+
+
+def _terminate_validation_tree(proc: subprocess.Popen) -> None:
+    """Stop only the subprocess tree started by this verification command."""
+    if proc.poll() is not None:
+        return
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           capture_output=True, timeout=8, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        if os.name != "nt":
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+        else:
+            proc.kill()
+        try:
+            proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def _run_bounded_validation(
+    args: list[str], log_path: Path, cancel: threading.Event,
+    *, timeout_seconds: float = VERIFY_CHECK_TIMEOUT_SECONDS,
+    on_progress=None,
+) -> tuple[str, int | None]:
+    """Run one check with a hard timeout, streamed disk logging, and safe cancellation.
+
+    Status is PASS, FAIL, TIMEOUT, CANCELLED or ERROR. The process tree, not
+    unrelated Scout processes, is the only target of cancellation.
+    """
+    if cancel.is_set():
+        return "CANCELLED", None
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    env = os.environ.copy()
+    env.setdefault("PYTHONIOENCODING", "utf-8")
+    env["PYTHONUNBUFFERED"] = "1"
+    started = time.monotonic()
+    proc = None
+    try:
+        with log_path.open("w", encoding="utf-8", errors="replace") as log:
+            log.write("Command: " + " ".join(args) + "\n\n")
+            log.flush()
+            proc = subprocess.Popen(
+                args, cwd=str(PROJECT_ROOT), stdout=log,
+                stderr=subprocess.STDOUT, env=env,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
+                start_new_session=(os.name != "nt"),
+            )
+            last_progress = started
+            while proc.poll() is None:
+                if cancel.is_set():
+                    _terminate_validation_tree(proc)
+                    log.write("\n[Studio] Verification cancelled by user.\n")
+                    return "CANCELLED", proc.returncode
+                now = time.monotonic()
+                if now - started >= timeout_seconds:
+                    _terminate_validation_tree(proc)
+                    log.write(f"\n[Studio] TIMEOUT after {timeout_seconds:g} seconds.\n")
+                    return "TIMEOUT", proc.returncode
+                if on_progress and now - last_progress >= 10:
+                    on_progress(now - started)
+                    last_progress = now
+                time.sleep(0.2)
+            return ("PASS" if proc.returncode == 0 else "FAIL"), proc.returncode
+    except Exception as exc:
+        if proc is not None:
+            _terminate_validation_tree(proc)
+        with log_path.open("a", encoding="utf-8", errors="replace") as log:
+            log.write(f"\n[Studio] ERROR: {type(exc).__name__}: {exc}\n")
+        return "ERROR", None
 
 def _read_version_metadata() -> dict[str, str]:
     version_file = PROJECT_ROOT / "Core" / "version.py"
@@ -154,8 +406,13 @@ class AthenaStudio:
         self.root.title(f"Athena Studio - {SCOUT_VERSION}")
         self.root.geometry("1280x860")
         self.status = StringVar(value="Ready")
+        self.scout_state = StringVar(value="Scout status: checking")
+        self.last_verification = StringVar(value="Last verification: not run")
         self.version_label = StringVar(value=self._status_line())
         self.scout_process: subprocess.Popen[str] | None = None
+        self._verify_active = False
+        self._verify_cancel = threading.Event()
+        self._verify_messages: queue.Queue[tuple[str, object]] = queue.Queue()
         self._reload_lock = threading.Lock()
         self._reload_in_progress = False
         self._scout_browser_opened = False
@@ -166,6 +423,7 @@ class AthenaStudio:
         self.developer_mode = BooleanVar(value=bool(self._studio_settings.get("developer_mode", False)))
         self.developer_panel = None
         self._build_ui()
+        self.root.protocol("WM_DELETE_WINDOW", self._close_studio)
         self.refresh_status()
         # A fresh Studio instance reports Doctor observations even when no cleanup remains.
         # This is preview-only: deletion still requires explicit approval.
@@ -270,7 +528,7 @@ class AthenaStudio:
         self._button_group(body, "Core Workflow", [
             ("🔄 Sync League", self.sync_league, "Refresh the active league through Athena's canonical sync pipeline."),
             ("🔎 Repository Audit", self.show_repository_audit, "Run the Phase 3 read-only repository audit and write a report."),
-            ("🧾 Review Shims/Duplicates", self.show_repository_review, "Run the Phase 4B shim and duplicate basename review reports."),
+            ("🧾 Refresh & Reconcile Evidence", self.refresh_reconcile_evidence, "Retrieve missing historical scoring evidence and explain unresolved period discrepancies."),
             ("🔐 Lock Repo Decisions", self.show_repository_decision_lock, "Lock the no-mutation shim and duplicate decisions for external audit."),
             ("🧱 Release Hygiene", self.show_release_hygiene, "Check packaging, version metadata, CI, and false-green test warnings."),
             ("🧹 Preview Cleanup", self.preview_repository_cleanup, "Preview safe cleanup without changing files."),
@@ -291,7 +549,7 @@ class AthenaStudio:
         info.pack(side=TOP, fill="x", padx=12, pady=(4, 2))
         ttk.Label(
             info,
-            text="Core Workflow Console — default path: Reload Build → Relaunch Studio → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → View Logs. Verification and diagnostics are in Developer Mode.",
+            text="Core Workflow — Sync League → Refresh & Reconcile Evidence → Acceptance Explorer → View Logs. Repository governance and verification remain separate workflows.",
             anchor="w",
             style="Studio.Subtitle.TLabel",
         ).pack(fill="x")
@@ -314,7 +572,7 @@ class AthenaStudio:
         # Athena Studio Operations Console | Athena Studio Beta Tile UI | Athena Studio Compact Tile UI + Toolbar
         # Hover over controls for help | compact two-line dashboard tile label | compact dashboard tile grid | Compact tiles use icons
         # Historical default labels retained for compatibility only: ✅ Validate Everything | 🩺 Doctor Everything | 📤 Export Studio Log | 🧹 Clean Runtime | 🔃 Refresh | ⟲ Restart Studio
-        self.write("Athena Studio Core Workflow Console ready. Use Reload Build → Relaunch Studio → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → View Logs. Verify Build is under Developer Mode.\n")
+        self.write("Athena Studio ready. Sync League and Refresh & Reconcile Evidence are separate actions; Verify Build stays in Developer Mode.\n")
         if bool(self._studio_settings.get("auto_runtime_audit_on_start", False)):
             self.runtime_audit(auto=True)
 
@@ -325,7 +583,9 @@ class AthenaStudio:
         frame = ttk.LabelFrame(parent, text="System Status", style="Studio.TLabelframe", padding=(5, 3))
         frame.pack(side=TOP, fill="x", padx=2, pady=2)
         summary = "Providers • Knowledge • Identity • Events • Intelligence • Scout • Runtime"
-        ttk.Label(frame, text=f"🟢 {summary}", anchor="w", style="Studio.Subtitle.TLabel").pack(fill="x")
+        ttk.Label(frame, text=f"Providers • Knowledge • Identity • Events • Intelligence • Scout • Runtime", anchor="w", style="Studio.Subtitle.TLabel").pack(fill="x")
+        ttk.Label(frame, textvariable=self.scout_state, anchor="w", style="Studio.Subtitle.TLabel").pack(fill="x")
+        ttk.Label(frame, textvariable=self.last_verification, anchor="w", style="Studio.Subtitle.TLabel").pack(fill="x")
 
     def _build_developer_panel(self, parent) -> None:
         """Build the hidden Developer Mode panel as grouped actions, not a button wall."""
@@ -338,7 +598,8 @@ class AthenaStudio:
         right = ttk.Frame(parent, style="Studio.TFrame")
         right.pack(side=LEFT, fill="x", expand=True, padx=(6, 0))
         self._button_group(left, "Developer Validation", [
-            ("🧪 Verify Build", self.verify_build, "Run release-critical checks and supported-capability regressions."),
+            ("🧪 Verify Build", self.verify_build, "Run release-critical checks and supported-capability regressions with time limits."),
+            ("⏹ Cancel Verification", self.cancel_verify_build, "Stop the current verification check and any child test processes."),
             ("✅ Validate Everything", self.validate_everything, "Run all registered validators."),
             ("✅ Studio Validate", self.validate_studio, "Run Studio validation suites."),
             ("🧱 Release Hygiene", self.show_release_hygiene, "Run packaging, version, CI, and false-green checks."),
@@ -348,6 +609,7 @@ class AthenaStudio:
             ("📦 Export Diagnostics", self.export_diagnostics_logs, "Create a ZIP of current verification logs and Studio diagnostics."),
             ("🧭 Discover Draft Source", self.discover_draft_source, "Use the authenticated Fantrax session to inspect the draft-pick source safely."),
             ("🕰 Historical League Sweep", self.acquire_historical_leagues, "Acquire every registered historical league into isolated season-scoped Knowledge."),
+            ("🧾 Review Shims/Duplicates", self.show_repository_review, "Review repository shim and duplicate-basenames reports; retained for governance."),
             ("📋 Copy Console", self.copy_console, "Copy the entire Studio console buffer to the clipboard."),
             ("🧽 Clear Output", self.clear_output, "Clear the visible Studio output panel."),
         ])
@@ -500,9 +762,17 @@ class AthenaStudio:
             meta = self._current_version_metadata()
             self.root.title(f"Athena Studio - {meta.get('SCOUT_VERSION', 'unknown')}")
             scout = "Scout running" if self._is_port_open(8765) else "Scout stopped"
-            self.status.set(f"{scout} | {meta.get('ATHENA_BUILD', 'unknown')} | browser reload={'on' if self._studio_settings.get('open_browser_after_reload', False) else 'off'}")
+            self.scout_state.set(f"{scout} | browser reload={'on' if self._studio_settings.get('open_browser_after_reload', False) else 'off'}")
+            # Scout health and Studio task activity are distinct concepts. A refresh
+            # must never replace an active validation with an idle/Scout label.
+            if self._verify_active:
+                self.status.set("Verifying build...")
+            elif not getattr(self, "_launch_in_progress", False):
+                self.status.set("Ready")
         except Exception:
-            self.status.set("Status unavailable")
+            self.scout_state.set("Scout status unavailable")
+            if not self._verify_active:
+                self.status.set("Ready")
 
     def write(self, text: str) -> None:
         self.output.insert(END, text)
@@ -552,7 +822,7 @@ class AthenaStudio:
     def _script_command(self, relative_path: str) -> list[str] | None:
         script = PROJECT_ROOT / relative_path
         if script.exists():
-            return [self._python(), "-B", relative_path]
+            return [self._python(), "-B", str(script.resolve())]
         return None
 
     def _record_history(self, label: str, code: int | None, details: str = "") -> None:
@@ -692,15 +962,20 @@ class AthenaStudio:
         if force:
             self.write("\nForce launching Scout from current patched build.\n")
         elif self._is_port_open(8765):
-            self.write("Scout appears to already be running on port 8765. Opening browser. Use Reload Patched Build after applying patches.\n")
-            self.open_scout()
+            self.write("[BLOCKED] Scout port 8765 is already occupied; the process version is unverified. Use Reload Build to stop the old process and launch the current patched version.\n")
+            self._record_history("Launch Scout", 1, "existing listener; build identity unverified")
             self.refresh_status()
             self._launch_in_progress = False
             return
 
         if force:
             self._stop_scout_sync()
-            self._wait_for_ports_clear()
+            if not self._wait_for_ports_clear():
+                self.write("[BLOCKED] Scout listener ports remain occupied after stop. Refusing to launch an ambiguous runtime.\n")
+                self._record_history("Launch Scout", 1, "listener ports not cleared")
+                self._launch_in_progress = False
+                self.refresh_status()
+                return
             removed = self._purge_python_caches()
             self.write(f"Purged runtime caches: __pycache__={removed[0]}, pyc={removed[1]}\n")
             self.version_label.set(self._status_line())
@@ -734,6 +1009,12 @@ class AthenaStudio:
 
     def _wait_for_scout(self) -> None:
         for _ in range(40):
+            if self.scout_process and self.scout_process.poll() is not None:
+                self.status.set("Scout failed")
+                self.write(f"Scout exited with code {self.scout_process.returncode}. Check Logs\\athena_studio_scout.log.\n")
+                self._record_history("Launch Scout", self.scout_process.returncode, "process exited")
+                self._launch_in_progress = False
+                return
             if self._is_port_open(8765):
                 self.status.set("Scout running")
                 self.write("Scout is listening on port 8765.\n")
@@ -744,12 +1025,7 @@ class AthenaStudio:
                     self.write("Browser open skipped for this launch. Use Open Scout to view the active session.\n")
                 self._launch_in_progress = False
                 return
-            if self.scout_process and self.scout_process.poll() is not None:
-                self.status.set("Scout failed")
-                self.write(f"Scout exited with code {self.scout_process.returncode}. Check Logs\\athena_studio_scout.log.\n")
-                self._record_history("Launch Scout", self.scout_process.returncode, "process exited")
-                self._launch_in_progress = False
-                return
+
             time.sleep(0.5)
         self.status.set("Scout start timeout")
         self.write("Scout did not become reachable within 20 seconds.\n")
@@ -992,8 +1268,45 @@ class AthenaStudio:
     def validate_comparison_reasoning_engine(self) -> None:
         self._run_threaded("Validate Comparison", self._script_command("Tests/validate_comparison_reasoning_engine.py") or [self._python(), "-c", "raise SystemExit('Missing Tests/validate_comparison_reasoning_engine.py')"])
 
+    def _drain_verify_messages(self) -> None:
+        """Move worker messages to Tk on the UI thread."""
+        try:
+            while True:
+                kind, value = self._verify_messages.get_nowait()
+                if kind == "write":
+                    self.write(str(value))
+                elif kind == "stage":
+                    self.status.set(str(value))
+                elif kind == "finish":
+                    self._verify_active = False
+                    self.last_verification.set(f"Last verification: {value}")
+                    self.status.set("Ready")
+        except queue.Empty:
+            pass
+        if self._verify_active or not self._verify_messages.empty():
+            self.root.after(200, self._drain_verify_messages)
+
+    def _close_studio(self) -> None:
+        """Do not abandon a verifier subprocess when the UI is closed."""
+        if self._verify_active:
+            self._verify_cancel.set()
+            self.status.set("Stopping verification before closing Studio...")
+            self.root.after(200, self._close_studio)
+            return
+        self.root.destroy()
+
+    def cancel_verify_build(self) -> None:
+        if not self._verify_active:
+            self.write("[Verify Build] No active verification to cancel.\n")
+            return
+        self._verify_cancel.set()
+        self.write("[Verify Build] Cancelling active check and its subprocess tree...\n")
+
     def verify_build(self) -> None:
-        """Run release-critical and supported-capability regressions only."""
+        """Run the registered checks with visible progress and bounded execution."""
+        if self._verify_active:
+            self.write("[Verify Build] Already running; use Cancel Verification to stop it.\n")
+            return
         commands = []
         for entry in BUILD_VALIDATION_REGISTRY:
             label, target = entry[1], entry[2]
@@ -1003,7 +1316,59 @@ class AthenaStudio:
                 else self._script_command(target)
             )
             commands.append((label, command))
-        self._run_sequence_threaded("Verify Build", commands)
+        self._verify_cancel = threading.Event()
+        self._verify_active = True
+        self.status.set("Verifying build...")
+        self.last_verification.set("Last verification: running")
+        self.write(f"\n=== Verify Build | {len(commands)} checks | max {VERIFY_CHECK_TIMEOUT_SECONDS}s/check ===\n")
+        self.write("Output streams directly to individual log files. Cancel Verification is available in Developer Mode.\n")
+        self.root.after(200, self._drain_verify_messages)
+        threading.Thread(target=self._verify_build_worker, args=(commands, self._verify_cancel), daemon=True).start()
+
+    def _verify_build_worker(self, commands, cancel: threading.Event) -> None:
+        failures = 0
+        completed = 0
+        result = "FAIL"
+        try:
+            for i, (name, command) in enumerate(commands, 1):
+                if cancel.is_set():
+                    result = "CANCELLED"
+                    break
+                if command is None:
+                    failures += 1
+                    completed += 1
+                    self._verify_messages.put(("write", f"[{i}/{len(commands)}] FAIL {name}: missing target\n"))
+                    continue
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+                safe = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_").lower()
+                log_path = STUDIO_COMMAND_LOG_DIR / f"{stamp}_{safe}.txt"
+                self._verify_messages.put(("stage", f"Verifying build ({i}/{len(commands)}): {name}"))
+                self._verify_messages.put(("write", f"[{i}/{len(commands)}] RUNNING {name} | log: {log_path}\n"))
+                status, exit_code = _run_bounded_validation(
+                    command, log_path, cancel,
+                    on_progress=lambda elapsed, name=name: self._verify_messages.put(
+                        ("write", f"    {name}: still running ({elapsed:.0f}s); output saved to log\n")
+                    ),
+                )
+                completed += 1
+                self._verify_messages.put(("write", f"[{i}/{len(commands)}] {status} {name} | exit={exit_code} | {log_path}\n"))
+                self._record_history(name, exit_code if status in {"PASS", "FAIL"} else 1,
+                                     f"status={status}; log={log_path}")
+                if status != "PASS":
+                    failures += 1
+                if status in {"TIMEOUT", "CANCELLED"}:
+                    result = status
+                    break  # Do not begin more checks after a hang or cancellation.
+            else:
+                result = "PASS" if failures == 0 else "FAIL"
+        except Exception as exc:
+            result = "ERROR"
+            failures += 1
+            self._verify_messages.put(("write", f"[Verify Build] ERROR: {exc}\n"))
+        self._verify_messages.put(("write", f"[Verify Build] {result} | completed={completed}/{len(commands)} | failures={failures}\n"))
+        self._record_history("Verify Build", 0 if result == "PASS" else 1,
+                             f"status={result}; completed={completed}/{len(commands)}; failures={failures}")
+        self._verify_messages.put(("finish", f"{result} ({completed}/{len(commands)} checks; {failures} failures)"))
 
     def _critical_acceptance_commands(
         self,
@@ -1022,6 +1387,31 @@ class AthenaStudio:
         if command is not None:
             command = [*command, "--all"]
         self._run_threaded("Historical League Sweep", command or [self._python(), "-c", "raise SystemExit('Missing historical acquisition tool')"])
+
+    def refresh_reconcile_evidence(self) -> None:
+        """Launch the existing evidence CLI via Studio, independent of Verify Build."""
+        selected = simpledialog.askstring(
+            "Refresh & Reconcile Evidence",
+            "Completed scoring periods to refresh (space- or comma-separated):",
+            initialvalue="6 7 8",
+            parent=self.root,
+        )
+        if selected is None:
+            return
+        try:
+            periods = _parse_evidence_periods(selected)
+        except ValueError as exc:
+            messagebox.showwarning("Invalid period selection", str(exc), parent=self.root)
+            return
+        command = self._script_command("Tools/diagnose_period_evidence.py")
+        if command is None:
+            self.write("Evidence diagnostic unavailable: Tools/diagnose_period_evidence.py is missing.\n")
+            self.status.set("Evidence diagnostic missing")
+            return
+        self._run_threaded(
+            "Refresh & Reconcile Evidence",
+            [*command, "--periods", *(str(p) for p in periods), "--refresh"],
+        )
 
     def sync_league(self) -> None:
         """Refresh the active league through Athena's canonical sync pipeline."""
@@ -2103,6 +2493,7 @@ class AthenaStudio:
                             included.append(rel)
                         except (OSError, ValueError) as exc:
                             errors.append(f"{rel}: {exc}")
+                trace_count = _export_nhl_source_traces(archive, PROJECT_ROOT / "Output", included, errors)
                 archive.writestr("studio_visible_output.txt", self.output.get("1.0", END))
                 included.append("studio_visible_output.txt")
                 manifest = {
@@ -2110,6 +2501,7 @@ class AthenaStudio:
                     "version": self._current_version_metadata(),
                     "source_root": str(PROJECT_ROOT),
                     "file_count": len(included),
+                    "nhl_source_trace_count": trace_count,
                     "files": included,
                     "errors": errors,
                 }
@@ -2117,7 +2509,7 @@ class AthenaStudio:
             with zipfile.ZipFile(bundle) as check:
                 if check.testzip() is not None:
                     raise OSError("ZIP integrity verification failed")
-            self.write(f"\n=== Export Diagnostics ===\nZIP: {bundle}\nIncluded: {len(included)} files\n")
+            self.write(f"\n=== Export Diagnostics ===\nZIP: {bundle}\nIncluded: {len(included)} files\nNHL source traces: {trace_count}\n")
             if errors:
                 self.write("Skipped files:\n" + "\n".join(errors) + "\n")
             self._record_history("Export Diagnostics", 0 if not errors else 1, str(bundle))

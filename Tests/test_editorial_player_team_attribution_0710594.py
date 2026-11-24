@@ -41,7 +41,7 @@ def test_newsroom_names_team_without_claiming_independent_credit():
     report = compose_journalist_report(research=research)
     assert "JHLPAA player spotlight" in report
     assert "Star A (10 G+A)" in report and "Leeeroy Jenkins's archived ACTIVE roster" in report
-    assert "does not independently prove game-by-game fantasy eligibility" in report
+    assert "game-by-game eligibility has not independently been confirmed" in report
     assert "Reserve B" not in report and "Star C" not in report
 
 

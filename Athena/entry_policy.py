@@ -18,7 +18,7 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
     mode = (mode or 'fantasy').strip().lower()
     explicit = any(term in q for term in ('jhlpaa', 'fantrax'))
     fantasy = (mode != 'public' or explicit) and any(term in q for term in ('jhlpaa', 'fantrax', 'my league', 'around the league'))
-    editorial = bool(re.search(r'\b(report|recap|summari[sz]e|analy[sz]e|analize|review|biggest stories|developments)\b', q)) and bool(re.search(r'\b(league|jhlpaa|fantrax|standings|scoring)\b', q))
+    editorial = bool(re.search(r'\b(report|recap|summary|summari[sz]e|analy[sz]e|analize|review|biggest stories|developments)\b', q)) and bool(re.search(r'\b(league|jhlpaa|fantrax|standings|scoring)\b', q))
     # A multi-section weekly editorial request is one investigation, even when
     # its requested sections include top player producers or a scoring calendar.
     # Route the whole request before selecting narrower specialist questions.
@@ -37,8 +37,24 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
                      and bool(re.search(r'\b(reconcile|reconciliation|audit|verify)\b', q))
                      and bool(re.search(r'\b(?:weeks?|periods?)\s*\d+', q))
                      and bool(re.search(r'\b(scoring|points|scores?|rosters?|active|standings)\b', q)))
+    # A comparison across multiple weeks with transactions/storylines is a
+    # composite investigation, not a standings-only query. Preserve user scope.
+    from Athena.Investigation.period_execution import _requested_periods
+    try:
+        requested_weeks = _requested_periods(question)
+    except ValueError:
+        requested_weeks = []
+    composite_comparison = (explicit and len(requested_weeks) > 1
+                            and bool(re.search(r"\b(compare|comparison|changes?|trends?|developing|across)\b", q))
+                            and (sections >= 2 or 'transactions' in q or 'storylines' in q))
     if scoring_audit:
         return EntryDecision('league_recap', 'explicit_period_scoring_reconciliation')
+    rolling_comparison = (explicit and bool(re.search(r'\b(?:last|latest|most recent)\s+(?:three|3)\s+(?:completed\s+)?(?:scoring\s+)?(?:weeks?|periods?)\b', q))
+                          and (sections >= 2 or editorial or 'races' in q or 'storylines' in q))
+    if rolling_comparison:
+        return EntryDecision('league_multi_period_analysis', 'last_three_completed_periods')
+    if composite_comparison:
+        return EntryDecision('league_multi_period_analysis', 'explicit_multi_period_composite_inquiry')
     if fantasy and (broad_report or (editorial and sections >= 2)):
         return EntryDecision('league_recap', 'composite_weekly_editorial_request')
     # Explicit league questions retain their fantasy evidence domain even when
@@ -53,7 +69,10 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
     temporal_recap = bool(re.search(r'\b(this|past|last|current)\s+(week|period)\b|\bweek\s*\d+\b', q)) and bool(re.search(r'\b(what happened|what changed|happening|happened|developments|activity|recap|roundup)\b', q))
     recap = fantasy and (temporal_recap or any(t in q for t in ('week 2', 'week two', 'weekly report', 'league period', 'around the jhlpaa', 'last week', 'weekly recap')))
     trade = fantasy and 'trade' in q and any(t in q for t in ('analy', 'assess', 'reconstruct', 'explain', 'implications'))
-    if recap or (editorial and (mode != 'public' or explicit)):
+    # An explicitly named fantasy league stays in its evidence domain even in Public mode.
+    # 'summary of the previous week in the JHLPAA' must not need a magic command.
+    named_period_summary = explicit and bool(re.search(r'\b(summary|summari[sz]e|recap|report|roundup|overview)\b', q)) and bool(re.search(r'\b(previous|prior|past|last|this|current)\s+(?:week|period)\b|\bweek\s*\d+\b', q))
+    if recap or named_period_summary or (editorial and (mode != 'public' or explicit)):
         return EntryDecision('league_recap', 'explicit_editorial_objective')
     if trade:
         return EntryDecision('fantasy_trade_investigation', 'explicit_trade_objective')

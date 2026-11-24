@@ -30,6 +30,7 @@ def _requested_periods(question: str) -> list[int]:
     Do not infer a scoring week from bare dates or arbitrary numbers. This is
     limited to 8 periods; a longer request must be handled deliberately.
     """
+    question = re.sub(r",\s*and\s+", ", ", question, flags=re.IGNORECASE)
     token = re.compile(r"\b(?:weeks?|periods?)\s*(\d{1,3})\b", re.IGNORECASE)
     connector = re.compile(
         r"\s*(,|and|&|to|through|[-\u2013\u2014])\s*"
@@ -405,6 +406,15 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
               f"numeric_matches={attribution.get('numeric_matched_teams', 0)}/"
               f"{attribution.get('team_count', 0)}; complete={attribution.get('fully_reconciled_teams', 0)}; "
               f"reason={attribution.get('reason', '')}")
+        from Athena.Investigation.scoring_coverage_diagnostics import summarize_attribution_coverage
+        attribution_coverage = summarize_attribution_coverage(attribution)
+        trace("athena.period_scoring_coverage", attribution_coverage["status"],
+              f"matched={attribution_coverage['reconciled_teams']}/{attribution_coverage['team_count']}; "
+              f"discrepancies={attribution_coverage['point_discrepancy_teams']}; "
+              f"identity_gaps={attribution_coverage['identity_gap_teams']}")
+        if attribution_coverage["status"] == "partial":
+            facts.append("Period attribution partial; team-specific exceptions available in the scoring audit. "
+                         "Do not generalize reconciled team identities to the entire league.")
         if attribution.get("teams"):
             facts.append(f"Historical roster NHL-to-Fantrax scoring check: "
                          f"{attribution['numeric_matched_teams']}/{attribution['team_count']} numeric matches; "
@@ -492,6 +502,13 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         storyline = investigate_storyline_continuity(OUTPUT_DIR, archive_league,
                                                       archive_season, standings_period)
         athena_research["storyline_continuity"] = storyline
+        from Athena.Investigation.editorial_briefing import build_editorial_briefing
+        athena_research["editorial_briefing"] = build_editorial_briefing(athena_research)
+        trace("athena.editorial_briefing", athena_research["editorial_briefing"]["status"],
+              "standings-derived league-wide editorial coverage")
+        from Athena.Investigation.editorial_newsroom import historical_trade_continuity
+        athena_research["editorial_trade_continuity"] = historical_trade_continuity(
+            ctx.transaction_history or {}, standings_period)
         trace("athena.editorial_storylines", storyline["status"],
               f"verified_signals={len(storyline['signals'])}")
         athena_research["period_calendar"] = period_calendar
@@ -504,6 +521,7 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
         }
         from Athena.Investigation.editorial_player_attribution import editorial_contributors
         athena_research["editorial_player_attribution"] = editorial_contributors(attribution, nhl_production)
+        athena_research["period_scoring_audit"] = attribution_coverage
         trace("athena.editorial_player_attribution",
               athena_research["editorial_player_attribution"]["status"],
               f"linked_contributors={len(athena_research['editorial_player_attribution']['records'])}")

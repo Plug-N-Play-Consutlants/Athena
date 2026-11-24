@@ -26,19 +26,21 @@ REQUIRED_METHODS = {
     "export_diagnostics_logs",
     "open_reports",
     "_open_folder",
+    "refresh_reconcile_evidence",
+    "show_repository_review",
 }
 REQUIRED_MARKERS = [
     "Athena Studio Core Workflow Console",
     "Core Workflow",
     "Developer Mode",
-    "default path: Reload Build → Relaunch Studio → Repository Audit → Review Shims/Duplicates → Lock Repo Decisions → Release Hygiene → Preview Cleanup → Apply Safe Cleanup → Acceptance Explorer → View Logs",
+    "Core Workflow — Sync League → Refresh & Reconcile Evidence → Acceptance Explorer → View Logs.",
 ]
 DEFAULT_ACTIONS = [
     "🔄 Sync League",
     "📋 View Logs",
     "🧭 Acceptance Explorer",
     "🔎 Repository Audit",
-    "🧾 Review Shims/Duplicates",
+    "🧾 Refresh & Reconcile Evidence",
     "🔐 Lock Repo Decisions",
     "🧱 Release Hygiene",
     "🧹 Preview Cleanup",
@@ -156,6 +158,10 @@ def main() -> int:
         for label in ("🧪 Verify Build", "🩺 Doctor Everything", "📁 Export Logs"):
             if label in core:
                 failures.append(f"Redundant control remains in Core Workflow: {label}")
+        if '"🧾 Refresh & Reconcile Evidence", self.refresh_reconcile_evidence' not in core:
+            failures.append("Evidence refresh must be wired to its handler in Core Workflow")
+        if '"🧾 Review Shims/Duplicates", self.show_repository_review' not in developer:
+            failures.append("Legacy review action must remain wired in Developer Mode")
         if "🧪 Verify Build" not in developer:
             failures.append("Verify Build must remain in Developer Validation")
         if "🩺 Doctor Everything" in developer or "📂 Open Reports" in developer:

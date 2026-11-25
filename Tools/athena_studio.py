@@ -633,8 +633,29 @@ class AthenaStudio:
         ttk.Label(controls, text="Scoring period").pack(side=LEFT, padx=(0, 5))
         period = StringVar(value="8")
         ttk.Entry(controls, textvariable=period, width=6).pack(side=LEFT)
-        display = Text(frame, wrap="word", height=14, font=("Consolas", 9))
+        display = Text(frame, wrap="word", height=14, font=("Consolas", 9), undo=False)
         display.pack(fill=BOTH, expand=True, pady=(12, 8))
+        # Keep the full JSON directly selectable and compatible with Ctrl+A/C.
+        def select_report_text(event=None):
+            display.tag_add("sel", "1.0", "end-1c")
+            display.mark_set("insert", "1.0")
+            display.see("1.0")
+            return "break"
+
+        display.bind("<Control-a>", select_report_text)
+        display.bind("<Control-A>", select_report_text)
+
+        def copy_report() -> None:
+            # Copy exactly what is visible in the diagnostic panel. Avoid
+            # clipboard writes when no report has been loaded.
+            content = display.get("1.0", "end-1c")
+            if not content.strip():
+                messagebox.showinfo("Fantrax Period Diagnostic", "There is no report text to copy.", parent=window)
+                return
+            window.clipboard_clear()
+            window.clipboard_append(content)
+            window.update_idletasks()
+            self.write("Fantrax period diagnostic copied to clipboard.\n")
 
         def report_path() -> Path | None:
             try:
@@ -675,7 +696,8 @@ class AthenaStudio:
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x")
         ttk.Button(buttons, text="Run Probe", command=run_probe).pack(side=LEFT, padx=(0, 8))
-        ttk.Button(buttons, text="View Report", command=show_report).pack(side=LEFT)
+        ttk.Button(buttons, text="View Report", command=show_report).pack(side=LEFT, padx=(0, 8))
+        ttk.Button(buttons, text="Copy Report", command=copy_report).pack(side=LEFT)
         ttk.Button(buttons, text="Close", command=window.destroy).pack(side=RIGHT)
         show_report()
 

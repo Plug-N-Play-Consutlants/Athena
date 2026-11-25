@@ -247,6 +247,99 @@ def _active_team_credit_shape(payload):
             'credit_eligible': False}
 
 
+def _daily_credit_shape(payload):
+    """Inspect documented dated active scorer credit without exporting private data.
+
+    Presence of ACTIVE.statsMap alone is not proof that a historical lineup
+    was credited on the requested day. The scorerMap can contain many other
+    roster/available players, so only its intersection with ACTIVE is counted.
+    """
+    data = payload.get('data', payload) if isinstance(payload, dict) else {}
+    if not isinstance(data, dict):
+        return {'status': 'no_data_object', 'credit_eligible': False}
+    out = _active_team_credit_shape(data)
+    scorer_map = data.get('scorerMap')
+    known = set()
+    traversed = 0
+    if isinstance(scorer_map, dict):
+        stack = [(scorer_map, 0)]
+        while stack and traversed < 12000:
+            node, depth = stack.pop()
+            traversed += 1
+            if isinstance(node, dict):
+                scorer = node.get('scorer')
+                if isinstance(scorer, dict):
+                    sid = scorer.get('scorerId')
+                    if isinstance(sid, str) and sid.strip() and scorer.get('team') is not True:
+                        known.add(sid)
+                if depth < 6:
+                    stack.extend((child, depth + 1) for child in list(node.values())[:150])
+            elif isinstance(node, list) and depth < 6:
+                stack.extend((child, depth + 1) for child in node[:300])
+    all_teams = (data.get('statsPerTeam') or {}).get('allTeamsStats') if isinstance(data.get('statsPerTeam'), dict) else None
+    active_ids = set()
+    duplicate_entries = 0
+    if isinstance(all_teams, dict):
+        for team in list(all_teams.values())[:100]:
+            active = team.get('ACTIVE') if isinstance(team, dict) else None
+            smap = active.get('statsMap') if isinstance(active, dict) else None
+            if not isinstance(smap, dict):
+                continue
+            for key in list(smap.keys())[:300]:
+                if isinstance(key, str) and key and not key.startswith('_'):
+                    if key in active_ids:
+                        duplicate_entries += 1
+                    active_ids.add(key)
+    counts = dict(out.get('counts', {}))
+    counts.update({'scorer_map_player_ids': len(known),
+                   'active_ids_in_scorer_map': len(active_ids & known),
+                   'active_ids_absent_from_scorer_map': len(active_ids - known),
+                   'active_ids_on_multiple_teams': duplicate_entries})
+    return {'status': 'structure_only' if isinstance(all_teams, dict) else 'active_team_stats_not_present',
+            'counts': counts,
+            'scorer_map_present': isinstance(scorer_map, dict),
+            'response_date_identity_verified': False,
+            'date_to_period_verified': False,
+            'historical_lineup_verified': False,
+            'period_totals_reconciled': False,
+            'credit_eligible': False}
+
+
+def probe_daily_credit(*, league: str, scoring_date: str, season: str = '', client_factory=None) -> dict:
+    """Explicit-date, read-only research probe. Never guesses the calendar day."""
+    from datetime import date
+    try:
+        valid_date = isinstance(scoring_date, str) and date.fromisoformat(scoring_date).isoformat() == scoring_date
+    except ValueError:
+        valid_date = False
+    if not league or not valid_date:
+        raise ValueError('Configured league and explicit YYYY-MM-DD scoring date required')
+    report = {'schema': 'athena.fantrax_daily_credit_probe.v1',
+              'requested_date': scoring_date, 'status': 'not_attempted',
+              'verified_period_credit': False, 'ledger_written': False,
+              'request_contract': 'fantraxapi_getLiveScoringStats_source_reviewed_not_JHLPAA_verified'}
+    if client_factory is None:
+        from Providers.Fantrax.fantrax_client import FantraxClient
+        client_factory = FantraxClient
+    try:
+        client = client_factory(league_id=league, season=season)
+        if not client.has_cookie_auth():
+            report['status'] = 'authentication_unavailable'
+            return report
+        payload = client.get_live_scoring_stats(scoring_date)
+        if client.is_error_payload(payload):
+            report['status'] = 'provider_error'
+            return report
+        report['shape'] = _daily_credit_shape(payload)
+        report['status'] = ('response_received_unverified' if report['shape']['status'] == 'structure_only'
+                            else 'provider_contract_unverified')
+    except Exception as exc:
+        # Never serialize exception text: it may contain private URL or auth data.
+        report['status'] = 'probe_failed'
+        report['exception_type'] = type(exc).__name__
+    return report
+
+
 def _player_fpts_alignment(payload):
     """Private in-memory ID→FPts map plus metadata; map is never exported."""
     data = payload.get('data', payload) if isinstance(payload, dict) else {}
@@ -428,13 +521,15 @@ def main(argv=None):
     parser.add_argument('--season', required=True, help='Start year (e.g. 2026)')
     parser.add_argument('--period', required=True, type=int)
     parser.add_argument('--output', type=Path, help='Write SAFE schema diagnostic JSON')
+    parser.add_argument('--scoring-date', help='Explicit YYYY-MM-DD date: run read-only daily credited-scoring probe')
     args = parser.parse_args(argv)
     if args.league:
         league = args.league
     else:
         from Core.config import get_workspace_value
         league = str(get_workspace_value('workspace.league_id', '') or '')
-    report = probe(league=league, season=args.season, period=args.period)
+    report = (probe_daily_credit(league=league, season=args.season, scoring_date=args.scoring_date)
+              if args.scoring_date else probe(league=league, season=args.season, period=args.period))
     output = json.dumps(report, indent=2, ensure_ascii=False)
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -442,7 +537,7 @@ def main(argv=None):
         print(f'Safe diagnostic written: {args.output}')
     else:
         print(output)
-    return 0 if report['status'] == 'period_identity_unverified' else 2
+    return 0 if report['status'] in ('period_identity_unverified', 'response_received_unverified') else 2
 
 
 if __name__ == '__main__':

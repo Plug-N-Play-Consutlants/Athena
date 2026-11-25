@@ -293,6 +293,29 @@ class FantraxClient:
         data.setdefault("maxResultsPerPage", 500)
         return self.fxpa_request({"method": "getPlayerStats", "data": data})
 
+    def get_live_scoring_stats(self, scoring_date: str) -> Any:
+        """Read-only daily scoring evidence from the authenticated website API.
+
+        This is an independently documented *candidate* NHL contract, not a
+        certified JHLPAA player-credit feed. Callers must verify the requested
+        date against the league calendar, response and archived period totals.
+        No default/current date is inferred.
+        """
+        from datetime import date
+
+        if not isinstance(scoring_date, str):
+            raise ValueError("scoring_date must be YYYY-MM-DD")
+        try:
+            parsed = date.fromisoformat(scoring_date)
+        except ValueError as exc:
+            raise ValueError("scoring_date must be YYYY-MM-DD") from exc
+        if parsed.isoformat() != scoring_date:
+            raise ValueError("scoring_date must be YYYY-MM-DD")
+        return self.fxpa_request({"method": "getLiveScoringStats", "data": {
+            "date": scoring_date, "newView": "True", "period": "1",
+            "playerViewType": "1", "sppId": "-1", "viewType": "1",
+        }})
+
     def get_transactions(self, max_results_per_page: int = 1000, view: str | None = None) -> Any:
         """Return one Fantrax transaction-history view.
 

@@ -45,6 +45,20 @@ def _fantrax_probe_output_path(season: str, period: str) -> Path:
     return PROJECT_ROOT / "Output" / f"fantrax_period_probe_{season}_p{int(period):02d}.json"
 
 
+def _fantrax_daily_credit_output_path(scoring_date: str) -> Path:
+    """Date-scoped safe report path, never constructed from unsanitized input."""
+    from datetime import date
+    if not isinstance(scoring_date, str) or len(scoring_date) != 10:
+        raise ValueError("Daily scoring date must be YYYY-MM-DD.")
+    try:
+        parsed = date.fromisoformat(scoring_date)
+    except ValueError as exc:
+        raise ValueError("Daily scoring date must be YYYY-MM-DD.") from exc
+    if parsed.isoformat() != scoring_date or not scoring_date.isascii():
+        raise ValueError("Daily scoring date must be YYYY-MM-DD.")
+    return PROJECT_ROOT / "Output" / f"fantrax_daily_credit_{scoring_date}.json"
+
+
 def _export_nhl_source_traces(archive: zipfile.ZipFile, output_root: Path,
                               included: list[str], errors: list[str]) -> int:
     """Attach allowlisted NHL acquisition metadata, never unfiltered source files.
@@ -619,7 +633,7 @@ class AthenaStudio:
         """Run and inspect safe provider-contract diagnostics within Studio."""
         window = Toplevel(self.root)
         window.title("Fantrax Player-Period Diagnostic")
-        window.geometry("720x440")
+        window.geometry("760x475")
         window.transient(self.root)
         frame = ttk.Frame(window, padding=12)
         frame.pack(fill=BOTH, expand=True)
@@ -633,6 +647,12 @@ class AthenaStudio:
         ttk.Label(controls, text="Scoring period").pack(side=LEFT, padx=(0, 5))
         period = StringVar(value="8")
         ttk.Entry(controls, textvariable=period, width=6).pack(side=LEFT)
+        daily_controls = ttk.Frame(frame)
+        daily_controls.pack(fill="x", pady=(7, 0))
+        ttk.Label(daily_controls, text="Optional daily credit date (YYYY-MM-DD)").pack(side=LEFT, padx=(0, 7))
+        credit_date = StringVar(value="")
+        ttk.Entry(daily_controls, textvariable=credit_date, width=13).pack(side=LEFT)
+        ttk.Label(daily_controls, text="Leave blank for the existing period probe").pack(side=LEFT, padx=(10, 0))
         display = Text(frame, wrap="word", height=14, font=("Consolas", 9), undo=False)
         display.pack(fill=BOTH, expand=True, pady=(12, 8))
         # Keep the full JSON directly selectable and compatible with Ctrl+A/C.
@@ -659,6 +679,8 @@ class AthenaStudio:
 
         def report_path() -> Path | None:
             try:
+                if credit_date.get().strip():
+                    return _fantrax_daily_credit_output_path(credit_date.get().strip())
                 return _fantrax_probe_output_path(season.get(), period.get())
             except ValueError as exc:
                 messagebox.showerror("Fantrax Period Diagnostic", str(exc), parent=window)
@@ -674,7 +696,9 @@ class AthenaStudio:
                 return
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
-                if not isinstance(data, dict) or data.get("schema") != "athena.fantrax_period_probe.v1":
+                expected_schema = ("athena.fantrax_daily_credit_probe.v1" if credit_date.get().strip()
+                                   else "athena.fantrax_period_probe.v1")
+                if not isinstance(data, dict) or data.get("schema") != expected_schema:
                     raise ValueError("Report does not match the expected diagnostic schema")
                 display.insert(END, json.dumps(data, indent=2, ensure_ascii=False))
                 display.see("1.0")
@@ -691,7 +715,10 @@ class AthenaStudio:
                 return
             display.delete("1.0", END)
             display.insert(END, "Probe started. Studio logs will report completion.\nSelect View Report after the command finishes.\n\nNo player data or authentication material will be saved.\n")
-            self._run_threaded("Fantrax Player-Period Diagnostic", script + ["--season", season.get(), "--period", period.get(), "--output", str(path)])
+            args = ["--season", season.get(), "--period", period.get(), "--output", str(path)]
+            if credit_date.get().strip():
+                args.extend(["--scoring-date", credit_date.get().strip()])
+            self._run_threaded("Fantrax Player-Period Diagnostic", script + args)
 
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x")

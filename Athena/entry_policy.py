@@ -56,13 +56,31 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
         return EntryDecision('league_multi_period_analysis', 'last_three_completed_periods')
     if composite_comparison:
         return EntryDecision('league_multi_period_analysis', 'explicit_multi_period_composite_inquiry')
+    if explicit and re.search(r'\b(?:write|draft|prepare|produce)\b', q) and re.search(r'\b(?:editorial|league\s+report|league\s+recap)\b', q):
+        return EntryDecision('league_recap', 'explicit_written_editorial_request')
     if fantasy and (broad_report or (editorial and sections >= 2)):
         return EntryDecision('league_recap', 'composite_weekly_editorial_request')
     # Explicit league questions retain their fantasy evidence domain even when
     # the presentation mode is Public. Route by inquiry objective, not UI mode.
     if explicit and re.search(r'\b(top\s*\d+|leaders?|leading|most|highest|best)\b', q) and re.search(r'\b(players?|producers?|production|points|goals|assists|g\s*\+\s*a)\b', q):
         return EntryDecision('league_player_period_leaders', 'explicit_league_player_production')
-    if explicit and re.search(r'\b(scoring period|completed period|last completed|most recently completed)\b', q) and re.search(r'\b(when|which|what|date|ended|completed|latest|recent)\b', q):
+    # A named team's performance is an investigation, not a calendar question.
+    # Inspect explicit team framing before a narrow scoring-period question.
+    # A league-wide editorial is already handled above.
+    team_performance = (explicit and
+        bool(re.search(r'\b(?:analy[sz]e|assess|evaluate|explain|review|break\s*down|how\s+did)\b', q)) and
+        bool(re.search(r'\b(?:performance|performed|results|scoring|points|contributed|underperformed)\b', q)) and
+        bool(re.search(r'\b(?:team|roster|rostered|[a-z][a-z .’\'-]+[’\']s\s+(?:performance|results))\b', q)) and
+        bool(re.search(r'\b(?:period|week)\s*\d+\b', q)))
+    if team_performance:
+        return EntryDecision('league_team_period_performance', 'explicit_named_team_period_performance')
+    # Period boundaries must be an explicit calendar/finalization objective;
+    # merely saying 'which players ... in scoring period 8' is not one.
+    boundary_objective = bool(re.search(
+        r'\b(?:when\s+(?:did|does|was|is)|what\s+(?:date|dates|day)|exact\s+dates|'
+        r'period\s+(?:start|end|boundary|calendar)|'
+        r'which\s+(?:was|is)\s+(?:the\s+)?(?:last|latest|most\s+recently)\s+completed)\b', q))
+    if explicit and boundary_objective and re.search(r'\b(?:scoring\s+period|completed\s+period|last\s+completed|most\s+recently\s+completed)\b', q):
         return EntryDecision('league_scoring_period_boundary', 'explicit_league_calendar_question')
     standings = explicit and 'standings' in q and any(t in q for t in ('week', 'period', 'season', 'historical', 'movement'))
     if standings and not editorial:

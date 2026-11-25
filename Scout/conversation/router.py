@@ -2019,6 +2019,9 @@ def route_question(question: str, ctx: ScoutContext | None = None, mode: str = "
     from Athena.entry_policy import select_entry_route
     entry = select_entry_route(raw_question, selected_mode)
     explicit_league = any(t in q for t in ('jhlpaa', 'fantrax'))
+    if entry.route == 'league_team_period_performance':
+        from Athena.Investigation.league_team_performance import investigate_team_performance
+        return investigate_team_performance(ctx, raw_question)
     if entry.route in {'league_scoring_period_boundary', 'league_player_period_leaders'}:
         from Athena.Investigation.league_period_questions import answer_league_period_question
         period_answer = answer_league_period_question(ctx, raw_question, entry.route)

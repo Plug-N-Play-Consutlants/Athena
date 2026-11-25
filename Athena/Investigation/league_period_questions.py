@@ -47,7 +47,7 @@ def answer_league_period_question(ctx, question: str, route: str) -> dict:
             trace['terminal_reason'] = 'period_player_production_not_verified'
             conclusion = (f'A verified top-ten JHLPAA player G+A ranking for scoring period {period} is not available. '
                           f'Fantrax acquisition status: {production.get("status")}; {production.get("reason")}. '
-                          'Season-to-date totals, fantasy points, and current roster snapshots are not substitutes for period G+A.')
+                          'Season-to-date totals, unverified-period FPts, and current roster snapshots cannot establish credited period player production.')
         missing = ['verified_player_period_g_plus_a', 'verified_scoring_period']
     evidence['decision_trace'] = trace
     return response(intent=route, title=('JHLPAA scoring period verification' if route == 'league_scoring_period_boundary' else 'JHLPAA player period leaders'),

@@ -221,49 +221,23 @@ def publish_multi_period(data: dict) -> str:
             parts.append('No recorded events in a week does not establish that every manager was inactive.')
         lines.extend(['The transaction wire', ' '.join(parts)])
 
-    # Select only reconciled observations as credited fantasy production.
-    attribution = data.get('player_attribution') or {}
-    credited = []
-    observed = []
-    for period in attribution.get('periods', []):
-        for team in (period.get('teams') or {}).values():
-            leaders = team.get('top_contributors') or []
-            if not leaders:
-                continue
-            person = leaders[0]
-            if team.get('status') == 'reconciled_active_nhl_points' and team.get('credited_fantasy_points_verified') is True:
-                credited.append((person['nhl_points'], period['period'], team['team'], person['name']))
-            else:
-                observed.append((person['nhl_points'], period['period'], team['team'], person['name']))
-    if credited:
-        credited.sort(reverse=True)
-        examples = credited[:2]
-        passage = ' '.join(
-            f"In Period {p}, {name} contributed {_number(n)} verified goals-plus-assists points "
-            f"to {team}'s reconciled active-lineup total."
-            for n, p, team, name in examples)
-        lines.extend(['Players behind the results', passage])
-    elif observed:
-        observed.sort(reverse=True)
-        n, period, team, name = observed[0]
-        lines.extend(['Players behind the results',
-                      f'In Period {period}, {name} recorded {_number(n)} NHL goals-plus-assists points '
-                      f"while listed on {team}'s historical active roster. This is evidence of NHL production, "
-                      'not independently verified Fantrax credited points: the historical period roster '
-                      'does not establish game-by-game lineup eligibility.'])
-    diagnostics = data.get('period_evidence_diagnostics') or {}
-    diagnostic_periods = diagnostics.get('periods') or []
-    if diagnostic_periods and any(p.get('status') in ('partial_numeric_reconciliation', 'missing_period_evidence') for p in diagnostic_periods):
-        absent = [str(p['period']) for p in diagnostic_periods if p.get('status') == 'missing_period_evidence']
-        partial = [p for p in diagnostic_periods if p.get('status') == 'partial_numeric_reconciliation']
-        notes = []
-        if absent:
-            notes.append('Period ' + ', '.join(absent) + ' needs historical production and/or roster acquisition.')
-        if partial:
-            notes.append('The NHL active-roster totals differ from Fantrax team scoring for ' +
-                         ', '.join(f"{p['discrepant_teams']} of {p['team_count']} teams in Period {p['period']}" for p in partial) + '.')
-        notes.append('Game-effective lineup eligibility remains unverified; these discrepancies have not been assigned a cause.')
-        lines.extend(['Player-evidence check', ' '.join(notes)])
+    # Official fantasy-player points, when the provider supplied period and
+    # historical-owner attribution. Never substitute NHL G+A for missing FPts.
+    provider_points = data.get('provider_fantasy_points') or {}
+    provider_leaders = []
+    for period in provider_points.get('periods', []):
+        if period.get('status') != 'provider_credited_period':
+            continue
+        for person in period.get('leaders', []):
+            provider_leaders.append((person['fantasy_points'], period['period'],
+                                     person['team_name'], person['player_name']))
+    if provider_leaders:
+        provider_leaders.sort(key=lambda row: (-row[0], row[1], row[3]))
+        passages = [f"In Period {period}, {name} earned {_number(points)} provider-credited "
+                    f"fantasy points for {team}."
+                    for points, period, team, name in provider_leaders[:3]]
+        lines.extend(['Players behind the results', ' '.join(passages)])
+
     trade_results = data.get('trade_production') or []
     if any(t.get('status') == 'awaiting_roster_effective_period' for t in trade_results):
         lines.extend(['The next roster test',
@@ -281,6 +255,6 @@ def publish_multi_period(data: dict) -> str:
     else:
         watch = 'The next verified period will show which performance changes persist.'
     watch += (' Recorded trades establish roster activity, not what caused the change '
-              'in scoring; proving player-level impact requires dated production and deployment evidence.')
+              'in scoring. Provider-reported player production and period-effective ownership can reveal what followed.')
     lines.extend(['What to watch', watch])
     return '\n\n'.join(lines)

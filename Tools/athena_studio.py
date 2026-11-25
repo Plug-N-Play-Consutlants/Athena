@@ -169,8 +169,11 @@ def _evidence_refresh_summary_lines(output: str) -> list[str]:
             lines.append(
                 f"    Numeric match: {evidence.get('numeric_reconciled_teams', 0)}/{evidence['team_count']} teams; "
                 f"absolute discrepancy: {evidence.get('total_absolute_point_difference', 0)}; "
-                f"unresolved active IDs: {evidence.get('unresolved_active_identity_count', 0)}"
+                f"unresolved active IDs: {evidence.get('unresolved_active_identity_count', 0)}; "
+                f"matched IDs without NHL game rows: {evidence.get('active_ids_without_nhl_game_rows', 0)}"
             )
+        if evidence.get('scoring_audit_source') == 'committed_period_scoring_audit':
+            lines.append('    Provenance: committed period audit; period ACTIVE status does not verify game-time scoring eligibility')
         if manifest:
             entry = (manifest.get("periods") or {}).get(str(period), {})
             if isinstance(entry, dict) and entry.get("reason"):

@@ -194,34 +194,25 @@ def investigate_multi_period(ctx, question: str) -> dict:
         if analysis['event_time_based_count']:
             limitations.append('Transaction event dates are distinct from roster-effective scoring-period labels; player production after an exchange remains unverified.')
 
-    # Historical active-roster joins use archived Fantrax IDs and NHL G+A.
-    # Fantasy contribution is described as credited only when official team
-    # period totals reconcile exactly and all active identities resolve.
+    # Routine fantasy reporting uses the provider as the scoring authority.
+    # Independent NHL-vs-fantasy reconciliation is available via the Studio
+    # evidence audit, not as a publication dependency or a second score.
+    structured['player_attribution'] = {'status': 'not_requested_for_routine_fantasy'}
+    structured['period_evidence_diagnostics'] = {'status': 'not_requested_for_routine_fantasy'}
+    structured['trade_production'] = []
     if findings and findings.get('status') == 'verified' and periods:
-        from Athena.Investigation.player_level_attribution import (
-            analyze_player_attribution, assess_trade_production)
+        from Athena.Investigation.provider_fantasy_points import analyze_provider_points
         try:
             league, season = resolve_league_context(ctx.league_profile, ctx.standings_archive)
-            verified_points = {s['period']: {str(t['team_id']):t['points'] for t in s['teams']}
-                               for s in snapshots}
-            if race_baseline is not None:
-                verified_points[race_baseline['period']] = {
-                    str(t['team_id']):t['points'] for t in race_baseline['teams']}
-            attribution = analyze_player_attribution(OUTPUT_DIR, league, season, periods, verified_points)
-            structured['player_attribution'] = attribution
-            from Athena.Investigation.period_evidence_diagnostics import diagnose_period_evidence
-            structured['period_evidence_diagnostics'] = diagnose_period_evidence(
-                OUTPUT_DIR, league, season, periods, attribution)
-            structured['trade_production'] = assess_trade_production(
-                structured.get('transaction_spotlights'), attribution)
-            if attribution['missing_periods']:
-                limitations.append('Verified historical player production and active rosters are unavailable for '
-                                   + ', '.join(f"Period {p}" for p in attribution['missing_periods']) + '.')
-        except (ValueError, KeyError, OSError, TypeError) as exc:
-            structured['player_attribution'] = {'status':'attribution_unavailable',
-                                                'reason':type(exc).__name__}
+            profile = ctx.league_profile if isinstance(ctx.league_profile, dict) else {}
+            provider = str(profile.get('provider') or profile.get('provider_id') or 'fantrax').lower()
+            structured['provider_fantasy_points'] = analyze_provider_points(
+                OUTPUT_DIR, provider=provider, league=league, season=season, periods=periods,
+                team_ids={str(t['team_id']) for t in findings['teams']})
+        except (ValueError, KeyError, OSError, TypeError):
+            structured['provider_fantasy_points'] = {'status': 'provider_scoring_unavailable'}
     else:
-        structured['player_attribution'] = {'status':'comparative_standings_unverified'}
+        structured['provider_fantasy_points'] = {'status': 'standings_unverified'}
 
     # Synthesis takes place after scoring, race and transaction acquisition;
     # the complete team cohort remains available even when only three stories
@@ -237,7 +228,7 @@ def investigate_multi_period(ctx, question: str) -> dict:
                     observed_facts=[f"Analyzed {structured['teams_analyzed']} teams across {len(periods)} requested periods"],known_limitations=limitations,
                     confidence=.75 if findings and findings['status']=='verified' else .25,
                     developer=developer_info('league_multi_period_analysis', ctx.files_loaded,
-                        knowledge_used=['canonical_period_standings'],intelligence_used=['multi_period_analysis', 'evidence_to_editorial', 'player_level_attribution'],
+                        knowledge_used=['canonical_period_standings'],intelligence_used=['multi_period_analysis', 'evidence_to_editorial', 'provider_fantasy_points'],
                         files_read=[],missing=['verified_period_transactions'] ))
     result['developer']['requested_periods']=periods
     result['developer']['period_resolution']=period_resolution

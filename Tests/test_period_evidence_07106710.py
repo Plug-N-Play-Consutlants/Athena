@@ -50,8 +50,9 @@ def test_scout_never_says_credit_from_numeric_match():
           'player_attribution':{'periods':[{'period':6,'teams':{'T':{'team':'Team T','status':'reconciled_active_nhl_points','credited_fantasy_points_verified':False,'top_contributors':[{'nhl_points':9,'name':'A'}]}}}]},
           'period_evidence_diagnostics':{'periods':[]}}
     article=publish_multi_period(data)
-    assert 'not independently verified Fantrax credited points' in article
+    assert 'Players behind the results' not in article
     assert 'contributed 9 verified' not in article
+    assert 'NHL goals-plus-assists' not in article
 
 
 def test_cli_dry_run_does_not_acquire(tmp_path):

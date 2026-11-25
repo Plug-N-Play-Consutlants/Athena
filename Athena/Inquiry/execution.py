@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List
+import re
 
 
 def construct_transaction_paths(*, team_name: str, target_name: str,
@@ -174,20 +175,56 @@ def summarize_recent_league_activity(transaction_history: Dict[str, Any], *, day
 
 
 def reconstruct_league_trade(transaction_history: Dict[str, Any], *, team_names: Iterable[str] = (),
-                             player_names: Iterable[str] = ()) -> Dict[str, Any]:
-    """Retrieve whole canonical trade events, never infer a deal from draft-board ownership."""
-    teams = [str(n).casefold() for n in team_names if str(n).strip()]
-    players = [str(n).casefold() for n in player_names if str(n).strip()]
+                             player_names: Iterable[str] = (), date_hint: str | None = None) -> Dict[str, Any]:
+    """Find complete provider trade events by canonical parties and optional event date.
+
+    A date is an evidence constraint, not a recency preference; if a caller
+    supplies one, do not silently return a different trade by the same teams.
+    """
+    def norm(value: Any) -> str:
+        return re.sub(r"\s+", " ", str(value or "").casefold().replace("’", "'").replace("‘", "'")).strip()
+
+    teams = [norm(n) for n in team_names if str(n).strip()]
+    players = [norm(n) for n in player_names if str(n).strip()]
+    requested_date = None
+    if date_hint:
+        # Both full and abbreviated month names are accepted; year is optional.
+        for fmt in ("%B %d, %Y", "%B %d %Y", "%b %d, %Y", "%b %d %Y", "%B %d", "%b %d"):
+            try:
+                # Parse yearless dates against a fixed leap year to avoid the
+                # ambiguous default-year behavior in newer Python versions.
+                literal = str(date_hint).strip()
+                parsed = (datetime.strptime(literal, fmt) if '%Y' in fmt else
+                          datetime.strptime(literal + ' 2000', fmt + ' %Y'))
+                requested_date = (parsed.month, parsed.day, parsed.year if '%Y' in fmt else None)
+                break
+            except ValueError:
+                continue
+        if requested_date is None:
+            return {"matches": [], "matched_count": 0, "invalid_date_hint": date_hint}
+
     matches = []
     for row in (transaction_history or {}).get("records", []):
-        if not isinstance(row, dict) or "trade" not in str(row.get("transaction_type") or "").lower():
+        if not isinstance(row, dict) or "trade" not in norm(row.get("transaction_type")):
             continue
-        names = [str(p.get("participant_name") or p.get("team_name") or "") for p in row.get("participants", []) if isinstance(p, dict)]
-        asset_names = [str(a.get("asset_name") or "") for a in _record_assets(row)]
-        team_hits = sum(any(t in n.casefold() for n in names) for t in teams)
-        player_hits = sum(any(t in n.casefold() for n in asset_names) for t in players)
+        names = [norm(p.get("participant_name") or p.get("team_name"))
+                 for p in row.get("participants", []) if isinstance(p, dict)]
+        asset_names = [norm(a.get("asset_name")) for a in _record_assets(row)]
+        team_hits = sum(any(t == n for n in names) for t in teams)
+        player_hits = sum(any(t == n for n in asset_names) for t in players)
         if (teams and team_hits < len(teams)) or (players and player_hits == 0) or (not teams and not players):
             continue
+        if requested_date:
+            stamp = str(row.get("event_timestamp") or row.get("timestamp") or "")
+            event_date = None
+            for fmt in ("%a %b %d, %Y, %I:%M%p", "%b %d, %Y, %I:%M%p", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d"):
+                try:
+                    event_date = datetime.strptime(stamp.replace("Z", "+0000"), fmt)
+                    break
+                except ValueError:
+                    continue
+            if event_date is None or (event_date.month, event_date.day) != requested_date[:2] or (requested_date[2] and event_date.year != requested_date[2]):
+                continue
         matches.append({"record": row, "team_hits": team_hits, "player_hits": player_hits,
                         "score": team_hits * 3 + player_hits})
     matches.sort(key=lambda m: m["score"], reverse=True)

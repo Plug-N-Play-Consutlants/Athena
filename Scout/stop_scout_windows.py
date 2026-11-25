@@ -194,7 +194,9 @@ def main() -> int:
             print(f"REFUSED PID {pid}: {process_reason}")
             failed = True
             continue
-        result = subprocess.run(["taskkill", "/PID", pid, "/F"], capture_output=True, text=True)
+        # Kill descendants of this independently verified Scout PID as well:
+        # Studio can launch through an intermediate Python launcher.
+        result = subprocess.run(["taskkill", "/PID", pid, "/T", "/F"], capture_output=True, text=True)
         print((result.stdout or result.stderr).strip())
         failed = failed or result.returncode != 0
     return 1 if failed or rejected else 0

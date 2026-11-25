@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 import re
 from typing import Any
+from Athena.audit_intent import affirmative_audit_request
 
 
 _DATE_RANGE = re.compile(
@@ -123,7 +124,9 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             investigation_trace.append({"stage": stage, "status": status, "detail": str(detail)})
         trace("scout.route", "selected", "analyze_league: period recap")
         from Athena.Inquiry.execution import summarize_recent_league_activity
-        requested_periods = _requested_periods(question)
+        from Athena.Investigation.transaction_event_intelligence import resolve_reporting_periods
+        requested_periods = resolve_reporting_periods(question)
+        scoring_investigation = affirmative_audit_request(question)
         explicit_week, requested_dates, explicit_period_label, date_year_unspecified = _explicit_period_request(question)
         if len(requested_periods) > 1:
             # Lead editorial with the latest requested period, not the first
@@ -351,75 +354,86 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             # acquisition summary; retain bounded schema detail in the trace.
             trace("provider.fantrax.player_stats_schema", "inspected",
                   _json.dumps(inspection, sort_keys=True, separators=(",", ":"))[:2400])
-        # Historical period rosters are a documented, separate provider source.
-        # getTeamRosters(period=N) includes provider period echo and ACTIVE vs
-        # RESERVE designations. Backfill the small recent window in one pass.
-        from Athena.Investigation.historical_roster_attribution import (
-            backfill_period_rosters, reconcile_period_points,
-        )
-        historical_backfill = backfill_period_rosters(
-            league_id=archive_league, season=archive_season,
-            through_period=standings_period,
-            expected_teams=(ctx.league_profile or {}).get("team_count"),
-        )
-        historical_rosters = historical_backfill.get("periods", {}).get(standings_period, {})
-        trace("provider.fantrax.historical_rosters", historical_rosters.get("status", "unavailable"),
-              f"period={standings_period}; verified_backfill={historical_backfill.get('verified_count', 0)}; "
-              f"teams={historical_rosters.get('team_count', 0)}; reason={historical_rosters.get('reason', '')}")
-        if historical_rosters.get("verified"):
-            facts.append(f"Fantrax historical period {standings_period} roster: "
-                         f"{historical_rosters['player_count']} players on {historical_rosters['team_count']} teams; "
-                         f"{historical_rosters['active_count']} marked ACTIVE. "
-                         "This alone does not establish credited fantasy scoring.")
-        else:
-            facts.append("Fantrax historical period roster acquisition: " +
-                         historical_rosters.get("status", "unavailable") +
-                         " (" + historical_rosters.get("reason", "not acquired") + ").")
-        # Independent official NHL game results for rostered players. This
-        # reports individual NHL G+A, NOT Fantrax credited fantasy points or
-        # verified historical owner/lineup eligibility. No player-per-request
-        # fan-out; one date-filtered summary and two boundary schedules.
-        from Athena.Investigation.nhl_period_production import acquire_nhl_period_production
-        nhl_production = acquire_nhl_period_production(
-            league_id=archive_league, season=archive_season,
-            period=standings_period, boundary=period_calendar,
-            period_rosters=historical_rosters if historical_rosters.get("verified") else None)
-        trace("provider.nhl.period_game_production", nhl_production.get("status", "unavailable"),
-              f"matched_players={nhl_production.get('matched_players', 0)}; reason={nhl_production.get('reason', '')}")
-        if nhl_production.get("verified"):
-            roster_basis = "historical period" if nhl_production.get("roster_basis") == "verified_historical_period" else "current snapshot"
-            facts.append(f"Official NHL game performance: {nhl_production.get('matched_players', 0)} {roster_basis} player identities matched in the reporting window; fantasy point credit requires Fantrax reconciliation.")
-        else:
-            facts.append("Official NHL period game performance: " + nhl_production.get("status", "unavailable") +
-                         " (" + nhl_production.get("reason", "unknown") + ").")
-        attribution = reconcile_period_points(historical_rosters, nhl_production,
-                                               standings_comparison or {})
-        if attribution.get("teams") and archive_league and archive_season and type(standings_period) is int:
-            try:
-                from Athena.Investigation.sync_period_scoring_audit import write_period_audit
-                write_period_audit(OUTPUT_DIR, archive_league, archive_season,
-                                   standings_period, attribution)
-                trace("athena.period_scoring_archive", "archived", f"period={standings_period}")
-            except (ValueError, OSError, TypeError) as exc:
-                trace("athena.period_scoring_archive", "unavailable", type(exc).__name__)
-        trace("athena.period_point_attribution", attribution.get("status", "unavailable"),
-              f"numeric_matches={attribution.get('numeric_matched_teams', 0)}/"
-              f"{attribution.get('team_count', 0)}; complete={attribution.get('fully_reconciled_teams', 0)}; "
-              f"reason={attribution.get('reason', '')}")
-        from Athena.Investigation.scoring_coverage_diagnostics import summarize_attribution_coverage
-        attribution_coverage = summarize_attribution_coverage(attribution)
-        trace("athena.period_scoring_coverage", attribution_coverage["status"],
-              f"matched={attribution_coverage['reconciled_teams']}/{attribution_coverage['team_count']}; "
-              f"discrepancies={attribution_coverage['point_discrepancy_teams']}; "
-              f"identity_gaps={attribution_coverage['identity_gap_teams']}")
-        if attribution_coverage["status"] == "partial":
-            facts.append("Period attribution partial; team-specific exceptions available in the scoring audit. "
-                         "Do not generalize reconciled team identities to the entire league.")
-        if attribution.get("teams"):
-            facts.append(f"Historical roster NHL-to-Fantrax scoring check: "
-                         f"{attribution['numeric_matched_teams']}/{attribution['team_count']} numeric matches; "
-                         f"{attribution['fully_reconciled_teams']} with complete active-player identity coverage. "
-                         "Unmatched teams are NOT verified fantasy credits.")
+        # Routine fantasy reporting uses provider-issued fantasy points and standings.
+        # The historical roster/NHL scoring comparison is an optional specialist
+        # investigation, never a prerequisite for normal weekly editorial.
+        historical_backfill = {"status": "not_requested", "periods": {}}
+        historical_rosters = {"status": "not_requested", "verified": False}
+        nhl_production = {"status": "not_requested", "verified": False, "records": []}
+        attribution = {"status": "not_requested", "teams": []}
+        attribution_coverage = {"status": "not_requested", "team_count": 0,
+                                "reconciled_teams": 0, "point_discrepancy_teams": 0,
+                                "identity_gap_teams": 0}
+        if scoring_investigation:
+            # Historical period rosters are a documented, separate provider source.
+            # getTeamRosters(period=N) includes provider period echo and ACTIVE vs
+            # RESERVE designations. Backfill the small recent window in one pass.
+            from Athena.Investigation.historical_roster_attribution import (
+                backfill_period_rosters, reconcile_period_points,
+            )
+            historical_backfill = backfill_period_rosters(
+                league_id=archive_league, season=archive_season,
+                through_period=standings_period,
+                expected_teams=(ctx.league_profile or {}).get("team_count"),
+            )
+            historical_rosters = historical_backfill.get("periods", {}).get(standings_period, {})
+            trace("provider.fantrax.historical_rosters", historical_rosters.get("status", "unavailable"),
+                  f"period={standings_period}; verified_backfill={historical_backfill.get('verified_count', 0)}; "
+                  f"teams={historical_rosters.get('team_count', 0)}; reason={historical_rosters.get('reason', '')}")
+            if historical_rosters.get("verified"):
+                facts.append(f"Fantrax historical period {standings_period} roster: "
+                             f"{historical_rosters['player_count']} players on {historical_rosters['team_count']} teams; "
+                             f"{historical_rosters['active_count']} marked ACTIVE. "
+                             "This alone does not establish credited fantasy scoring.")
+            else:
+                facts.append("Fantrax historical period roster acquisition: " +
+                             historical_rosters.get("status", "unavailable") +
+                             " (" + historical_rosters.get("reason", "not acquired") + ").")
+            # Independent official NHL game results for rostered players. This
+            # reports individual NHL G+A, NOT Fantrax credited fantasy points or
+            # verified historical owner/lineup eligibility. No player-per-request
+            # fan-out; one date-filtered summary and two boundary schedules.
+            from Athena.Investigation.nhl_period_production import acquire_nhl_period_production
+            nhl_production = acquire_nhl_period_production(
+                league_id=archive_league, season=archive_season,
+                period=standings_period, boundary=period_calendar,
+                period_rosters=historical_rosters if historical_rosters.get("verified") else None)
+            trace("provider.nhl.period_game_production", nhl_production.get("status", "unavailable"),
+                  f"matched_players={nhl_production.get('matched_players', 0)}; reason={nhl_production.get('reason', '')}")
+            if nhl_production.get("verified"):
+                roster_basis = "historical period" if nhl_production.get("roster_basis") == "verified_historical_period" else "current snapshot"
+                facts.append(f"Official NHL game performance: {nhl_production.get('matched_players', 0)} {roster_basis} player identities matched in the reporting window; fantasy point credit requires Fantrax reconciliation.")
+            else:
+                facts.append("Official NHL period game performance: " + nhl_production.get("status", "unavailable") +
+                             " (" + nhl_production.get("reason", "unknown") + ").")
+            attribution = reconcile_period_points(historical_rosters, nhl_production,
+                                                   standings_comparison or {})
+            if attribution.get("teams") and archive_league and archive_season and type(standings_period) is int:
+                try:
+                    from Athena.Investigation.sync_period_scoring_audit import write_period_audit
+                    write_period_audit(OUTPUT_DIR, archive_league, archive_season,
+                                       standings_period, attribution)
+                    trace("athena.period_scoring_archive", "archived", f"period={standings_period}")
+                except (ValueError, OSError, TypeError) as exc:
+                    trace("athena.period_scoring_archive", "unavailable", type(exc).__name__)
+            trace("athena.period_point_attribution", attribution.get("status", "unavailable"),
+                  f"numeric_matches={attribution.get('numeric_matched_teams', 0)}/"
+                  f"{attribution.get('team_count', 0)}; complete={attribution.get('fully_reconciled_teams', 0)}; "
+                  f"reason={attribution.get('reason', '')}")
+            from Athena.Investigation.scoring_coverage_diagnostics import summarize_attribution_coverage
+            attribution_coverage = summarize_attribution_coverage(attribution)
+            trace("athena.period_scoring_coverage", attribution_coverage["status"],
+                  f"matched={attribution_coverage['reconciled_teams']}/{attribution_coverage['team_count']}; "
+                  f"discrepancies={attribution_coverage['point_discrepancy_teams']}; "
+                  f"identity_gaps={attribution_coverage['identity_gap_teams']}")
+            if attribution_coverage["status"] == "partial":
+                facts.append("Period attribution partial; team-specific exceptions available in the scoring audit. "
+                             "Do not generalize reconciled team identities to the entire league.")
+            if attribution.get("teams"):
+                facts.append(f"Historical roster NHL-to-Fantrax scoring check: "
+                             f"{attribution['numeric_matched_teams']}/{attribution['team_count']} numeric matches; "
+                             f"{attribution['fully_reconciled_teams']} with complete active-player identity coverage. "
+                             "Unmatched teams are NOT verified fantasy credits.")
         # Report evidence coverage as an actual inspection, not a claim that a
         # player-statistics provider was queried. Player master is identity data.
         player_records = ctx.player_master if isinstance(ctx.player_master, list) else []
@@ -461,7 +475,8 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
                                          player_production["status"]),
             "roster_and_keeper_context": ("historical_period_lineup" if historical_rosters.get("verified") else
                                          "snapshot_context_only" if roster_context.get("status") == "current_snapshot_context_only" else "not_reconciled"),
-            "fantasy_point_attribution": ("reconciled" if attribution.get("status") == "reconciled" else
+            "fantasy_point_attribution": ("not_requested" if not scoring_investigation else
+                                          "reconciled" if attribution.get("status") == "reconciled" else
                                           "partial" if attribution.get("teams") else "not_reconciled"),
             "injury_context": ("ir_designations_only" if ir_context.get("status") == "roster_ir_only_not_medical_verification" else "not_acquired"),
             "draft_asset_context": ("future_ownership_snapshot_only" if picks_context.get("status") == "future_ownership_snapshot" else "not_reconciled"),
@@ -520,7 +535,8 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             k: v for k, v in nhl_production.items() if k != "records"
         }
         from Athena.Investigation.editorial_player_attribution import editorial_contributors
-        athena_research["editorial_player_attribution"] = editorial_contributors(attribution, nhl_production)
+        athena_research["editorial_player_attribution"] = (editorial_contributors(attribution, nhl_production)
+                                                          if scoring_investigation else {"status": "not_requested", "records": []})
         athena_research["period_scoring_audit"] = attribution_coverage
         trace("athena.editorial_player_attribution",
               athena_research["editorial_player_attribution"]["status"],
@@ -529,7 +545,7 @@ def execute_league_period(*, ctx: Any, question: str, inquiry: Any, profile: dic
             # Keep NHL skater production under its own contract, without
             # representing it as Fantrax roster/lineup scoring.
             athena_research["nhl_player_leaders"] = nhl_production["records"][:12]
-        if len(requested_periods) > 1:
+        if scoring_investigation and len(requested_periods) > 1:
             from Athena.Investigation.multi_period_audit import investigate_requested_periods
             multi = investigate_requested_periods(
                 output_dir=OUTPUT_DIR, league_id=archive_league,

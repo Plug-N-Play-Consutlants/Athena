@@ -21,7 +21,7 @@ import webbrowser
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
-from tkinter import BOTH, END, LEFT, RIGHT, TOP, Y, BooleanVar, Frame, Scrollbar, StringVar, Text, Tk, filedialog, messagebox, simpledialog
+from tkinter import BOTH, END, LEFT, RIGHT, TOP, Y, BooleanVar, Frame, Scrollbar, StringVar, Text, Tk, Toplevel, filedialog, messagebox, simpledialog
 from tkinter import ttk
 
 
@@ -34,6 +34,15 @@ HISTORY_FILE = LOG_DIR / "athena_studio_history.jsonl"
 STUDIO_SETTINGS_FILE = LOG_DIR / "athena_studio_settings.json"
 STUDIO_COMMAND_LOG_DIR = LOG_DIR / "athena_studio_commands"
 
+
+
+def _fantrax_probe_output_path(season: str, period: str) -> Path:
+    """Construct a repository-local report path from validated Studio inputs."""
+    if not season.isascii() or not season.isdecimal() or len(season) != 4 or not (2000 <= int(season) <= 2100):
+        raise ValueError("Season must be a four-digit start year (e.g. 2026).")
+    if not period.isascii() or not period.isdecimal() or not (1 <= int(period) <= 99):
+        raise ValueError("Scoring period must be an integer between 1 and 99.")
+    return PROJECT_ROOT / "Output" / f"fantrax_period_probe_{season}_p{int(period):02d}.json"
 
 
 def _export_nhl_source_traces(archive: zipfile.ZipFile, output_root: Path,
@@ -516,7 +525,7 @@ class AthenaStudio:
         # or recovering a patch does not require hunting through the UI.
         toolbar = ttk.Frame(self.root, style="Studio.TFrame")
         toolbar.pack(side=TOP, fill="x", padx=12, pady=(0, 6))
-        self._toolbar_button(toolbar, "🔄 Reload Build", self.reload_patched_build, "Stop Scout, clear Python caches, and relaunch the patched build.")
+        self._toolbar_button(toolbar, "🔄 Reload Build", self.reload_patched_build, "Force-close Scout, verify shutdown, and clear Python caches. Scout stays stopped until Launch Scout is clicked.")
         self._toolbar_button(toolbar, "🔁 Relaunch Studio", self.restart_studio, "Preview required cleanup, request approval, then restart Studio.")
         self._toolbar_button(toolbar, "▶ Launch Scout", self.launch_scout, "Start managed Scout from the canonical Athena root.")
         self._toolbar_button(toolbar, "🌐 Open Scout", self.open_scout, "Open or focus the active Scout browser session.")
@@ -579,6 +588,97 @@ class AthenaStudio:
         if bool(self._studio_settings.get("auto_runtime_audit_on_start", False)):
             self.runtime_audit(auto=True)
 
+    def show_fantrax_diagnostics(self) -> None:
+        """One existing Developer Diagnostics entry for related Fantrax tools.
+
+        Keep transient provider probes out of the permanent Core Workflow.
+        Draft-source discovery remains available through the same entry.
+        """
+        window = Toplevel(self.root)
+        window.title("Fantrax Diagnostics")
+        window.geometry("460x225")
+        window.transient(self.root)
+        frame = ttk.Frame(window, padding=14)
+        frame.pack(fill=BOTH, expand=True)
+        ttk.Label(frame, text="Fantrax Source Diagnostics", font=("Segoe UI", 12, "bold")).pack(anchor="w")
+        ttk.Label(frame, text="Choose the source to inspect. These tools do not credit player-period fantasy points without verified provider evidence.", wraplength=425).pack(anchor="w", pady=(7, 12))
+
+        def open_period() -> None:
+            window.destroy()
+            self.show_fantrax_period_diagnostic()
+
+        def open_draft() -> None:
+            window.destroy()
+            self.discover_draft_source()
+
+        ttk.Button(frame, text="Player-period contract", command=open_period).pack(fill="x", pady=(0, 7))
+        ttk.Button(frame, text="Draft-pick source", command=open_draft).pack(fill="x")
+        ttk.Button(frame, text="Cancel", command=window.destroy).pack(anchor="e", pady=(10, 0))
+
+    def show_fantrax_period_diagnostic(self) -> None:
+        """Run and inspect safe provider-contract diagnostics within Studio."""
+        window = Toplevel(self.root)
+        window.title("Fantrax Player-Period Diagnostic")
+        window.geometry("720x440")
+        window.transient(self.root)
+        frame = ttk.Frame(window, padding=12)
+        frame.pack(fill=BOTH, expand=True)
+        ttk.Label(frame, text="Fantrax Player-Period Contract", font=("Segoe UI", 12, "bold")).pack(anchor="w")
+        ttk.Label(frame, text="Read-only source inspection. Candidate period request comparisons do not certify fantasy credit.", wraplength=670).pack(anchor="w", pady=(5, 10))
+        controls = ttk.Frame(frame)
+        controls.pack(fill="x")
+        ttk.Label(controls, text="Season start year").pack(side=LEFT, padx=(0, 5))
+        season = StringVar(value=str(datetime.now().year))
+        ttk.Entry(controls, textvariable=season, width=7).pack(side=LEFT, padx=(0, 18))
+        ttk.Label(controls, text="Scoring period").pack(side=LEFT, padx=(0, 5))
+        period = StringVar(value="8")
+        ttk.Entry(controls, textvariable=period, width=6).pack(side=LEFT)
+        display = Text(frame, wrap="word", height=14, font=("Consolas", 9))
+        display.pack(fill=BOTH, expand=True, pady=(12, 8))
+
+        def report_path() -> Path | None:
+            try:
+                return _fantrax_probe_output_path(season.get(), period.get())
+            except ValueError as exc:
+                messagebox.showerror("Fantrax Period Diagnostic", str(exc), parent=window)
+                return None
+
+        def show_report() -> None:
+            path = report_path()
+            if path is None:
+                return
+            display.delete("1.0", END)
+            if not path.is_file():
+                display.insert(END, f"No diagnostic yet for season {season.get()}, period {period.get()}.\nClick Run Probe to generate it.")
+                return
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if not isinstance(data, dict) or data.get("schema") != "athena.fantrax_period_probe.v1":
+                    raise ValueError("Report does not match the expected diagnostic schema")
+                display.insert(END, json.dumps(data, indent=2, ensure_ascii=False))
+                display.see("1.0")
+            except (OSError, ValueError) as exc:
+                display.insert(END, f"Unable to display report: {type(exc).__name__}")
+
+        def run_probe() -> None:
+            path = report_path()
+            if path is None:
+                return
+            script = self._script_command("Tools/fantrax_period_probe.py")
+            if not script:
+                messagebox.showerror("Fantrax Period Diagnostic", "The Fantrax probe script is missing.", parent=window)
+                return
+            display.delete("1.0", END)
+            display.insert(END, "Probe started. Studio logs will report completion.\nSelect View Report after the command finishes.\n\nNo player data or authentication material will be saved.\n")
+            self._run_threaded("Fantrax Player-Period Diagnostic", script + ["--season", season.get(), "--period", period.get(), "--output", str(path)])
+
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="Run Probe", command=run_probe).pack(side=LEFT, padx=(0, 8))
+        ttk.Button(buttons, text="View Report", command=show_report).pack(side=LEFT)
+        ttk.Button(buttons, text="Close", command=window.destroy).pack(side=RIGHT)
+        show_report()
+
     def _status_group(self, parent) -> None:
         """Render a compact System Status strip instead of a large dashboard block."""
         # System Status marker retained for operations-console validators, but the
@@ -610,7 +710,7 @@ class AthenaStudio:
         self._button_group(right, "Developer Diagnostics", [
             ("🩺 Studio Health", self.doctor_studio, "Diagnose Studio command center modules."),
             ("📦 Export Diagnostics", self.export_diagnostics_logs, "Create a ZIP of current verification logs and Studio diagnostics."),
-            ("🧭 Discover Draft Source", self.discover_draft_source, "Use the authenticated Fantrax session to inspect the draft-pick source safely."),
+            ("🧭 Fantrax Diagnostics", self.show_fantrax_diagnostics, "Inspect authenticated Fantrax draft sources or player-period contract without cluttering Core Workflow."),
             ("🕰 Historical League Sweep", self.acquire_historical_leagues, "Acquire every registered historical league into isolated season-scoped Knowledge."),
             ("🧾 Review Shims/Duplicates", self.show_repository_review, "Review repository shim and duplicate-basenames reports; retained for governance."),
             ("📋 Copy Console", self.copy_console, "Copy the entire Studio console buffer to the clipboard."),
@@ -747,8 +847,19 @@ class AthenaStudio:
             self.write(f"Cleanup preview failed; relaunch cancelled: {exc}\n")
             self._record_history("Relaunch Cleanup Preview", 1, str(exc))
             return
+        # A Studio relaunch must not abandon its managed Scout server.
+        # Fail closed rather than spawning another Studio over an old listener.
+        self.write("\nStopping Scout before Studio relaunch...\n")
+        stop_code = self._stop_scout_sync()
+        ports_clear = self._wait_for_ports_clear()
+        if stop_code != 0 or not ports_clear:
+            message = f"Scout stop failed (exit={stop_code}, ports_clear={ports_clear}); Studio restart cancelled."
+            self.write("[BLOCKED] " + message + "\n")
+            self.status.set("Studio restart blocked: Scout still running")
+            self._record_history("Restart Studio", 1, message)
+            return
         self.write("\nRestarting Athena Studio...\n")
-        self._record_history("Restart Studio", 0, "requested")
+        self._record_history("Restart Studio", 0, "Scout stopped; relaunch requested")
         try:
             python = self._python()
             script = str(Path(__file__).resolve())
@@ -933,7 +1044,8 @@ class AthenaStudio:
     def _stop_scout_sync(self) -> int:
         command = self._script_command("Scout/stop_scout_windows.py")
         if not command:
-            return 0
+            self.write("[BLOCKED] Scout stop helper is missing; cannot verify shutdown.\n")
+            return 1
         command = command + ["--yes"]
         try:
             proc = subprocess.run(command, cwd=str(PROJECT_ROOT), capture_output=True, text=True, timeout=20)
@@ -965,14 +1077,20 @@ class AthenaStudio:
         if force:
             self.write("\nForce launching Scout from current patched build.\n")
         elif self._is_port_open(8765):
-            self.write("[BLOCKED] Scout port 8765 is already occupied; the process version is unverified. Use Reload Build to stop the old process and launch the current patched version.\n")
+            self.write("[BLOCKED] Scout port 8765 is already occupied; the process version is unverified. Use Reload Build to force-close the old process, then click Launch Scout explicitly.\n")
             self._record_history("Launch Scout", 1, "existing listener; build identity unverified")
             self.refresh_status()
             self._launch_in_progress = False
             return
 
         if force:
-            self._stop_scout_sync()
+            stop_code = self._stop_scout_sync()
+            if stop_code != 0:
+                self.write(f"[BLOCKED] Scout shutdown was not verified (exit={stop_code}); refusing a new launch.\n")
+                self._record_history("Launch Scout", 1, f"stop helper exit={stop_code}")
+                self._launch_in_progress = False
+                self.refresh_status()
+                return
             if not self._wait_for_ports_clear():
                 self.write("[BLOCKED] Scout listener ports remain occupied after stop. Refusing to launch an ambiguous runtime.\n")
                 self._record_history("Launch Scout", 1, "listener ports not cleared")
@@ -1058,7 +1176,8 @@ class AthenaStudio:
         self.write("No Scout stop script found. Use Runtime Audit to inspect port status.\n")
 
     def restart_scout(self) -> None:
-        self.reload_patched_build()
+        """Explicitly restart Scout; do not change Reload Build stop-only behavior."""
+        self.launch_scout(force=True)
 
     def reload_patched_build(self) -> None:
         if self._reload_in_progress:
@@ -1074,20 +1193,25 @@ class AthenaStudio:
         self.write(f"Before reload: {before.get('SCOUT_VERSION', 'unknown')} | {before.get('VERSION_FILE')}\n")
         self.write("Stopping Scout and clearing stale runtime state...\n")
         stop_code = self._stop_scout_sync()
-        if stop_code not in (0, None):
-            self.write(f"Stop Scout returned exit code {stop_code}. Continuing with cache purge.\n")
         ports_clear = self._wait_for_ports_clear()
         self.write(f"Scout ports clear: {ports_clear}\n")
+        if stop_code != 0 or not ports_clear:
+            self.write(f"[BLOCKED] Scout stop was not verified (exit={stop_code}, ports_clear={ports_clear}). No cache purge or relaunch attempted.\n")
+            self.status.set("Reload blocked: Scout still running")
+            self._record_history("Reload Patched Build", 1, "Scout stop unsuccessful")
+            self._reload_in_progress = False
+            return
         removed = self._purge_python_caches()
         self.write(f"Purged runtime caches: __pycache__={removed[0]}, pyc={removed[1]}\n")
         after = self._current_version_metadata()
         self.version_label.set(self._status_line())
         self.write(f"After reload metadata: {after.get('SCOUT_VERSION', 'unknown')} | {after.get('VERSION_FILE')}\n")
         self.runtime_audit(auto=True)
-        should_open = bool(self._studio_settings.get("open_browser_after_reload", False))
-        self.root.after(250, lambda: self.launch_scout(force=True, open_browser=should_open))
-        self._record_history("Reload Patched Build", 0, f"before={before.get('ATHENA_BUILD')}; after={after.get('ATHENA_BUILD')}; ports_clear={ports_clear}; browser_open={should_open}")
-        self.root.after(3500, lambda: setattr(self, "_reload_in_progress", False))
+        self.scout_process = None
+        self.write("[PASS] Scout force-closed and runtime caches cleared. Scout remains stopped; use Launch Scout when ready.\n")
+        self.status.set("Build reloaded; Scout stopped")
+        self._record_history("Reload Patched Build", 0, f"before={before.get('ATHENA_BUILD')}; after={after.get('ATHENA_BUILD')}; ports_clear={ports_clear}; scout=stopped")
+        self._reload_in_progress = False
 
     def clean_runtime(self) -> None:
         self.write("\n=== Clean Runtime ===\n")

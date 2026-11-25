@@ -128,10 +128,10 @@ def test_verified_multiweek_storyline_requires_complete_same_league_history(tmp_
     for period, a_rank, b_rank in [(1, 3, 1), (2, 2, 2), (3, 1, 3)]:
         snapshot = {"league_id": "league1", "season": 2026, "period": period,
                     "source": "fixture", "timeframe": "FROM_SEASON_START", "complete": True,
-                    "teams": [{"team_id": "a", "name": "Alpha", "rank": a_rank, "points": period * 15},
-                              {"team_id": "b", "name": "Beta", "rank": b_rank, "points": period * 10},
+                    "teams": [{"team_id": "a", "name": "Alpha", "rank": a_rank, "points": ({1: 10, 2: 30, 3: 60}[period])},
+                              {"team_id": "b", "name": "Beta", "rank": b_rank, "points": ({1: 30, 2: 30, 3: 40}[period])},
                               {"team_id": "c", "name": "Gamma", "rank": 2 if period != 2 else 1,
-                               "points": period * 8}]}
+                               "points": ({1: 20, 2: 35, 3: 45}[period])}]}
         # Avoid fabricated standings ranks: two teams may tie but other ranks must be valid.
         if period == 1:
             snapshot["teams"][2]["rank"] = 2

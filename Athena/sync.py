@@ -693,6 +693,7 @@ def sync(
     provider: Optional[str] = None,
     fetch: bool = True,
     dry_run: bool = False,
+    include_diagnostics: bool = True,
 ) -> Dict[str, Any]:
     """
     Synchronize the active Athena workspace.
@@ -704,7 +705,8 @@ def sync(
     so Athena can use the league/team/player evidence it has.
     """
     pipeline = _pipeline_for_workspace(mode, provider)
-    planned_steps = [step for step in pipeline if fetch or not step.get("requires_fetch")]
+    planned_steps = [step for step in pipeline if (fetch or not step.get("requires_fetch"))
+                     and (include_diagnostics or step.get("id") != "audit_historical_period_scoring")]
 
     if dry_run:
         return {

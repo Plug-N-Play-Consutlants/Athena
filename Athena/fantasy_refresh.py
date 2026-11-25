@@ -38,7 +38,7 @@ def ensure_fantasy_freshness(*, now=None, sync_fn=None, workspace_fn=None) -> di
             except (TypeError, ValueError):
                 pass
         try:
-            result = sync_fn(mode="fantasy_league", provider="Fantrax", fetch=True)
+            result = sync_fn(mode="fantasy_league", provider="Fantrax", fetch=True, include_diagnostics=False)
             return {"attempted": True, "status": "completed" if result.get("ok") else "failed", "partial": bool(result.get("partial")), "warnings": result.get("warnings", [])[:5] if isinstance(result.get("warnings"), list) else []}
         except Exception as exc:
             return {"attempted": True, "status": "failed", "error_type": type(exc).__name__, "fallback": "last_verified_snapshot_if_available"}

@@ -1,0 +1,190 @@
+{
+  "views": {
+    "TRADE": {
+      "table": {
+        "rows": [
+          {
+            "scorer": {
+              "teamName": "Buffalo Sabres",
+              "urlName": "owen-power",
+              "headshotUrl": "https://fantraximg.com/si/headshots/NHL/hs04xjf_96_5.png",
+              "scorerId": "04xjf",
+              "posIdsNoFlex": [
+                "202"
+              ],
+              "defaultPosId": "202",
+              "posShortNames": "D",
+              "team": false,
+              "icons": [
+                {
+                  "tooltip": "Nov 13, 2:12 AM: Power scored a goal in Thursday's 3-2...",
+                  "typeId": "9"
+                }
+              ],
+              "rookie": false,
+              "minorsEligible": false,
+              "posIds": [
+                "202"
+              ],
+              "teamId": "30060",
+              "name": "Owen Power",
+              "teamShortName": "BUF",
+              "shortName": "O. Power"
+            },
+            "resultCode": "EXECUTED",
+            "executed": true,
+            "result": {
+              "content": "Executed"
+            },
+            "disabled": true,
+            "numInGroup": 3,
+            "txSetId": "ka1omc9imwjh6rq7",
+            "feesUsed": true,
+            "deleted": false,
+            "cells": [
+              {
+                "align": "LEFT",
+                "content": "Bobby Orr",
+                "leagueId": "28tiwzcqmro332n8",
+                "key": "from",
+                "teamId": "xjjv3ukwmro332np"
+              },
+              {
+                "align": "LEFT",
+                "content": "Bubba’s Bruisers",
+                "leagueId": "28tiwzcqmro332n8",
+                "key": "to",
+                "teamId": "f5dv1optmro332np"
+              },
+              {
+                "align": "LEFT",
+                "content": "Mon Nov 16, 2026, 12:50PM",
+                "rowspan": 3,
+                "key": "date"
+              },
+              {
+                "content": "8",
+                "key": "week"
+              },
+              {
+                "align": "LEFT",
+                "content": "Bobby#1 5.00<br/>BUBS 5.00",
+                "rowspan": 3,
+                "key": "fees",
+                "props": {
+                  "feeData": [
+                    {
+                      "teamId": "xjjv3ukwmro332np",
+                      "fee": "5.00",
+                      "shortName": "Bobby#1: "
+                    },
+                    {
+                      "teamId": "f5dv1optmro332np",
+                      "fee": "5.00",
+                      "shortName": "BUBS: "
+                    }
+                  ]
+                }
+              }
+            ],
+            "undoButton": true
+          },
+          {
+            "scorer": {
+              "teamName": "Washington Capitals",
+              "urlName": "tom-wilson",
+              "headshotUrl": "https://fantraximg.com/si/headshots/NHL/hs02noj_96_9.png",
+              "scorerId": "02noj",
+              "posIdsNoFlex": [
+                "204"
+              ],
+              "defaultPosId": "204",
+              "posShortNames": "RW",
+              "team": false,
+              "rookie": false,
+              "minorsEligible": false,
+              "posIds": [
+                "204"
+              ],
+              "teamId": "30140",
+              "name": "Tom Wilson",
+              "teamShortName": "WSH",
+              "shortName": "T. Wilson"
+            },
+            "resultCode": "EXECUTED",
+            "executed": true,
+            "result": {
+              "content": "Executed"
+            },
+            "disabled": true,
+            "txSetId": "ka1omc9imwjh6rq7",
+            "feesUsed": true,
+            "deleted": false,
+            "cells": [
+              {
+                "align": "LEFT",
+                "content": "Bubba’s Bruisers",
+                "leagueId": "28tiwzcqmro332n8",
+                "key": "from",
+                "teamId": "f5dv1optmro332np"
+              },
+              {
+                "align": "LEFT",
+                "content": "Bobby Orr",
+                "leagueId": "28tiwzcqmro332n8",
+                "key": "to",
+                "teamId": "xjjv3ukwmro332np"
+              },
+              {
+                "content": "8",
+                "key": "week"
+              }
+            ],
+            "undoButton": true
+          },
+          {
+            "scorer": {
+              "team": false,
+              "rookie": false,
+              "minorsEligible": false
+            },
+            "resultCode": "EXECUTED",
+            "executed": true,
+            "draftPickDisplayParts": {
+              "roundInfo": "Round <b>3</b> (Bubba’s Bruisers)",
+              "year": "<b>2028</b> Draft Pick"
+            },
+            "result": {
+              "content": "Executed"
+            },
+            "disabled": true,
+            "txSetId": "ka1omc9imwjh6rq7",
+            "feesUsed": true,
+            "deleted": false,
+            "cells": [
+              {
+                "align": "LEFT",
+                "content": "Bubba’s Bruisers",
+                "leagueId": "28tiwzcqmro332n8",
+                "key": "from",
+                "teamId": "f5dv1optmro332np"
+              },
+              {
+                "align": "LEFT",
+                "content": "Bobby Orr",
+                "leagueId": "28tiwzcqmro332n8",
+                "key": "to",
+                "teamId": "xjjv3ukwmro332np"
+              },
+              {
+                "content": "8",
+                "key": "week"
+              }
+            ],
+            "undoButton": true
+          }
+        ]
+      }
+    }
+  }
+}

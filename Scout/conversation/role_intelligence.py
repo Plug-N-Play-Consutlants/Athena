@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 import re
+from Athena.audit_intent import affirmative_audit_request
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ def select_scout_role(question: str, *, intent: str = "", route: str = "", mode:
     """
     q = (question or "").strip().casefold()
     label = f"{intent} {route}".casefold()
-    explicit_audit = _has(q, r"\b(reconcil(?:e|iation)|audits?|debug|diagnos(?:e|tics)|verify scoring|scoring integrity|identity gaps?)\b")
+    explicit_audit = affirmative_audit_request(question)
     if explicit_audit or _has(label, r"(?:runtime|scoring|identity)_diagnostic|audit|scoring_period_boundary"):
         return ScoutRole("auditor", "explicit verification or diagnostic assignment", "precise; exceptions and provenance first")
     # User-specified rhetorical assignment has priority below integrity inquiries.

@@ -805,9 +805,25 @@ def _fantasy_trade_investigation(ctx: ScoutContext, question: str) -> Dict[str, 
     rows = [r for r in (ctx.transaction_history or {}).get("records", []) if isinstance(r, dict) and "trade" in str(r.get("transaction_type") or "").lower()]
     names = sorted({str(p.get("participant_name") or "") for r in rows for p in r.get("participants", []) if isinstance(p, dict) and p.get("participant_name")}, key=len, reverse=True)
     players = sorted({str(a.get("asset_name") or "") for r in rows for a in r.get("assets", []) if isinstance(a, dict) and a.get("asset_name")}, key=len, reverse=True)
-    named_parties = re.search(r"\bbetween\s+(.+?)\s+and\s+(.+?)(?:\s+involving\b|[.,;]|$)", question, re.IGNORECASE)
-    required_teams = [named_parties.group(1).strip(), named_parties.group(2).strip()] if named_parties else [n for n in names if n.casefold() in q]
-    match = reconstruct_league_trade(ctx.transaction_history or {}, team_names=required_teams, player_names=[n for n in players if n.casefold() in q])
+    # Use provider-recorded names rather than capturing a free-form "between X and Y"
+    # phrase, which incorrectly swallowed "in the JHLPAA" after the second name.
+    def normalized_name(value: str) -> str:
+        return re.sub(r"\s+", " ", value.casefold().replace("’", "'").replace("‘", "'")).strip()
+
+    normalized_question = normalized_name(question)
+    required_teams = [n for n in names if normalized_name(n) in normalized_question]
+    # Only an explicit named participant is a mandatory match criterion.
+    # Preserve date constraints to distinguish repeated trades between a pair.
+    date_hint = re.search(
+        r"\b(?:january|february|march|april|may|june|july|august|september|october|november|december|"
+        r"jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{1,2}(?:,?\s+\d{4})?\b",
+        question, re.IGNORECASE,
+    )
+    match = reconstruct_league_trade(
+        ctx.transaction_history or {}, team_names=required_teams,
+        player_names=[n for n in players if normalized_name(n) in normalized_question],
+        date_hint=date_hint.group(0) if date_hint else None,
+    )
     selected = match["matches"][0]["record"] if match["matches"] else None
     if selected is None:
         return response(intent="fantasy_trade_investigation", title="JHLPAA trade investigation", engine_conclusion="No canonical trade matches the named participants or players. Athena cannot reconstruct this exchange from draft order alone.", known_limitations=["Transaction-history coverage or entity matching must be established before assigning trade assets."], confidence=.35)
@@ -816,8 +832,28 @@ def _fantasy_trade_investigation(ctx: ScoutContext, question: str) -> Dict[str, 
     facts = ["Trade participants recorded: " + ", ".join(parties), "Assets recorded in the canonical trade: " + ", ".join(assets), "Canonical transaction: " + str(selected.get("transaction_id"))]
     for asset in selected.get("assets", []):
         if isinstance(asset, dict):
-            facts.append("Asset movement: " + str(asset.get("asset_name") or asset.get("name") or "unnamed") + "; " + str(asset.get("movement") or "direction unresolved") + "; " + str(asset.get("from_team") or asset.get("from_team_name") or "source unverified") + " → " + str(asset.get("to_team") or asset.get("to_team_name") or "destination unverified"))
-    conclusion = "The recorded trade involves " + ", ".join(parties) + " and " + ", ".join(assets) + ". Its competitive value cannot be determined solely from asset names; team needs, keeper horizons and verified player performance must be reconciled."
+            movement = asset.get("movement_context") or {}
+            source = movement.get("from_team_name") or asset.get("from_team_name") or asset.get("from_team")
+            destination = movement.get("to_team_name") or asset.get("to_team_name") or asset.get("to_team")
+            asset_name = str(asset.get("asset_name") or asset.get("name") or "unnamed")
+            if source and destination:
+                facts.append(f"Asset movement: {asset_name}; {source} → {destination}")
+            else:
+                facts.append(f"Asset movement: {asset_name}; transfer direction unverified")
+    received: dict[str, list[str]] = {p: [] for p in parties}
+    for asset in selected.get("assets", []):
+        if not isinstance(asset, dict):
+            continue
+        movement = asset.get("movement_context") or {}
+        to_team = movement.get("to_team_name") or asset.get("to_team_name")
+        if to_team:
+            for party in parties:
+                if normalized_name(party) == normalized_name(str(to_team)):
+                    received[party].append(str(asset.get("asset_name") or "unnamed asset"))
+    transfers = "; ".join(f"{team} received {', '.join(items)}" for team, items in received.items() if items)
+    conclusion = ("The recorded trade between " + " and ".join(parties) + ": "
+                  + (transfers or ", ".join(assets))
+                  + ". The record establishes the exchanged assets, but not either manager's motives or the eventual competitive outcome.")
     result = response(intent="fantasy_trade_investigation", title="JHLPAA: trade investigation", engine_conclusion=conclusion, observed_facts=facts, known_limitations=["Asset direction must be independently verified where the canonical movement fields do not identify a destination.", "Short- and long-term trade verdicts require roster, keeper and performance context."], confidence=.68)
     result.setdefault("developer", {})["investigation_dossier"] = build_dossier(subject="JHLPAA trade", requirements=["trade_assets", "team_needs", "player_performance"], evidence={"trade_assets": selected}, findings=[{"summary": conclusion, "source_id": selected.get("transaction_id")}])
     return result

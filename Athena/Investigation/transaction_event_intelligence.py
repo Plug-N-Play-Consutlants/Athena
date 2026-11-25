@@ -72,7 +72,7 @@ def _bounds(calendar):
 
 def _classification(record, calendar):
     """Return event period, source; do not infer from roster-effective week."""
-    timestamp = _event_datetime(record.get('timestamp'))
+    timestamp = _event_datetime((record.get('event_timestamp') or record.get('timestamp')))
     bounds = _bounds(calendar)
     if timestamp is not None and bounds:
         matching=[p for p,(start,end) in bounds.items() if start <= timestamp.date() <= end]
@@ -99,7 +99,7 @@ def _classification(record, calendar):
     # legacy period-labeled observations without claiming event-date certainty.
     if not bounds:
         try:
-            value=int(record.get('season_week') or record.get('period'))
+            value=int(record.get('roster_effective_period') or record.get('season_week') or record.get('period'))
             return value, 'unverified_effective_period_fallback'
         except (ValueError, TypeError):
             pass
@@ -143,7 +143,7 @@ def investigate_transactions(history: dict, periods: list[int], *, calendar=None
         if event_period not in period_rows:
             continue
         try:
-            effective = int(record.get('season_week') or record.get('period'))
+            effective = int(record.get('roster_effective_period') or record.get('season_week') or record.get('period'))
         except (ValueError,TypeError):
             effective = None
         typ=str(record.get('transaction_type') or '')
@@ -153,7 +153,7 @@ def investigate_transactions(history: dict, periods: list[int], *, calendar=None
                   for a in assets)
         players=sum((a.get('asset_type') or 'player')=='player' and 'draft pick' not in str(a.get('asset_name') or '').lower()
                     for a in assets)
-        dt=_event_datetime(record.get('timestamp'))
+        dt=_event_datetime((record.get('event_timestamp') or record.get('timestamp')))
         event={'id':txid,'type':typ,'summary':str(record.get('summary') or '').strip(),
                'received':received,'unresolved_assets':unresolved_assets,
                'participants':[str(p.get('participant_name') or p.get('team_name') or '').strip()
@@ -161,6 +161,11 @@ def investigate_transactions(history: dict, periods: list[int], *, calendar=None
                'player_count':players,'pick_count':picks,'asset_count':len(assets),
                'event_period':event_period,'roster_effective_period':effective,
                'event_timestamp':dt.isoformat() if dt else None,'event_period_source':source,
+               'asset_movements':[{'asset_type':a.get('asset_type'), 'asset_name':a.get('asset_name'),
+                                   'draft_pick':a.get('draft_pick'),
+                                   'from_team_name':(a.get('movement_context') or {}).get('from_team_name'),
+                                   'to_team_name':(a.get('movement_context') or {}).get('to_team_name')}
+                                  for a in assets],
                'asset_market_note':_asset_market(record,received,players,picks,event_at=dt)}
         period_rows[event_period].append(event)
     for p in periods:

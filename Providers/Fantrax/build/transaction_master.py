@@ -23,6 +23,8 @@ Notes:
 from __future__ import annotations
 
 import csv
+import re
+from html import unescape
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,7 +44,7 @@ INPUT_JSON = RAW_DIR / "transactions.json"
 OUTPUT_JSON = OUTPUT_DIR / "transaction_master.json"
 OUTPUT_CSV = OUTPUT_DIR / "transaction_master.csv"
 PROVIDER = "fantrax"
-SCHEMA_VERSION = "0.6.5.0.0"
+SCHEMA_VERSION = "0.6.5.0.1"
 
 CSV_FIELDS = [
     "transaction_id",
@@ -286,6 +288,49 @@ def _asset_from_scorer(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     }
 
 
+
+def _plain_provider_text(value: Any) -> str:
+    """Fantrax's draft-pick display fragments contain formatting, not identity."""
+    return re.sub(r"\s+", " ", unescape(re.sub(r"<[^>]*>", " ", _safe_str(value)))).strip()
+
+
+def _asset_from_draft_pick(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Preserve a provider-reported pick without inventing a unique pick ID."""
+    parts = row.get("draftPickDisplayParts")
+    if not isinstance(parts, dict):
+        return None
+    year_text = _plain_provider_text(parts.get("year"))
+    round_text = _plain_provider_text(parts.get("roundInfo"))
+    year_match = re.search(r"\b(20\d{2})\b", year_text)
+    round_match = re.search(r"\bround\s*(\d+)\b", round_text, re.I)
+    origin_match = re.search(r"\(([^()]+)\)", round_text)
+    year = int(year_match.group(1)) if year_match else None
+    round_no = int(round_match.group(1)) if round_match else None
+    original_team = origin_match.group(1).strip() if origin_match else ""
+    if not (year_text or round_text):
+        return None
+    title = " ".join(x for x in [str(year) if year else year_text,
+                              f"Round {round_no}" if round_no else round_text,
+                              "draft pick"] if x).strip()
+    if original_team:
+        title += f" ({original_team})"
+    return {
+        "asset_type": "draft_pick", "asset_id": "", "asset_name": title,
+        "movement": _movement_from_code(row),
+        "draft_pick": {"year": year, "round": round_no,
+                       "original_team_name": original_team},
+        "provider_reference": {"provider": PROVIDER,
+                               "transaction_set_id": _safe_str(row.get("txSetId")),
+                               "source_field": "draftPickDisplayParts"},
+        "provider_metadata": {"draftPickDisplayParts": parts},
+    }
+
+
+def _asset_from_row(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    # Prefer explicit pick metadata rather than treating a pick as a blank scorer.
+    return _asset_from_draft_pick(row) or _asset_from_scorer(row)
+
+
 def _fees_from_row(row: Dict[str, Any]) -> List[Dict[str, Any]]:
     fees: List[Dict[str, Any]] = []
     for key in ("fees", "fee"):
@@ -418,7 +463,7 @@ def _normalize_group(group: Dict[str, Any], index: int) -> Dict[str, Any]:
             if key:
                 parties[key] = party
 
-        asset = _asset_from_scorer(row)
+        asset = _asset_from_row(row)
         if asset:
             asset["movement_context"] = {
                 "team_id": team_id,
@@ -465,6 +510,8 @@ def _normalize_group(group: Dict[str, Any], index: int) -> Dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "timestamp": timestamp,
         "season_week": week,
+        "roster_effective_period": week,
+        "event_timestamp": timestamp,
         "transaction_type": transaction_type,
         "status": _status_from_rows(rows),
         "summary": _summary(transaction_type, assets, team_name),

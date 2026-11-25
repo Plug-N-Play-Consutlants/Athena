@@ -6,6 +6,7 @@ Scout adapters remain until the response contract is migrated safely.
 from __future__ import annotations
 import re
 from dataclasses import dataclass
+from Athena.audit_intent import affirmative_audit_request
 
 @dataclass(frozen=True)
 class EntryDecision:
@@ -34,14 +35,14 @@ def select_entry_route(question: str, mode: str = 'fantasy') -> EntryDecision:
     # Athena period-audit path even when the user does not ask for an editorial.
     # Otherwise it can be misrouted as a standings-only or generic inquiry.
     scoring_audit = (explicit
-                     and bool(re.search(r'\b(reconcile|reconciliation|audit|verify)\b', q))
+                     and affirmative_audit_request(question)
                      and bool(re.search(r'\b(?:weeks?|periods?)\s*\d+', q))
                      and bool(re.search(r'\b(scoring|points|scores?|rosters?|active|standings)\b', q)))
     # A comparison across multiple weeks with transactions/storylines is a
     # composite investigation, not a standings-only query. Preserve user scope.
-    from Athena.Investigation.period_execution import _requested_periods
+    from Athena.Investigation.transaction_event_intelligence import resolve_reporting_periods
     try:
-        requested_weeks = _requested_periods(question)
+        requested_weeks = resolve_reporting_periods(question)
     except ValueError:
         requested_weeks = []
     composite_comparison = (explicit and len(requested_weeks) > 1

@@ -652,7 +652,7 @@ class AthenaStudio:
         ttk.Label(daily_controls, text="Optional daily credit date (YYYY-MM-DD)").pack(side=LEFT, padx=(0, 7))
         credit_date = StringVar(value="")
         ttk.Entry(daily_controls, textvariable=credit_date, width=13).pack(side=LEFT)
-        ttk.Label(daily_controls, text="Leave blank for the existing period probe").pack(side=LEFT, padx=(10, 0))
+        ttk.Label(daily_controls, text="Dated probe compares with preceding day; blank = period probe").pack(side=LEFT, padx=(10, 0))
         display = Text(frame, wrap="word", height=14, font=("Consolas", 9), undo=False)
         display.pack(fill=BOTH, expand=True, pady=(12, 8))
         # Keep the full JSON directly selectable and compatible with Ctrl+A/C.

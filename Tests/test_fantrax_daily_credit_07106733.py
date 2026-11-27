@@ -45,7 +45,7 @@ def test_probe_sends_explicit_date_and_no_ledger_write():
             calls.append(day)
             return _payload()
     result = probe_daily_credit(league='private', season='2026', scoring_date='2026-11-17', client_factory=Client)
-    assert calls == ['2026-11-17']
+    assert calls == ['2026-11-17', '2026-11-16']
     assert result['status'] == 'response_received_unverified'
     assert result['ledger_written'] is False and result['verified_period_credit'] is False
     assert 'private' not in str(result)

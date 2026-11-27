@@ -14,6 +14,7 @@ import math
 import re
 from collections import Counter
 from decimal import Decimal, InvalidOperation
+from datetime import date, timedelta
 import json
 import sys
 from pathlib import Path
@@ -305,9 +306,107 @@ def _daily_credit_shape(payload):
             'credit_eligible': False}
 
 
+
+def _dated_credit_snapshot(payload):
+    """Private in-memory active scorer map used ONLY for differential diagnostics.
+
+    No points, player IDs, fantasy-team IDs or names are returned to users.
+    `object1` is merely a numeric *candidate*, not certified credited FPts.
+    """
+    data = payload.get('data', payload) if isinstance(payload, dict) else {}
+    teams = ((data.get('statsPerTeam') or {}).get('allTeamsStats')
+             if isinstance(data, dict) and isinstance(data.get('statsPerTeam'), dict) else None)
+    if not isinstance(teams, dict):
+        return {}, {'status': 'active_team_stats_not_present', 'usable': False}
+    records, seen, duplicate, missing = {}, set(), 0, 0
+    for team_id, team in list(teams.items())[:100]:
+        active = team.get('ACTIVE') if isinstance(team, dict) else None
+        smap = active.get('statsMap') if isinstance(active, dict) else None
+        if not isinstance(smap, dict):
+            continue
+        for player_id, stat in list(smap.items())[:300]:
+            if not isinstance(player_id, str) or not player_id or player_id.startswith('_'):
+                continue
+            if player_id in seen:
+                duplicate += 1
+            seen.add(player_id)
+            number = _decode_number(stat.get('object1')) if isinstance(stat, dict) else None
+            if number is None:
+                missing += 1
+                continue
+            records[(str(team_id), player_id)] = number
+    return records, {'status': 'inspected', 'usable': bool(records) and not duplicate and not missing,
+                     'numeric_entries': len(records), 'duplicate_player_entries': duplicate,
+                     'entries_without_numeric_object1': missing}
+
+
+def _dated_credit_comparison(left, right):
+    """Date-differential evidence; a changed response does NOT verify date semantics.
+
+    No value-level records are emitted. A digest establishes response change but
+    is never sufficient to certify date/period identity, lineup or credit.
+    """
+    a, info_a = _dated_credit_snapshot(left)
+    b, info_b = _dated_credit_snapshot(right)
+    common = a.keys() & b.keys()
+    changed = sum(a[key] != b[key] for key in common)
+    a_teams = {team for team, _ in a}
+    b_teams = {team for team, _ in b}
+    changed_team_numeric_totals = 0
+    for team in a_teams & b_teams:
+        left_total = sum((v for (t, _), v in a.items() if t == team), Decimal('0'))
+        right_total = sum((v for (t, _), v in b.items() if t == team), Decimal('0'))
+        changed_team_numeric_totals += left_total != right_total
+    def fingerprint(records):
+        canonical = json.dumps(sorted((t, p, format(v.normalize(), 'f'))
+                                      for (t, p), v in records.items()), separators=(',', ':'))
+        return hashlib.sha256(canonical.encode()).hexdigest()[:16] if records else None
+    return {'requested_response': info_a, 'control_response': info_b,
+            'matched_player_team_entries': len(common),
+            'changed_matched_numeric_entries': changed,
+            'requested_only_entries': len(a.keys() - b.keys()),
+            'control_only_entries': len(b.keys() - a.keys()),
+            'teams_present_in_both': len(a_teams & b_teams),
+            'teams_with_different_numeric_sums': changed_team_numeric_totals,
+            'requested_fingerprint': fingerprint(a), 'control_fingerprint': fingerprint(b),
+            'candidate_responses_differ': fingerprint(a) != fingerprint(b),
+            'interpretation': ('dated_candidate_responses_differ_without_date_proof'
+                               if fingerprint(a) != fingerprint(b)
+                               else 'dated_candidate_responses_indistinguishable'),
+            'response_date_identity_verified': False, 'date_to_period_verified': False,
+            'historical_lineup_verified': False, 'period_totals_reconciled': False,
+            'credit_eligible': False}
+
+
+def _explicit_date_markers(payload, requested_date):
+    """Count explicitly matching date markers, without exporting their values.
+
+    An echo can support follow-up investigation but is NOT historical-date proof.
+    """
+    data = payload.get('data', payload) if isinstance(payload, dict) else {}
+    if not isinstance(data, dict):
+        return {'fields_inspected': 0, 'exact_requested_date_matches': 0}
+    candidate_keys = frozenset(('date', 'scoringDate', 'scoreDate', 'gameDate', 'asOfDate'))
+    seen = matches = 0
+    stack = [(data, 0)]
+    traversed = 0
+    while stack and traversed < 3000:
+        item, depth = stack.pop()
+        traversed += 1
+        if isinstance(item, dict):
+            for k, val in list(item.items())[:100]:
+                if k in candidate_keys and isinstance(val, str):
+                    seen += 1
+                    matches += val == requested_date
+                if depth < 4 and isinstance(val, (dict, list)):
+                    stack.append((val, depth+1))
+        elif isinstance(item, list) and depth < 4:
+            stack.extend((v, depth+1) for v in item[:50] if isinstance(v, (dict, list)))
+    return {'fields_inspected': seen, 'exact_requested_date_matches': matches}
+
+
 def probe_daily_credit(*, league: str, scoring_date: str, season: str = '', client_factory=None) -> dict:
     """Explicit-date, read-only research probe. Never guesses the calendar day."""
-    from datetime import date
     try:
         valid_date = isinstance(scoring_date, str) and date.fromisoformat(scoring_date).isoformat() == scoring_date
     except ValueError:
@@ -317,7 +416,8 @@ def probe_daily_credit(*, league: str, scoring_date: str, season: str = '', clie
     report = {'schema': 'athena.fantrax_daily_credit_probe.v1',
               'requested_date': scoring_date, 'status': 'not_attempted',
               'verified_period_credit': False, 'ledger_written': False,
-              'request_contract': 'fantraxapi_getLiveScoringStats_source_reviewed_not_JHLPAA_verified'}
+              'request_contract': 'fantraxapi_getLiveScoringStats_source_reviewed_not_JHLPAA_verified',
+              'comparison_contract': 'requested_date_vs_previous_calendar_day_not_period_boundary'}
     if client_factory is None:
         from Providers.Fantrax.fantrax_client import FantraxClient
         client_factory = FantraxClient
@@ -331,6 +431,25 @@ def probe_daily_credit(*, league: str, scoring_date: str, season: str = '', clie
             report['status'] = 'provider_error'
             return report
         report['shape'] = _daily_credit_shape(payload)
+        report['date_marker_diagnostic'] = _explicit_date_markers(payload, scoring_date)
+        # Explicit requested date is supplied by the operator; the preceding
+        # calendar day is an observational negative control, not a scoring
+        # period boundary or a claim about the current league calendar.
+        control_date = (date.fromisoformat(scoring_date) - timedelta(days=1)).isoformat()
+        report['control_date'] = control_date
+        try:
+            control = client.get_live_scoring_stats(control_date)
+            if client.is_error_payload(control):
+                report['date_comparison'] = {'status': 'control_provider_error', 'credit_eligible': False}
+            else:
+                report['control_shape'] = _daily_credit_shape(control)
+                report['control_date_marker_diagnostic'] = _explicit_date_markers(control, control_date)
+                report['date_comparison'] = _dated_credit_comparison(payload, control)
+                report['date_comparison']['status'] = 'inspected'
+        except Exception as control_exc:
+            report['date_comparison'] = {'status': 'control_request_failed',
+                                         'exception_type': type(control_exc).__name__,
+                                         'credit_eligible': False}
         report['status'] = ('response_received_unverified' if report['shape']['status'] == 'structure_only'
                             else 'provider_contract_unverified')
     except Exception as exc:
